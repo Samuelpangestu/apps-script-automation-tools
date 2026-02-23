@@ -14,9 +14,10 @@
 5. [Konvensi TC_ID](#konvensi-tc_id)
 6. [Prioritas & Blocker](#prioritas--blocker)
 7. [RBAC & Role Testing](#rbac--role-testing)
-8. [Performance Test](#performance-test)
-9. [Summary & Dashboard](#summary--dashboard)
-10. [Integrasi Portfolio Dashboard](#integrasi-portfolio-dashboard)
+8. [Bug Report](#bug-report)
+9. [Performance Test](#performance-test)
+10. [Summary & Dashboard](#summary--dashboard)
+11. [Integrasi Portfolio Dashboard](#integrasi-portfolio-dashboard)
 
 ---
 
@@ -28,7 +29,8 @@ Template ini mencakup satu modul/proyek secara lengkap:
 - **API_Master** — repository semua test case API
 - **TC_Execution** — log eksekusi per tanggal run (Web/Mobile)
 - **API_Execution** — log eksekusi per tanggal run (API)
-- **Summary** — KPI overview, komposisi status, trend, coverage
+- **BugReport** — log bug Web, Mobile, dan API dalam satu tab
+- **Summary** — KPI overview, komposisi status, trend, coverage, bug summary
 - **PerfTest** — rekam dan evaluasi hasil performance test (K6/JMeter)
 - **Appendix** — definisi, panduan, dan referensi
 
@@ -51,7 +53,7 @@ Template ini mencakup satu modul/proyek secara lengkap:
 7. Klik **Run** — izinkan permission bila diminta
 8. Tunggu hingga muncul dialog konfirmasi berhasil (~30-60 detik)
 
-> **Catatan:** Proses create memerlukan waktu karena Apps Script membuat 7 sheet sekaligus dengan conditional formatting dan formula. Jangan tutup browser.
+> **Catatan:** Proses create memerlukan waktu karena Apps Script membuat 8 sheet sekaligus dengan conditional formatting dan formula. Jangan tutup browser.
 
 ---
 
@@ -59,8 +61,9 @@ Template ini mencakup satu modul/proyek secara lengkap:
 
 | Tab | Warna | Fungsi |
 |-----|-------|--------|
-| **Summary** | Biru tua | Dashboard utama: KPI, pie chart, trend, coverage |
+| **Summary** | Biru tua | Dashboard utama: KPI, pie chart, trend, coverage, bug summary |
 | **Appendix** | Abu-abu | Panduan & referensi |
+| **BugReport** | Biru | Log bug Web, Mobile, dan API |
 | **TC_Execution** | Biru | Log eksekusi test case Web/Mobile per run |
 | **TC_Master** | Biru | Repository TC Web/Mobile |
 | **API_Execution** | Ungu | Log eksekusi test case API per run |
@@ -75,9 +78,9 @@ Template ini mencakup satu modul/proyek secara lengkap:
 
 | Kolom | Keterangan |
 |-------|-----------|
-| No | Nomor urut otomatis (isi manual) |
+| No | Nomor urut |
 | SubModul | Kode sub-modul, misal: `1.1`, `1.2` |
-| TC_ID | ID unik test case — lihat [Konvensi TC_ID](#konvensi-tc_id) |
+| TC_ID | ID unik — lihat [Konvensi TC_ID](#konvensi-tc_id) |
 | Feature | Nama fitur/halaman spesifik |
 | Priority | Critical / High / Medium / Low / Lowest |
 | Platform | Web / Mobile / Web & Mobile |
@@ -95,14 +98,26 @@ Template ini mencakup satu modul/proyek secara lengkap:
 - **Kolom A–G**: Auto-sync dari TC_Master (jangan diedit)
 - **Kolom H dst**: Satu kolom per tanggal run — isi dengan `PASSED`, `FAILED`, `BLOCKED`, atau `IN PROGRESS`
 - **Kolom Z (LATEST STATUS)**: Otomatis dihitung dari run terakhir
-- **Evidence/Screenshot**: Kolom setelah LATEST STATUS
+- **Kolom Screenshot (AA dst)**: **10 kolom screenshot dinamis** — satu kolom per tanggal run, label otomatis mengambil tanggal dari baris 2
+
+#### Screenshot Dinamis
+
+Setiap run memiliki kolom screenshot-nya sendiri. Header kolom screenshot otomatis menyesuaikan tanggal run di baris 2, sehingga:
+
+```
+Run: 2025-01-10  → Screenshot: "2025-01-10 Shot"
+Run: 2025-02-05  → Screenshot: "2025-02-05 Shot"
+```
+
+Paste link Google Drive, Jira attachment, atau URL gambar di kolom yang sesuai dengan run-nya.
 
 #### Menambah Run Baru
 
-1. Tambahkan kolom baru di sebelah kanan run terakhir
+1. Tambahkan kolom baru di sebelah kanan run terakhir (sebelum kolom Z)
 2. Isi baris 2 dengan tanggal (format `YYYY-MM-DD`)
 3. Isi baris 3 dengan nama run (misal: `Sprint 12 - Reg`)
 4. Isi status di setiap baris data
+5. Kolom screenshot untuk run baru otomatis terbentuk di kolom AA+
 
 ---
 
@@ -178,6 +193,77 @@ Untuk setiap endpoint/fitur sensitif, buat minimal 3 TC:
 
 ---
 
+## Bug Report
+
+Tab **BugReport** menampung semua bug dari Web, Mobile, dan API dalam satu tempat. Kolom **Type** digunakan sebagai pembeda.
+
+### Kolom BugReport
+
+| Group | Kolom | Keterangan |
+|-------|-------|-----------|
+| Identification | Bug ID | Format: `BUG-WEB-001` / `BUG-MOB-001` / `BUG-API-001` |
+| | Type | Web / Mobile / API |
+| | Priority | Critical / High / Medium / Low |
+| | Status | Open / In Progress / Fixed / Verified / Closed / Won't Fix / Reopen |
+| Classification | Feature | Nama fitur yang terdampak |
+| | SubModul | Kode sub-modul |
+| Detail | Title / Summary | Deskripsi singkat bug |
+| | Environment | Dev / Staging UAT / Production / All |
+| | Steps to Reproduce | Langkah-langkah untuk mereproduksi |
+| | Expected Result | Hasil yang seharusnya |
+| | Actual Result | Hasil aktual yang terjadi |
+| Ownership | Related TC_ID | TC_ID yang berkaitan (jika ada) |
+| | Reported By | Nama QA yang menemukan |
+| | Assigned To | Nama developer yang handle |
+| Timeline | Date Found | Tanggal bug ditemukan |
+| | Date Fixed | Tanggal bug diperbaiki |
+| Reference | Sprint | Sprint tempat bug ditemukan |
+| | Jira / Link | Link tiket Jira atau issue tracker |
+| | Notes | Catatan tambahan (browser, device, dll) |
+| | Screenshot / Evidence | Link screenshot atau video evidence |
+
+### Bug ID Convention
+
+```
+Format: BUG-[TYPE]-[000]
+
+BUG-WEB-001  = Web/UI bug ke-1
+BUG-MOB-001  = Mobile bug ke-1
+BUG-API-001  = API bug ke-1
+
+Nomor urut 3 digit, mulai 001. Jangan reuse ID.
+```
+
+### Priority sebagai Indikator Blocker
+
+Berbeda dari TC Priority, Bug Priority menentukan apakah bug tersebut dihitung sebagai **blocker** di dashboard:
+
+| Priority | Warna | Dihitung Blocker? |
+|----------|-------|-------------------|
+| **Critical** | Merah | Ya — showstopper, release DITAHAN |
+| **High** | Oranye | Ya — fitur utama tidak bisa digunakan |
+| **Medium** | Biru muda | **Ya** — ada workaround tapi experience buruk |
+| **Low** | Hijau muda | Tidak — minor/kosmetik |
+
+> Bug dengan status Open / In Progress / Reopen dan priority Medium ke atas semua dihitung sebagai **Blocker** di Portfolio Dashboard.
+
+### Status Flow
+
+```
+Open → In Progress → Fixed → Verified → Closed
+                   ↘ Won't Fix
+         Fixed ← Reopen (jika masih reproducible)
+```
+
+### Screenshot / Evidence
+
+Kolom terakhir (Screenshot / Evidence) — paste link:
+- Google Drive (pastikan akses sudah di-share ke reviewer)
+- Jira attachment URL
+- Direct image URL
+
+---
+
 ## Performance Test
 
 Tab **PerfTest** digunakan untuk mencatat dan mengevaluasi hasil performance test (K6, JMeter, Locust, dll).
@@ -195,9 +281,9 @@ Tab **PerfTest** digunakan untuk mencatat dan mengevaluasi hasil performance tes
 
 ### Threshold (Baris 11)
 
-Isi threshold sesuai SLA yang disepakati. STATUS otomatis PASS/FAIL berdasarkan perbandingan actual vs threshold.
+Isi threshold sesuai SLA yang disepakati. STATUS otomatis PASS/FAIL berdasarkan perbandingan actual vs threshold:
 
-- **RPS**: PASS jika actual **>=** threshold (semakin tinggi semakin baik)
+- **RPS**: PASS jika actual **>=** threshold
 - **Error%, P90, P95, P99, CPU, Memory**: PASS jika actual **<=** threshold
 
 ---
@@ -208,11 +294,18 @@ Tab **Summary** berisi:
 
 | Section | Konten |
 |---------|--------|
-| **TEST DESCRIPTION** | Info sesi: project, sprint, QA lead, environment, status |
+| **TEST DESCRIPTION** | Info sesi: project, sprint, QA lead, PIC QA, environment, status |
 | **A. Status Overview** | KPI cards: Total, Passed, Failed, Blocked, Pass Rate, Auto Rate, Exec Rate |
-| **B. Komposisi Status** | Pie chart dengan persentase per status |
-| **C. Trend Eksekusi** | Line chart pass rate per tanggal run (otomatis dari Execution) |
+| **B. Komposisi Status** | Pie chart dengan persentase per status (Web+Mobile & API terpisah) |
+| **C. Trend Eksekusi** | Line chart pass rate per tanggal run — otomatis dari Execution |
 | **D. Coverage per SubModul** | Tabel coverage: total, smoke, regression, auto%, pass% |
+| **E. Bug Summary** | KPI cards bug: Total, Open, In Progress, Fixed, Verified, Critical, High, Medium (Blocker) |
+
+### Section E: Bug Summary
+
+Section E otomatis menghitung dari tab BugReport mulai **baris 5** (baris pertama data). Data dibagi menjadi dua panel:
+- Kiri: **Web + Mobile** (Type = Web atau Mobile)
+- Kanan: **API** (Type = API)
 
 ### Interpretasi Warna
 
@@ -226,7 +319,7 @@ Tab **Summary** berisi:
 
 ## Integrasi Portfolio Dashboard
 
-Setelah template ini terisi, Spreadsheet ID file ini bisa didaftarkan ke **QA Portfolio Dashboard** untuk monitoring lintas modul.
+Setelah template ini terisi, Spreadsheet ID file ini bisa didaftarkan ke **QA Dashboard** (Portfolio) untuk monitoring lintas modul.
 
 Cara mendapatkan Spreadsheet ID:
 ```
@@ -242,7 +335,7 @@ Data berikut dari tab Summary akan **otomatis ditarik** ke Portfolio Dashboard s
 
 Pastikan kedua field ini sudah terisi di Summary agar Portfolio Dashboard menampilkan data yang akurat.
 
-Lihat dokumentasi: [README QA Portfolio Dashboard](./README_QA_PortfolioDashboard.md)
+Lihat dokumentasi: [README QA Dashboard](./README_QA_PortfolioDashboard.md)
 
 ---
 

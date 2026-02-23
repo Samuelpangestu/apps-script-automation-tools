@@ -1,0 +1,63 @@
+# ── Google Apps Script ────────────────────────────────────────────────────
+.clasp.json
+.claspignore
+appsscript.json
+
+# ── Credentials & Secrets ─────────────────────────────────────────────────
+*.env
+.env
+.env.*
+secrets.json
+credentials.json
+service-account.json
+token.json
+
+# ── Spreadsheet IDs & Config ──────────────────────────────────────────────
+# Rename config.example.js → config.js and add your real IDs there
+config.js
+ids.js
+spreadsheet-ids.js
+
+# ── OS Files ──────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# ── Editor & IDE ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ── Node (if using clasp locally) ─────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ── Logs ──────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Test & Build output ───────────────────────────────────────────────────
+dist/
+build/
+coverage/
+.nyc_output/
+
+# ── Temporary files ───────────────────────────────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
