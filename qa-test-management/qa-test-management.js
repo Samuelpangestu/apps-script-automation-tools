@@ -13,11 +13,11 @@ function addRunStatusCF(ws, statusRow, startCol, endCol) {
     const range = ws.getRange(statusRow, startCol, 1, endCol - startCol + 1);
     const rules = ws.getConditionalFormatRules();
     [{val:'FAILED',bg:'#FFCDD2',fg:'#B71C1C'},{val:'IN PROGRESS',bg:'#E3F2FD',fg:'#1565C0'},
-     {val:'PASSED',bg:'#C8E6C9',fg:'#1B5E20'},{val:'BLOCKED',bg:'#FFE0B2',fg:'#E65100'},
-     {val:'--',bg:'#F5F5F5',fg:'#9E9E9E'}].forEach(s=>rules.push(
-      SpreadsheetApp.newConditionalFormatRule()
-        .whenTextEqualTo(s.val).setBackground(s.bg).setFontColor(s.fg).setBold(true)
-        .setRanges([range]).build()
+      {val:'PASSED',bg:'#C8E6C9',fg:'#1B5E20'},{val:'BLOCKED',bg:'#FFE0B2',fg:'#E65100'},
+      {val:'--',bg:'#F5F5F5',fg:'#9E9E9E'}].forEach(s=>rules.push(
+        SpreadsheetApp.newConditionalFormatRule()
+            .whenTextEqualTo(s.val).setBackground(s.bg).setFontColor(s.fg).setBold(true)
+            .setRanges([range]).build()
     ));
     ws.setConditionalFormatRules(rules);
   } catch(e) { Logger.log('addRunStatusCF skipped: ' + e.message); }
@@ -56,19 +56,19 @@ function addPeruriFooter(ws, lastRow, totalCols) {
   const r = lastRow + 2;
   ws.getRange(r,1,1,totalCols).merge();
   ws.getRange(r,1)
-    .setValue(PERURI.copyright)
-    .setBackground(PERURI.primary)
-    .setFontColor(PERURI.text)
-    .setFontFamily('Arial').setFontSize(8)
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center')
-    .setVerticalAlignment('middle')
-    .setWrap(false);
+      .setValue(PERURI.copyright)
+      .setBackground(PERURI.primary)
+      .setFontColor(PERURI.text)
+      .setFontFamily('Arial').setFontSize(8)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle')
+      .setWrap(false);
   ws.setRowHeight(r, 20);
 
   // Add thin top border in accent blue
   ws.getRange(r,1,1,totalCols)
-    .setBorder(true, false, false, false, false, false, PERURI.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+      .setBorder(true, false, false, false, false, false, PERURI.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 }
 function inputBorder(range) {
   range.setBorder(true,true,true,true,false,false,'#1976D2', SpreadsheetApp.BorderStyle.SOLID);
@@ -78,8 +78,8 @@ function inputBorder(range) {
 function createQASheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.rename('QA Test Management -- Template');
-  ['TC_Master','TC_Execution','API_Master','API_Execution','Summary','Dashboard','_Dashboard','PerfTest','Appendix']
-    .forEach(name => { const s=ss.getSheetByName(name); if(s) try{ss.deleteSheet(s);}catch(e){} });
+  ['TC_Master','TC_Execution','API_Master','API_Execution','Summary','Dashboard','_Dashboard','PerfTest','BugReport','Appendix']
+      .forEach(name => { const s=ss.getSheetByName(name); if(s) try{ss.deleteSheet(s);}catch(e){} });
   SpreadsheetApp.flush(); Utilities.sleep(500);
   // Create sheets - flush + sleep between each to avoid insertSheet returning undefined
   Logger.log('Creating TC_Master...');
@@ -90,10 +90,12 @@ function createQASheet() {
   createTCExecution(ss); SpreadsheetApp.flush(); Utilities.sleep(500);
   Logger.log('Creating API_Execution...');
   createAPIExecution(ss); SpreadsheetApp.flush(); Utilities.sleep(500);
-  Logger.log('Creating Summary...');
-  createSummary(ss); SpreadsheetApp.flush(); Utilities.sleep(500);
+  Logger.log('Creating BugReport...');
+  createBugReport(ss); SpreadsheetApp.flush(); Utilities.sleep(500);
   Logger.log('Creating PerfTest...');
   createPerfTest(ss); SpreadsheetApp.flush(); Utilities.sleep(500);
+  Logger.log('Creating Summary...');
+  createSummary(ss); SpreadsheetApp.flush(); Utilities.sleep(500);
   Logger.log('Creating Appendix...');
   createAppendix(ss); SpreadsheetApp.flush();
   const s1=ss.getSheetByName('Sheet1');
@@ -101,7 +103,7 @@ function createQASheet() {
   // Reorder tabs: move each to correct position
   SpreadsheetApp.flush();
   try {
-    const order=['Summary','Appendix','TC_Execution','TC_Master','API_Execution','API_Master','PerfTest'];
+    const order=['Summary','Appendix','BugReport','TC_Execution','TC_Master','API_Execution','API_Master','PerfTest'];
     order.slice().reverse().forEach(name=>{
       const sh=ss.getSheetByName(name);
       if(sh){ ss.setActiveSheet(sh); ss.moveActiveSheet(1); }
@@ -109,15 +111,16 @@ function createQASheet() {
   } catch(e) { Logger.log('Tab reorder skipped: '+e.message); }
   SpreadsheetApp.flush();
   SpreadsheetApp.getUi().alert(
-    '[OK]  QA Test Management Template berhasil dibuat.\n\n'+
-    'TC_Master     -- input test case Web / Mobile\n'+
-    'TC_Execution  -- hasil eksekusi per tanggal run\n'+
-    'API_Master    -- input test case API\n'+
-    'API_Execution -- hasil eksekusi API\n'+
-    'Summary       -- info sesi, coverage & run history\n'+
-    'PerfTest      -- rekam & evaluasi hasil performance test\n'+
-    'Appendix      -- definisi & panduan\n\n'+
-    'IN PROGRESS = ada PASSED tapi masih ada TODO yang belum dieksekusi.'
+      '[OK]  QA Test Management Template berhasil dibuat.\n\n'+
+      'TC_Master     -- input test case Web / Mobile\n'+
+      'TC_Execution  -- hasil eksekusi per tanggal run\n'+
+      'API_Master    -- input test case API\n'+
+      'API_Execution -- hasil eksekusi API\n'+
+      'Summary       -- info sesi, coverage & run history\n'+
+      'BugReport     -- log bug Web, Mobile, dan API\n'+
+      'PerfTest      -- rekam & evaluasi hasil performance test\n'+
+      'Appendix      -- definisi & panduan\n\n'+
+      'IN PROGRESS = ada PASSED tapi masih ada TODO yang belum dieksekusi.'
   );
 }
 
@@ -138,16 +141,16 @@ function bd(r) {
 function hdr(r, bg, fg, sz) {
   fg = fg || '#FFFFFF'; sz = sz || 9;
   return bd(r).setBackground(bg).setFontColor(fg).setFontWeight('bold')
-              .setFontSize(sz).setFontFamily('Arial')
-              .setHorizontalAlignment('center').setVerticalAlignment('middle');
+      .setFontSize(sz).setFontFamily('Arial')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
 }
 function cell_style(c, bg) {
   return c.setBackground(bg||C.white).setFontFamily('Arial').setFontSize(9)
-          .setVerticalAlignment('middle');
+      .setVerticalAlignment('middle');
 }
 function dv(list) {
   return SpreadsheetApp.newDataValidation()
-    .requireValueInList(list, true).setAllowInvalid(false).build();
+      .requireValueInList(list, true).setAllowInvalid(false).build();
 }
 function prioColor(c, v) {
   const m = {Critical:'#B71C1C',High:'#E53935',Medium:'#FB8C00',Low:'#43A047',Lowest:'#90A4AE'};
@@ -177,11 +180,11 @@ function tlFormula(prioRef) {
 function statusCF_(ws, range) {
   const rules = ws.getConditionalFormatRules();
   [{val:'PASSED',bg:'#C8E6C9',fg:'#1B5E20'},{val:'IN PROGRESS',bg:'#E3F2FD',fg:'#1565C0'},
-   {val:'FAILED',bg:'#FFCDD2',fg:'#B71C1C'},{val:'BLOCKED',bg:'#FFE0B2',fg:'#E65100'},
-   {val:'TODO',bg:'#F5F5F5',fg:'#616161'}].forEach(s=>rules.push(
-    SpreadsheetApp.newConditionalFormatRule()
-      .whenTextEqualTo(s.val).setBackground(s.bg).setFontColor(s.fg).setBold(true)
-      .setRanges([range]).build()
+    {val:'FAILED',bg:'#FFCDD2',fg:'#B71C1C'},{val:'BLOCKED',bg:'#FFE0B2',fg:'#E65100'},
+    {val:'TODO',bg:'#F5F5F5',fg:'#616161'}].forEach(s=>rules.push(
+      SpreadsheetApp.newConditionalFormatRule()
+          .whenTextEqualTo(s.val).setBackground(s.bg).setFontColor(s.fg).setBold(true)
+          .setRanges([range]).build()
   ));
   ws.setConditionalFormatRules(rules);
 }
@@ -209,54 +212,54 @@ function createTCMaster(ss) {
   const COLS=14, DS=3, MR=1000;
   ws.getRange(1,1,1,COLS).merge();
   hdr(ws.getRange(1,1,1,COLS),'#0D47A1','#FFFFFF',10)
-    .setValue('TC_MASTER  .  Web / Mobile  .  QA PERURI');
+      .setValue('TC_MASTER  .  Web / Mobile  .  QA PERURI');
   ws.setRowHeight(1,28);
   ['No','SubModul','TC_ID','Feature','Priority','Platform','Test Type','Automated','Version',
-   'Role (RBAC)','Scenario','Steps / Gherkin','Expected Result','[AUTO] Test Level']
-    .forEach((h,i)=>hdr(ws.getRange(2,i+1),'#0D47A1').setValue(h).setWrap(true));
+    'Role (RBAC)','Scenario','Steps / Gherkin','Expected Result','[AUTO] Test Level']
+      .forEach((h,i)=>hdr(ws.getRange(2,i+1),'#0D47A1').setValue(h).setWrap(true));
   ws.setRowHeight(2,38);
   [36,110,100,130,80,80,90,140,65,100,200,260,200,90].forEach((w,i)=>ws.setColumnWidth(i+1,w));
   // Column header notes ? guides QA what to fill vs what is auto
   ws.getRange(2,1).setNote('No. Urut. Auto-fill saat input data.');
   ws.getRange(2,2).setNote('SubModul: Kode modul, misal 1.1 / 2.1 / 7.3. Gunakan konsisten agar coverage Dashboard akurat.');
   ws.getRange(2,3).setNote(
-    'TC_ID -- Pola Penomoran:\n'+
-    '\n'+
-    'Format  : [APP].[FEAT].[000]\n'+
-    '\n'+
-    '[APP]   = Kode aplikasi/modul, maks 3-4 huruf kapital\n'+
-    '          Contoh: WEB, MOB, ADM, USR, SHP\n'+
-    '[FEAT]  = Kode fitur/halaman, maks 3-4 huruf kapital\n'+
-    '          Contoh: LOG, DASH, PRF, CHK, RPT\n'+
-    '[000]   = Nomor urut 3 digit, mulai dari 001\n'+
-    '\n'+
-    'Contoh lengkap:\n'+
-    '  WEB.LOG.001  = Web, Login, TC pertama\n'+
-    '  WEB.LOG.002  = Web, Login, TC kedua\n'+
-    '  MOB.DASH.001 = Mobile, Dashboard, TC pertama\n'+
-    '  ADM.USR.015  = Admin, User Mgmt, TC ke-15\n'+
-    '\n'+
-    'Aturan:\n'+
-    '- Harus UNIK -- jangan pernah reuse TC_ID yang sudah ada\n'+
-    '- Jangan ubah TC_ID jika sudah ada hasil di Execution\n'+
-    '- Urutan: Positive dulu (001), baru Negative (002), Edge Case (003)'
+      'TC_ID -- Pola Penomoran:\n'+
+      '\n'+
+      'Format  : [APP].[FEAT].[000]\n'+
+      '\n'+
+      '[APP]   = Kode aplikasi/modul, maks 3-4 huruf kapital\n'+
+      '          Contoh: WEB, MOB, ADM, USR, SHP\n'+
+      '[FEAT]  = Kode fitur/halaman, maks 3-4 huruf kapital\n'+
+      '          Contoh: LOG, DASH, PRF, CHK, RPT\n'+
+      '[000]   = Nomor urut 3 digit, mulai dari 001\n'+
+      '\n'+
+      'Contoh lengkap:\n'+
+      '  WEB.LOG.001  = Web, Login, TC pertama\n'+
+      '  WEB.LOG.002  = Web, Login, TC kedua\n'+
+      '  MOB.DASH.001 = Mobile, Dashboard, TC pertama\n'+
+      '  ADM.USR.015  = Admin, User Mgmt, TC ke-15\n'+
+      '\n'+
+      'Aturan:\n'+
+      '- Harus UNIK -- jangan pernah reuse TC_ID yang sudah ada\n'+
+      '- Jangan ubah TC_ID jika sudah ada hasil di Execution\n'+
+      '- Urutan: Positive dulu (001), baru Negative (002), Edge Case (003)'
   );
   ws.getRange(2,4).setNote('Feature: Nama fitur/halaman spesifik, misal "Login Page", "Checkout Flow".\nDigunakan untuk grouping Coverage per Feature di Summary.');
   ws.getRange(2,5).setNote(
-    'Priority & Dampak:\n'+
-    '\n'+
-    'CRITICAL  -> Blocker utama. WAJIB PASS sebelum release.\n'+
-    '            Jika FAIL/BLOCKED: release DITAHAN.\n'+
-    'HIGH      -> Blocker. Harus PASS di sprint yang sama.\n'+
-    '            Jika FAIL: perlu approval PM untuk release.\n'+
-    'MEDIUM    -> Potential blocker. Fix sebelum UAT.\n'+
-    '            Jika FAIL: flagged ke tech lead.\n'+
-    'LOW       -> Non-blocker. Fix di sprint berikutnya.\n'+
-    'LOWEST    -> Nice to have. Opsional.\n'+
-    '\n'+
-    'Test Level otomatis:\n'+
-    'Critical/High/Medium -> Smoke Test\n'+
-    'Low/Lowest           -> Regression Test'
+      'Priority & Dampak:\n'+
+      '\n'+
+      'CRITICAL  -> Blocker utama. WAJIB PASS sebelum release.\n'+
+      '            Jika FAIL/BLOCKED: release DITAHAN.\n'+
+      'HIGH      -> Blocker. Harus PASS di sprint yang sama.\n'+
+      '            Jika FAIL: perlu approval PM untuk release.\n'+
+      'MEDIUM    -> Potential blocker. Fix sebelum UAT.\n'+
+      '            Jika FAIL: flagged ke tech lead.\n'+
+      'LOW       -> Non-blocker. Fix di sprint berikutnya.\n'+
+      'LOWEST    -> Nice to have. Opsional.\n'+
+      '\n'+
+      'Test Level otomatis:\n'+
+      'Critical/High/Medium -> Smoke Test\n'+
+      'Low/Lowest           -> Regression Test'
   );
   ws.getRange(2,6).setNote('Platform: Web / Mobile / Web & Mobile');
   ws.getRange(2,7).setNote('Test Type: Positive = happy path | Negative = error case | Edge Case = boundary condition');
@@ -267,41 +270,41 @@ function createTCMaster(ss) {
   ws.getRange(2,12).setNote('[INPUT WAJIB] Hasil yang diharapkan secara spesifik.\nContoh: "Halaman dashboard tampil, user name muncul di header"');
   ws.getRange(2,14).setNote('[AUTO - JANGAN EDIT] Test Level dihitung otomatis dari Priority:\nCritical/High/Medium = Smoke\nLow/Lowest = Regression');
   ws.getRange(2,10).setNote(
-    'Role (RBAC): Peran pengguna yang menjalankan skenario ini.\n'+
-    '\n'+
-    'Contoh peran: Admin, User, Viewer, Operator, Supervisor, Guest, Super Admin\n'+
-    '\n'+
-    'Digunakan untuk:\n'+
-    '- Memastikan test coverage per role\n'+
-    '- Verifikasi akses kontrol (RBAC) berjalan benar\n'+
-    '- Contoh: Admin bisa create user, Viewer hanya bisa read'
+      'Role (RBAC): Peran pengguna yang menjalankan skenario ini.\n'+
+      '\n'+
+      'Contoh peran: Admin, User, Viewer, Operator, Supervisor, Guest, Super Admin\n'+
+      '\n'+
+      'Digunakan untuk:\n'+
+      '- Memastikan test coverage per role\n'+
+      '- Verifikasi akses kontrol (RBAC) berjalan benar\n'+
+      '- Contoh: Admin bisa create user, Viewer hanya bisa read'
   );
 
   const data=[
     [1,'1.1','1.1.001','Informasi Program','High','Web','Positive','Automated','v1.0',
-     'Viewer','User dapat melihat halaman informasi program',
-     'Given user berada di halaman utama\nWhen klik menu Informasi Program\nThen halaman tampil',
-     'Halaman tampil, semua konten tersedia',''],
+      'Viewer','User dapat melihat halaman informasi program',
+      'Given user berada di halaman utama\nWhen klik menu Informasi Program\nThen halaman tampil',
+      'Halaman tampil, semua konten tersedia',''],
     [2,'1.1','1.1.002','Informasi Program','Medium','Web','Negative','Manual','v1.0',
-     'Viewer','Halaman error saat konten tidak tersedia',
-     'Given konten belum tersedia\nWhen user buka halaman\nThen pesan error tampil',
-     'Pesan error informatif, halaman tidak crash',''],
+      'Viewer','Halaman error saat konten tidak tersedia',
+      'Given konten belum tersedia\nWhen user buka halaman\nThen pesan error tampil',
+      'Pesan error informatif, halaman tidak crash',''],
     [3,'2.1','2.1.001','Perencanaan Pengiriman','Critical','Web','Positive','Automated','v1.1',
-     'Admin','Admin membuat rencana pengiriman baru',
-     'Given admin di halaman Perencanaan\nWhen isi form dan klik Simpan\nThen data tersimpan',
-     'Data tersimpan dan muncul di daftar',''],
+      'Admin','Admin membuat rencana pengiriman baru',
+      'Given admin di halaman Perencanaan\nWhen isi form dan klik Simpan\nThen data tersimpan',
+      'Data tersimpan dan muncul di daftar',''],
     [4,'2.2','2.2.001','Pelacakan Pengiriman','High','Mobile','Positive','Automated','v1.1',
-     'Kurir','Kurir melihat rute pengiriman aktif',
-     'Given kurir login di mobile\nWhen buka menu Pengiriman\nThen rute tampil di peta',
-     'Rute tampil dengan marker yang tepat',''],
+      'Kurir','Kurir melihat rute pengiriman aktif',
+      'Given kurir login di mobile\nWhen buka menu Pengiriman\nThen rute tampil di peta',
+      'Rute tampil dengan marker yang tepat',''],
     [5,'7.3','7.3.001','Manajemen Pengguna','Critical','Web','Positive','Automated','v1.0',
-     'Admin','Admin menambahkan user baru',
-     'Given admin di halaman Manajemen Pengguna\nWhen isi form dan klik Tambah\nThen user ditambahkan',
-     'User baru muncul di daftar',''],
+      'Admin','Admin menambahkan user baru',
+      'Given admin di halaman Manajemen Pengguna\nWhen isi form dan klik Tambah\nThen user ditambahkan',
+      'User baru muncul di daftar',''],
     [6,'7.3','7.3.002','Manajemen Pengguna','Low','Web','Negative','Manual','v1.0',
-     'Admin','Filter dengan input tidak valid tidak crash',
-     'Given admin di halaman filter\nWhen input karakter tidak valid\nThen halaman tetap stabil',
-     'Pesan validasi tampil, tidak crash',''],
+      'Admin','Filter dengan input tidak valid tidak crash',
+      'Given admin di halaman filter\nWhen input karakter tidak valid\nThen halaman tetap stabil',
+      'Pesan validasi tampil, tidak crash',''],
   ];
   data.forEach((row,i)=>{
     const r=DS+i, bg=i%2===0?'#F8F9FA':'#FFFFFF';
@@ -316,7 +319,7 @@ function createTCMaster(ss) {
       if(c===13) cell.setHorizontalAlignment('center').setFontWeight('bold').setBackground('#E3F2FD');
     });
     bd(cell_style(ws.getRange(r,14),bg)).setFormula(tlFormula('E'+r))
-      .setFontWeight('bold').setHorizontalAlignment('center').setBackground('#E3F2FD');
+        .setFontWeight('bold').setHorizontalAlignment('center').setBackground('#E3F2FD');
     ws.setRowHeight(r,58);
   });
   for(let r=DS+data.length;r<=DS+MR;r++) ws.getRange(r,14).setFormula(tlFormula('E'+r));
@@ -332,13 +335,13 @@ function createTCMaster(ss) {
     const autoRange = ws.getRange('H'+DS+':H'+(DS+MR));
     const rules = ws.getConditionalFormatRules();
     [{v:'Automated',      bg:'#C8E6C9', fg:'#1B5E20'},
-     {v:'Manual',         bg:'#E3F2FD', fg:'#1565C0'},
-     {v:'To Do',          bg:'#FFF9C4', fg:'#F57F17'},
-     {v:'Cannot be Automated', bg:'#F5F5F5', fg:'#9E9E9E'},
+      {v:'Manual',         bg:'#E3F2FD', fg:'#1565C0'},
+      {v:'To Do',          bg:'#FFF9C4', fg:'#F57F17'},
+      {v:'Cannot be Automated', bg:'#F5F5F5', fg:'#9E9E9E'},
     ].forEach(s => rules.push(
-      SpreadsheetApp.newConditionalFormatRule()
-        .whenTextEqualTo(s.v).setBackground(s.bg).setFontColor(s.fg).setBold(true)
-        .setRanges([autoRange]).build()
+        SpreadsheetApp.newConditionalFormatRule()
+            .whenTextEqualTo(s.v).setBackground(s.bg).setFontColor(s.fg).setBold(true)
+            .setRanges([autoRange]).build()
     ));
     ws.setConditionalFormatRules(rules);
   })();
@@ -348,23 +351,23 @@ function createTCMaster(ss) {
 
   const cf=ws.getConditionalFormatRules();
   cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Smoke')
-    .setBackground('#FFF8F0').setFontColor('#BF360C').setBold(true)
-    .setRanges([ws.getRange('N'+DS+':N'+dvEnd)]).build());
+      .setBackground('#FFF8F0').setFontColor('#BF360C').setBold(true)
+      .setRanges([ws.getRange('N'+DS+':N'+dvEnd)]).build());
   cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Regression')
-    .setBackground('#F1F8E9').setFontColor('#33691E').setBold(true)
-    .setRanges([ws.getRange('N'+DS+':N'+dvEnd)]).build());
+      .setBackground('#F1F8E9').setFontColor('#33691E').setBold(true)
+      .setRanges([ws.getRange('N'+DS+':N'+dvEnd)]).build());
   [{val:'Critical',fg:'#C62828'},{val:'High',fg:'#D84315'},{val:'Medium',fg:'#E65100'},
-   {val:'Low',fg:'#2E7D32'},{val:'Lowest',fg:'#78909C'}].forEach(p=>
-    cf.push(SpreadsheetApp.newConditionalFormatRule()
-      .whenTextEqualTo(p.val).setFontColor(p.fg).setBold(true)
-      .setRanges([ws.getRange('E'+DS+':E'+dvEnd)]).build())
+    {val:'Low',fg:'#2E7D32'},{val:'Lowest',fg:'#78909C'}].forEach(p=>
+      cf.push(SpreadsheetApp.newConditionalFormatRule()
+          .whenTextEqualTo(p.val).setFontColor(p.fg).setBold(true)
+          .setRanges([ws.getRange('E'+DS+':E'+dvEnd)]).build())
   );
   ws.setConditionalFormatRules(cf);
   addPeruriFooter(ws, DS+data.length+3, COLS);
   ws.getRange(DS+data.length+2,1,1,COLS).merge()
-    .setValue('Test Level otomatis: Critical/High/Medium ? Smoke  .  Low/Lowest ? Regression. Jangan edit kolom M.')
-    .setFontColor('#78909C').setFontStyle('italic').setFontSize(8).setFontFamily('Arial')
-    .setBackground('#E3F2FD').setWrap(true);
+      .setValue('Test Level otomatis: Critical/High/Medium ? Smoke  .  Low/Lowest ? Regression. Jangan edit kolom M.')
+      .setFontColor('#78909C').setFontStyle('italic').setFontSize(8).setFontFamily('Arial')
+      .setBackground('#E3F2FD').setWrap(true);
 }
 
 // ===================================================================
@@ -380,7 +383,7 @@ function createTCExecution(ss) {
   // DS=9: Row 1=group label, 2=headers, 3=RUN STATUS, 4-7=counts, 8=sep, 9+=data
   // Col layout: A=TC_ID B=SubModul C=Feature D=Priority E=Platform F=Scenario G=TestLevel
   //             H+=staging runs   Z=LATEST STATUS  AA=Screenshot
-  const DS=9, MR=500, STAG=8, STAG_N=3, STATUS_Z=26, SHOT_COL=27;
+  const DS=9, MR=500, STAG=8, STAG_N=3, STATUS_Z=26, SHOT_COL=27, MAX_RUNS=10;
 
   // -- Row 1: minimal header -- no merges beyond what's needed --
   hdr(ws.getRange(1,1),'#F0F4F8','#90A4AE',8).setValue('');
@@ -396,11 +399,19 @@ function createTCExecution(ss) {
 
   // -- Row 2: column headers --
   ['TC_ID','SubModul','Feature','Priority','Platform','Scenario','[AUTO]\nTest Level']
-    .forEach((h,i)=>hdr(ws.getRange(2,i+1),'#0D47A1').setValue(h).setWrap(true));
+      .forEach((h,i)=>hdr(ws.getRange(2,i+1),'#0D47A1').setValue(h).setWrap(true));
   ['2025-01-20','2025-02-10','2025-02-21']
-    .forEach((h,i)=>hdr(ws.getRange(2,STAG+i),'#0D47A1').setValue(h).setWrap(true));
+      .forEach((h,i)=>hdr(ws.getRange(2,STAG+i),'#0D47A1').setValue(h).setWrap(true));
   hdr(ws.getRange(2,STATUS_Z),'#455A64','#FFFFFF',8).setValue('[AUTO]\nLatest Status').setWrap(true);
-  hdr(ws.getRange(2,SHOT_COL),'#0D47A1','#FFFFFF',8).setValue('[INPUT]\nEvidence Link').setWrap(true);
+  // Dynamic screenshot cols: one per run date, labeled with the date
+  for(let ri=0; ri<MAX_RUNS; ri++){
+    const sc = SHOT_COL+ri;
+    // Header: formula links to the corresponding date in row 2
+    hdr(ws.getRange(2,sc),'#1565C0','#FFFFFF',8)
+        .setFormula('=IFERROR(IF(INDIRECT(ADDRESS(2,'+(STAG+ri)+'))="","Screenshot "+'+(ri+1)+',INDIRECT(ADDRESS(2,'+(STAG+ri)+'))&"\nShot"),"Screenshot '+(ri+1)+'")')
+        .setWrap(true);
+    ws.setColumnWidth(sc, 140);
+  }
   ws.setRowHeight(2,38);
   // Column notes
   ws.getRange(2,1).setNote('[AUTO] TC_ID sync dari TC_Master. Jangan edit.');
@@ -411,23 +422,26 @@ function createTCExecution(ss) {
   ws.getRange(2,6).setNote('[AUTO] Skenario sync dari TC_Master.');
   ws.getRange(2,7).setNote('[AUTO] Test Level sync dari TC_Master. Smoke = wajib ditest di setiap run. Regression = full cycle.');
   ws.getRange(2,STATUS_Z).setNote('[AUTO] Status terkini dihitung otomatis dari semua run.\nFAILED > BLOCKED > IN PROGRESS > PASSED > TODO\nIN PROGRESS = ada PASSED di run sebelumnya tapi masih ada TODO.');
-  ws.getRange(2,SHOT_COL).setNote('[INPUT] Paste link screenshot/evidence setelah eksekusi.\nContoh: link Google Drive, Jira attachment, atau URL gambar.');
+  // Screenshot col notes
+  for(let ri=0;ri<MAX_RUNS;ri++){
+    ws.getRange(2,SHOT_COL+ri).setNote('[INPUT] Screenshot/evidence untuk run ke-'+(ri+1)+'.\nPaste link Google Drive, Jira attachment, atau URL gambar.');
+  }
   for(let i=0;i<STAG_N;i++){
     ws.getRange(2,STAG+i).setNote('[INPUT] Isi TODO/PASSED/FAILED/BLOCKED setelah eksekusi pada tanggal ini.\nGunakan dropdown per cell.');
   }
 
   // -- Rows 3-7: summary labels -- each col independent (NO merge), label in col G --
   [{row:3,label:'> RUN STATUS', bg:'#37474F',fg:'#FFFFFF'},
-   {row:4,label:'  PASSED',     bg:'#F1F8E9',fg:'#2E7D32'},
-   {row:5,label:'  FAILED',     bg:'#FBE9E7',fg:'#BF360C'},
-   {row:6,label:'  BLOCKED',    bg:'#FFF3E0',fg:'#E65100'},
-   {row:7,label:'  TODO',       bg:'#F5F5F5',fg:'#546E7A'},
+    {row:4,label:'  PASSED',     bg:'#F1F8E9',fg:'#2E7D32'},
+    {row:5,label:'  FAILED',     bg:'#FBE9E7',fg:'#BF360C'},
+    {row:6,label:'  BLOCKED',    bg:'#FFF3E0',fg:'#E65100'},
+    {row:7,label:'  TODO',       bg:'#F5F5F5',fg:'#546E7A'},
   ].forEach(s=>{
     // Label in cols A?F merged, col G = TestLevel header (no label needed in summary rows)
     ws.getRange(s.row,1,1,6).merge();
     bd(ws.getRange(s.row,1)).setValue(s.label)
-      .setBackground(s.bg).setFontColor(s.fg).setFontWeight('bold')
-      .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('right').setVerticalAlignment('middle');
+        .setBackground(s.bg).setFontColor(s.fg).setFontWeight('bold')
+        .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('right').setVerticalAlignment('middle');
     bd(ws.getRange(s.row,7)).setBackground(s.bg); // col G neutral fill
     ws.setRowHeight(s.row,20);
   });
@@ -436,14 +450,14 @@ function createTCExecution(ss) {
   for(let i=0;i<STAG_N;i++){
     const col=STAG+i, L=colLetter(col), rng=L+'$'+DS+':'+L+'$'+(DS+MR);
     bd(ws.getRange(3,col)).setFormula(
-      '=IF(COUNTA('+rng+')=0,"--",IF(COUNTIF('+rng+',"FAILED")>0,"FAILED",'+
-      'IF(COUNTIF('+rng+',"BLOCKED")>0,"BLOCKED",'+
-      'IF(COUNTIF('+rng+',"TODO")=COUNTA('+rng+'),"TODO",'+
-      'IF(COUNTIF('+rng+',"TODO")>0,"IN PROGRESS","PASSED")))))'
+        '=IF(COUNTA('+rng+')=0,"--",IF(COUNTIF('+rng+',"FAILED")>0,"FAILED",'+
+        'IF(COUNTIF('+rng+',"BLOCKED")>0,"BLOCKED",'+
+        'IF(COUNTIF('+rng+',"TODO")=COUNTA('+rng+'),"TODO",'+
+        'IF(COUNTIF('+rng+',"TODO")>0,"IN PROGRESS","PASSED")))))'
     ).setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
     [['PASSED',4],['FAILED',5],['BLOCKED',6],['TODO',7]].forEach(([st,row])=>
-      bd(ws.getRange(row,col)).setFormula('=IF(COUNTA('+rng+')=0,"",COUNTIF('+rng+',"'+st+'"))')
-        .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center')
+        bd(ws.getRange(row,col)).setFormula('=IF(COUNTA('+rng+')=0,"",COUNTIF('+rng+',"'+st+'"))')
+            .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center')
     );
   }
   ws.getRange(4,STAG,1,STAG_N).setBackground('#F1F8E9');
@@ -454,7 +468,7 @@ function createTCExecution(ss) {
 
   // -- Row 8: separator -- single cell, no merge --
   bd(ws.getRange(8,1)).setValue('v Kolom A-G = [AUTO sync TC_Master] . Kolom H dst = [INPUT status per run] . Kolom Z = [AUTO status terkini] . Kolom AA = [INPUT evidence link]')
-    .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic').setFontSize(8).setFontFamily('Arial');
+      .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic').setFontSize(8).setFontFamily('Arial');
   ws.setRowHeight(8,14);
 
   // -- Row 9+: sync from TC_Master --
@@ -467,32 +481,32 @@ function createTCExecution(ss) {
   ws.getRange(DS,6).setFormula('=ARRAYFORMULA(IF(TC_Master!K3:K'+(MR+2)+'<>"",TC_Master!K3:K'+(MR+2)+',""))');
   ws.getRange(DS,7).setFormula('=ARRAYFORMULA(IF(TC_Master!N3:N'+(MR+2)+'<>"",TC_Master!N3:N'+(MR+2)+',""))');
   ws.getRange(DS,1,MR,7).setBackground('#E8F0FE').setFontColor('#37474F')
-    .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle').setWrap(true);
+      .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle').setWrap(true);
 
   // CF Priority
   const cf=ws.getConditionalFormatRules();
   [{val:'Critical',bg:'#FFEBEE',fg:'#C62828'},{val:'High',bg:'#FFF3E0',fg:'#D84315'},
-   {val:'Medium',bg:'#FFF8E1',fg:'#E65100'},{val:'Low',bg:'#F1F8E9',fg:'#2E7D32'},
-   {val:'Lowest',bg:'#ECEFF1',fg:'#78909C'}].forEach(p=>
-    cf.push(SpreadsheetApp.newConditionalFormatRule()
-      .whenTextEqualTo(p.val).setBackground(p.bg).setFontColor(p.fg).setBold(true)
-      .setRanges([ws.getRange(DS,4,MR,1)]).build())
+    {val:'Medium',bg:'#FFF8E1',fg:'#E65100'},{val:'Low',bg:'#F1F8E9',fg:'#2E7D32'},
+    {val:'Lowest',bg:'#ECEFF1',fg:'#78909C'}].forEach(p=>
+      cf.push(SpreadsheetApp.newConditionalFormatRule()
+          .whenTextEqualTo(p.val).setBackground(p.bg).setFontColor(p.fg).setBold(true)
+          .setRanges([ws.getRange(DS,4,MR,1)]).build())
   );
   // CF TestLevel
   cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Smoke')
-    .setBackground('#FFF8F0').setFontColor('#BF360C').setBold(true).setRanges([ws.getRange(DS,7,MR,1)]).build());
+      .setBackground('#FFF8F0').setFontColor('#BF360C').setBold(true).setRanges([ws.getRange(DS,7,MR,1)]).build());
   cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Regression')
-    .setBackground('#F1F8E9').setFontColor('#33691E').setBold(true).setRanges([ws.getRange(DS,7,MR,1)]).build());
+      .setBackground('#F1F8E9').setFontColor('#33691E').setBold(true).setRanges([ws.getRange(DS,7,MR,1)]).build());
   ws.setConditionalFormatRules(cf);
 
   // Sample staging data
   [['PASSED','PASSED','PASSED'],['PASSED','PASSED','FAILED'],
-   ['FAILED','PASSED','BLOCKED'],['TODO','TODO','TODO'],
-   ['PASSED','PASSED','PASSED'],['TODO','TODO','TODO']].forEach((row,i)=>{
+    ['FAILED','PASSED','BLOCKED'],['TODO','TODO','TODO'],
+    ['PASSED','PASSED','PASSED'],['TODO','TODO','TODO']].forEach((row,i)=>{
     const r=DS+i;
     row.forEach((val,c)=>{
       bd(cell_style(ws.getRange(r,STAG+c),i%2===0?'#F8F9FA':'#FFFFFF'))
-        .setValue(val).setHorizontalAlignment('center');
+          .setValue(val).setHorizontalAlignment('center');
     });
     ws.setRowHeight(r,34);
   });
@@ -505,43 +519,47 @@ function createTCExecution(ss) {
   inputBorder(ws.getRange(DS, SHOT_COL, MR, 1));
   // Blue border on staging cols = INPUT area
   inputBorder(ws.getRange(DS, STAG, MR, STAG_COLS));
-  // Blue border on evidence col
-  inputBorder(ws.getRange(DS, SHOT_COL, MR, 1));
+  // Blue border on screenshot cols
+  for(let ri=0;ri<MAX_RUNS;ri++) inputBorder(ws.getRange(DS, SHOT_COL+ri, MR, 1));
 
   // -- LATEST STATUS col Z --
   // Uses ARRAYFORMULA for efficiency -- single formula in Z9
   // Logic: FAILED > BLOCKED > IN PROGRESS (PASSED+TODO) > PASSED > TODO
   for(let r=DS;r<DS+MR;r++){
     ws.getRange(r,STATUS_Z).setFormula(
-      '=IF(A'+r+'="","",IF(COUNTIF(H'+r+':Y'+r+',"FAILED")>0,"FAILED",'+
-      'IF(COUNTIF(H'+r+':Y'+r+',"BLOCKED")>0,"BLOCKED",'+
-      'IF(COUNTA(H'+r+':Y'+r+')=0,"TODO",'+
-      'IF(AND(COUNTIF(H'+r+':Y'+r+',"PASSED")>0,COUNTIF(H'+r+':Y'+r+',"TODO")>0),"IN PROGRESS",'+
-      'IF(COUNTIF(H'+r+':Y'+r+',"PASSED")>0,"PASSED","TODO"))))))')
+        '=IF(A'+r+'="","",IF(COUNTIF(H'+r+':Y'+r+',"FAILED")>0,"FAILED",'+
+        'IF(COUNTIF(H'+r+':Y'+r+',"BLOCKED")>0,"BLOCKED",'+
+        'IF(COUNTA(H'+r+':Y'+r+')=0,"TODO",'+
+        'IF(AND(COUNTIF(H'+r+':Y'+r+',"PASSED")>0,COUNTIF(H'+r+':Y'+r+',"TODO")>0),"IN PROGRESS",'+
+        'IF(COUNTIF(H'+r+':Y'+r+',"PASSED")>0,"PASSED","TODO"))))))')
     ;
   }
   ws.getRange(DS,STATUS_Z,MR,1)
-    .setFontFamily('Arial').setFontSize(9).setFontWeight('bold')
-    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+      .setFontFamily('Arial').setFontSize(9).setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
   statusCF_(ws, ws.getRange(DS, STATUS_Z, MR, 1));
 
   // Screenshot col AA -- just set style, no formula
-  ws.getRange(DS, SHOT_COL, MR, 1)
-    .setBackground('#FAFAFA').setFontColor('#1A73E8')
-    .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle').setWrap(true);
+  // Screenshot cols styling
+  for(let ri=0;ri<MAX_RUNS;ri++){
+    ws.getRange(DS,SHOT_COL+ri,MR,1)
+        .setBackground('#F0F4FF').setFontColor('#1A73E8')
+        .setFontFamily('Arial').setFontSize(8).setVerticalAlignment('middle')
+        .setWrap(false).setHorizontalAlignment('left');
+  }
 
   // Column widths -- tight, leave Z and AA only
   [100,110,130,80,80,180,75].forEach((w,i)=>ws.setColumnWidth(i+1,w));
   for(let i=0;i<STAG_N;i++) ws.setColumnWidth(STAG+i,100);
   ws.setColumnWidth(STATUS_Z,100);
-  ws.setColumnWidth(SHOT_COL,160);
+  // screenshot col widths set in header loop above
 
   // Freeze cols A-G so identitas stay visible while scrolling right
   ws.setFrozenColumns(7);
   ws.setFrozenRows(2);
 
   ws.getRange(1, STAG+STAG_N).setValue('<- Insert kolom di sini untuk run baru. Isi tanggal di baris 2, copy formula baris 3?7 dari kolom sebelah.')
-    .setFontColor('#90A4AE').setFontStyle('italic').setFontSize(8).setFontFamily('Arial');
+      .setFontColor('#90A4AE').setFontStyle('italic').setFontSize(8).setFontFamily('Arial');
 }
 
 // ===================================================================
@@ -555,48 +573,48 @@ function createAPIMaster(ss) {
   hdr(ws.getRange(1,1,1,COLS),'#283593','#FFFFFF',10).setValue('API_MASTER  .  QA PERURI  .  Test Level otomatis dari Priority.');
   ws.setRowHeight(1,28);
   ['No','SubModul','TC_ID','Feature','Method','Endpoint URL','Priority','Auth','Test Type',
-   'Automated','Version','Role (RBAC)','Scenario','[AUTO] Test Level']
-    .forEach((h,i)=>hdr(ws.getRange(2,i+1),'#0D47A1').setValue(h).setWrap(true));
+    'Automated','Version','Role (RBAC)','Scenario','[AUTO] Test Level']
+      .forEach((h,i)=>hdr(ws.getRange(2,i+1),'#0D47A1').setValue(h).setWrap(true));
   ws.setRowHeight(2,38);
   [36,110,110,130,70,220,80,110,90,140,65,200,90,110].forEach((w,i)=>ws.setColumnWidth(i+1,w));
   // Column notes for API_Master
   ws.getRange(2,1).setNote('No. Urut.');
   ws.getRange(2,2).setNote('SubModul: Kode modul. Gunakan kode yang sama dengan TC_Master untuk konsistensi.');
   ws.getRange(2,3).setNote(
-    'TC_ID API -- Pola Penomoran:\n'+
-    '\n'+
-    'Format  : API.[SVC].[FEAT].[000]\n'+
-    '\n'+
-    'API.    = Prefix wajib untuk semua API TC\n'+
-    '[SVC]   = Kode service/domain, maks 3-4 huruf kapital\n'+
-    '          Contoh: AUTH, USER, ORD, PAY, INV\n'+
-    '[FEAT]  = Kode endpoint/resource, maks 3-4 huruf kapital\n'+
-    '          Contoh: LOG, LIST, CRT, UPD, DEL\n'+
-    '[000]   = Nomor urut 3 digit, mulai dari 001\n'+
-    '\n'+
-    'Contoh lengkap:\n'+
-    '  API.AUTH.LOG.001  = Auth service, Login endpoint, TC pertama\n'+
-    '  API.USER.CRT.001  = User service, Create, TC pertama\n'+
-    '  API.USER.CRT.002  = User service, Create, TC kedua (negative)\n'+
-    '  API.PAY.CHK.005   = Payment, Checkout, TC ke-5\n'+
-    '\n'+
-    'Urutan: Positive (2xx) dulu -> Negative (4xx) -> Edge Case'
+      'TC_ID API -- Pola Penomoran:\n'+
+      '\n'+
+      'Format  : API.[SVC].[FEAT].[000]\n'+
+      '\n'+
+      'API.    = Prefix wajib untuk semua API TC\n'+
+      '[SVC]   = Kode service/domain, maks 3-4 huruf kapital\n'+
+      '          Contoh: AUTH, USER, ORD, PAY, INV\n'+
+      '[FEAT]  = Kode endpoint/resource, maks 3-4 huruf kapital\n'+
+      '          Contoh: LOG, LIST, CRT, UPD, DEL\n'+
+      '[000]   = Nomor urut 3 digit, mulai dari 001\n'+
+      '\n'+
+      'Contoh lengkap:\n'+
+      '  API.AUTH.LOG.001  = Auth service, Login endpoint, TC pertama\n'+
+      '  API.USER.CRT.001  = User service, Create, TC pertama\n'+
+      '  API.USER.CRT.002  = User service, Create, TC kedua (negative)\n'+
+      '  API.PAY.CHK.005   = Payment, Checkout, TC ke-5\n'+
+      '\n'+
+      'Urutan: Positive (2xx) dulu -> Negative (4xx) -> Edge Case'
   );
   ws.getRange(2,4).setNote('Feature: Nama fitur/domain API. Digunakan untuk grouping di Summary.');
   ws.getRange(2,5).setNote('HTTP Method: GET/POST/PUT/DELETE/PATCH');
   ws.getRange(2,6).setNote('Endpoint URL: Path saja tanpa base URL.\nContoh: /api/v1/users/{id}\nParameter dinamis gunakan {curly bracket}.');
   ws.getRange(2,7).setNote(
-    'Priority API & Dampak:\n'+
-    '\n'+
-    'CRITICAL  -> Blocker. API utama tidak bisa digunakan.\n'+
-    '            FAIL = release DITAHAN.\n'+
-    'HIGH      -> Blocker. Fungsi penting terganggu.\n'+
-    '            FAIL = perlu approval PM.\n'+
-    'MEDIUM    -> Potential blocker. Flagged ke tech lead.\n'+
-    'LOW       -> Non-blocker. Fix sprint berikutnya.\n'+
-    'LOWEST    -> Opsional.\n'+
-    '\n'+
-    'Test Level: Critical/High/Medium -> Smoke | Low/Lowest -> Regression'
+      'Priority API & Dampak:\n'+
+      '\n'+
+      'CRITICAL  -> Blocker. API utama tidak bisa digunakan.\n'+
+      '            FAIL = release DITAHAN.\n'+
+      'HIGH      -> Blocker. Fungsi penting terganggu.\n'+
+      '            FAIL = perlu approval PM.\n'+
+      'MEDIUM    -> Potential blocker. Flagged ke tech lead.\n'+
+      'LOW       -> Non-blocker. Fix sprint berikutnya.\n'+
+      'LOWEST    -> Opsional.\n'+
+      '\n'+
+      'Test Level: Critical/High/Medium -> Smoke | Low/Lowest -> Regression'
   );
   ws.getRange(2,8).setNote('Auth: Jenis autentikasi yang diperlukan.\nContoh: Bearer Token, Basic Auth, API Key, (none)');
   ws.getRange(2,9).setNote('Test Type: Positive = happy path | Negative = error/invalid input | Edge Case = boundary');
@@ -605,13 +623,13 @@ function createAPIMaster(ss) {
   ws.getRange(2,12).setNote('[INPUT WAJIB] Skenario singkat: apa yang ditest dan expected HTTP status.\nContoh: "User login berhasil -- 200"\nContoh: "Token expired ditolak -- 401"');
   ws.getRange(2,13).setNote('[AUTO - JANGAN EDIT] Test Level otomatis dari Priority.');
   ws.getRange(2,12).setNote(
-    'Role (RBAC): Peran yang memiliki akses ke endpoint ini.\n'+
-    '\n'+
-    'Contoh: Admin, Super Admin, User, Viewer\n'+
-    '\n'+
-    'Gunakan untuk verifikasi authorization:\n'+
-    '- Apakah role yang sesuai bisa akses endpoint?\n'+
-    '- Apakah role yang tidak sesuai mendapat 403 Forbidden?'
+      'Role (RBAC): Peran yang memiliki akses ke endpoint ini.\n'+
+      '\n'+
+      'Contoh: Admin, Super Admin, User, Viewer\n'+
+      '\n'+
+      'Gunakan untuk verifikasi authorization:\n'+
+      '- Apakah role yang sesuai bisa akses endpoint?\n'+
+      '- Apakah role yang tidak sesuai mendapat 403 Forbidden?'
   );
 
   const METHOD_COLORS={GET:['#E8F0FE','#1A237E'],POST:['#E8F5E9','#1B5E20'],
@@ -654,13 +672,13 @@ function createAPIMaster(ss) {
     const autoRange = ws.getRange('J'+DS+':J'+(DS+MR));
     const rules = ws.getConditionalFormatRules();
     [{v:'Automated',      bg:'#C8E6C9', fg:'#1B5E20'},
-     {v:'Manual',         bg:'#E3F2FD', fg:'#1565C0'},
-     {v:'To Do',          bg:'#FFF9C4', fg:'#F57F17'},
-     {v:'Cannot be Automated', bg:'#F5F5F5', fg:'#9E9E9E'},
+      {v:'Manual',         bg:'#E3F2FD', fg:'#1565C0'},
+      {v:'To Do',          bg:'#FFF9C4', fg:'#F57F17'},
+      {v:'Cannot be Automated', bg:'#F5F5F5', fg:'#9E9E9E'},
     ].forEach(s => rules.push(
-      SpreadsheetApp.newConditionalFormatRule()
-        .whenTextEqualTo(s.v).setBackground(s.bg).setFontColor(s.fg).setBold(true)
-        .setRanges([autoRange]).build()
+        SpreadsheetApp.newConditionalFormatRule()
+            .whenTextEqualTo(s.v).setBackground(s.bg).setFontColor(s.fg).setBold(true)
+            .setRanges([autoRange]).build()
     ));
     ws.setConditionalFormatRules(rules);
   })();
@@ -669,25 +687,25 @@ function createAPIMaster(ss) {
 
   const cf=ws.getConditionalFormatRules();
   cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Smoke')
-    .setBackground('#FFF8F0').setFontColor('#BF360C').setBold(true).setRanges([ws.getRange('M'+DS+':M'+dvEnd)]).build());
+      .setBackground('#FFF8F0').setFontColor('#BF360C').setBold(true).setRanges([ws.getRange('M'+DS+':M'+dvEnd)]).build());
   cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Regression')
-    .setBackground('#F1F8E9').setFontColor('#33691E').setBold(true).setRanges([ws.getRange('M'+DS+':M'+dvEnd)]).build());
+      .setBackground('#F1F8E9').setFontColor('#33691E').setBold(true).setRanges([ws.getRange('M'+DS+':M'+dvEnd)]).build());
   Object.entries(METHOD_COLORS).forEach(([m,colors])=>
-    cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(m)
-      .setBackground(colors[0]).setFontColor(colors[1]).setBold(true)
-      .setRanges([ws.getRange('E'+DS+':E'+dvEnd)]).build())
+      cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(m)
+          .setBackground(colors[0]).setFontColor(colors[1]).setBold(true)
+          .setRanges([ws.getRange('E'+DS+':E'+dvEnd)]).build())
   );
   [{val:'Critical',fg:'#C62828'},{val:'High',fg:'#D84315'},{val:'Medium',fg:'#E65100'},
-   {val:'Low',fg:'#2E7D32'},{val:'Lowest',fg:'#78909C'}].forEach(p=>
-    cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(p.val)
-      .setFontColor(p.fg).setBold(true).setRanges([ws.getRange('G'+DS+':G'+dvEnd)]).build())
+    {val:'Low',fg:'#2E7D32'},{val:'Lowest',fg:'#78909C'}].forEach(p=>
+      cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(p.val)
+          .setFontColor(p.fg).setBold(true).setRanges([ws.getRange('G'+DS+':G'+dvEnd)]).build())
   );
   ws.setConditionalFormatRules(cf);
   addPeruriFooter(ws, DS+data.length+3, COLS);
   ws.getRange(DS+data.length+2,1,1,COLS).merge()
-    .setValue('Method (E) dan Endpoint URL (F) terpisah. Test Level otomatis dari Priority (G). Role (N) = tim penanggung jawab.')
-    .setFontColor('#78909C').setFontStyle('italic').setFontSize(8).setFontFamily('Arial')
-    .setBackground('#E3F2FD').setWrap(true);
+      .setValue('Method (E) dan Endpoint URL (F) terpisah. Test Level otomatis dari Priority (G). Role (N) = tim penanggung jawab.')
+      .setFontColor('#78909C').setFontStyle('italic').setFontSize(8).setFontFamily('Arial')
+      .setBackground('#E3F2FD').setWrap(true);
 }
 
 // ===================================================================
@@ -697,7 +715,7 @@ function createAPIExecution(ss) {
   const ws = safeSheet(ss,'API_Execution');
   ws.clear(); ws.setTabColor('#283593');
 
-  const DS=9, MR=500, STAG=7, STAG_N=3, STATUS_Z=26, SHOT_COL=27;
+  const DS=9, MR=500, STAG=7, STAG_N=3, STATUS_Z=26, SHOT_COL=27, MAX_RUNS=10;
 
   // -- Row 1 --
   hdr(ws.getRange(1,1),'#EEF0FB','#90A4AE',8).setValue('');
@@ -708,9 +726,9 @@ function createAPIExecution(ss) {
 
   // -- Row 2: headers --
   ['TC_ID','SubModul','Feature','Priority','Endpoint (Method + URL)','[AUTO]\nTest Level']
-    .forEach((h,i)=>hdr(ws.getRange(2,i+1),'#0D47A1').setValue(h).setWrap(true));
+      .forEach((h,i)=>hdr(ws.getRange(2,i+1),'#0D47A1').setValue(h).setWrap(true));
   ['2025-01-20','2025-02-10','2025-02-21']
-    .forEach((h,i)=>hdr(ws.getRange(2,STAG+i),'#283593').setValue(h).setWrap(true));
+      .forEach((h,i)=>hdr(ws.getRange(2,STAG+i),'#283593').setValue(h).setWrap(true));
   hdr(ws.getRange(2,STATUS_Z),'#455A64','#FFFFFF',8).setValue('[AUTO]\nLatest Status').setWrap(true);
   hdr(ws.getRange(2,SHOT_COL),'#0D47A1','#FFFFFF',8).setValue('[INPUT]\nEvidence Link').setWrap(true);
   ws.setRowHeight(2,38);
@@ -726,15 +744,15 @@ function createAPIExecution(ss) {
   ws.getRange(2,STATUS_Z).setNote('[AUTO] Status terkini dihitung otomatis dari semua run.\nIN PROGRESS = ada PASSED tapi masih ada TODO belum dieksekusi.');
   ws.getRange(2,SHOT_COL).setNote('[INPUT] Link screenshot/response body/Postman result sebagai evidence.');  // -- Rows 3-7 --
   [{row:3,label:'> RUN STATUS',bg:'#37474F',fg:'#FFFFFF'},
-   {row:4,label:'  PASSED',    bg:'#F1F8E9',fg:'#2E7D32'},
-   {row:5,label:'  FAILED',    bg:'#FBE9E7',fg:'#BF360C'},
-   {row:6,label:'  BLOCKED',   bg:'#FFF3E0',fg:'#E65100'},
-   {row:7,label:'  TODO',      bg:'#F5F5F5',fg:'#546E7A'},
+    {row:4,label:'  PASSED',    bg:'#F1F8E9',fg:'#2E7D32'},
+    {row:5,label:'  FAILED',    bg:'#FBE9E7',fg:'#BF360C'},
+    {row:6,label:'  BLOCKED',   bg:'#FFF3E0',fg:'#E65100'},
+    {row:7,label:'  TODO',      bg:'#F5F5F5',fg:'#546E7A'},
   ].forEach(s=>{
     ws.getRange(s.row,1,1,5).merge();
     bd(ws.getRange(s.row,1)).setValue(s.label)
-      .setBackground(s.bg).setFontColor(s.fg).setFontWeight('bold')
-      .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('right').setVerticalAlignment('middle');
+        .setBackground(s.bg).setFontColor(s.fg).setFontWeight('bold')
+        .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('right').setVerticalAlignment('middle');
     bd(ws.getRange(s.row,6)).setBackground(s.bg);
     ws.setRowHeight(s.row,20);
   });
@@ -742,14 +760,14 @@ function createAPIExecution(ss) {
   for(let i=0;i<STAG_N;i++){
     const col=STAG+i, L=colLetter(col), rng=L+'$'+DS+':'+L+'$'+(DS+MR);
     bd(ws.getRange(3,col)).setFormula(
-      '=IF(COUNTA('+rng+')=0,"--",IF(COUNTIF('+rng+',"FAILED")>0,"FAILED",'+
-      'IF(COUNTIF('+rng+',"BLOCKED")>0,"BLOCKED",'+
-      'IF(COUNTIF('+rng+',"TODO")=COUNTA('+rng+'),"TODO",'+
-      'IF(COUNTIF('+rng+',"TODO")>0,"IN PROGRESS","PASSED")))))'
+        '=IF(COUNTA('+rng+')=0,"--",IF(COUNTIF('+rng+',"FAILED")>0,"FAILED",'+
+        'IF(COUNTIF('+rng+',"BLOCKED")>0,"BLOCKED",'+
+        'IF(COUNTIF('+rng+',"TODO")=COUNTA('+rng+'),"TODO",'+
+        'IF(COUNTIF('+rng+',"TODO")>0,"IN PROGRESS","PASSED")))))'
     ).setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
     [['PASSED',4],['FAILED',5],['BLOCKED',6],['TODO',7]].forEach(([st,row])=>
-      bd(ws.getRange(row,col)).setFormula('=IF(COUNTA('+rng+')=0,"",COUNTIF('+rng+',"'+st+'"))')
-        .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center')
+        bd(ws.getRange(row,col)).setFormula('=IF(COUNTA('+rng+')=0,"",COUNTIF('+rng+',"'+st+'"))')
+            .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center')
     );
   }
   ws.getRange(4,STAG,1,STAG_N).setBackground('#F1F8E9');
@@ -759,7 +777,7 @@ function createAPIExecution(ss) {
   addRunStatusCF(ws,3,STAG,STAG+STAG_N+10);
 
   bd(ws.getRange(8,1)).setValue('v Kolom A-F = [AUTO sync API_Master] . Kolom G dst = [INPUT status per run] . Kolom Z = [AUTO status terkini] . Kolom AA = [INPUT evidence link]')
-    .setBackground('#E8EAF6').setFontColor('#3949AB').setFontStyle('italic').setFontSize(8).setFontFamily('Arial');
+      .setBackground('#E8EAF6').setFontColor('#3949AB').setFontStyle('italic').setFontSize(8).setFontFamily('Arial');
   ws.setRowHeight(8,14);
 
   // Sync API_Master: C=TC_ID B=SubModul D=Feature G=Priority E=Method F=URL M=TestLevel
@@ -770,28 +788,28 @@ function createAPIExecution(ss) {
   ws.getRange(DS,5).setFormula('=ARRAYFORMULA(IF(API_Master!C3:C'+(MR+2)+'<>"",API_Master!E3:E'+(MR+2)+'&"  "&API_Master!F3:F'+(MR+2)+',""))');
   ws.getRange(DS,6).setFormula('=ARRAYFORMULA(IF(API_Master!N3:N'+(MR+2)+'<>"",API_Master!N3:N'+(MR+2)+',""))');
   ws.getRange(DS,1,MR,6).setBackground('#E8EAF6').setFontColor('#37474F')
-    .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle').setWrap(true);
+      .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle').setWrap(true);
 
   const cf=ws.getConditionalFormatRules();
   [{val:'Critical',bg:'#FFEBEE',fg:'#C62828'},{val:'High',bg:'#FFF3E0',fg:'#D84315'},
-   {val:'Medium',bg:'#FFF8E1',fg:'#E65100'},{val:'Low',bg:'#F1F8E9',fg:'#2E7D32'},
-   {val:'Lowest',bg:'#ECEFF1',fg:'#78909C'}].forEach(p=>
-    cf.push(SpreadsheetApp.newConditionalFormatRule()
-      .whenTextEqualTo(p.val).setBackground(p.bg).setFontColor(p.fg).setBold(true)
-      .setRanges([ws.getRange(DS,4,MR,1)]).build())
+    {val:'Medium',bg:'#FFF8E1',fg:'#E65100'},{val:'Low',bg:'#F1F8E9',fg:'#2E7D32'},
+    {val:'Lowest',bg:'#ECEFF1',fg:'#78909C'}].forEach(p=>
+      cf.push(SpreadsheetApp.newConditionalFormatRule()
+          .whenTextEqualTo(p.val).setBackground(p.bg).setFontColor(p.fg).setBold(true)
+          .setRanges([ws.getRange(DS,4,MR,1)]).build())
   );
   cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Smoke')
-    .setBackground('#FFF8F0').setFontColor('#BF360C').setBold(true).setRanges([ws.getRange(DS,6,MR,1)]).build());
+      .setBackground('#FFF8F0').setFontColor('#BF360C').setBold(true).setRanges([ws.getRange(DS,6,MR,1)]).build());
   cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Regression')
-    .setBackground('#F1F8E9').setFontColor('#33691E').setBold(true).setRanges([ws.getRange(DS,6,MR,1)]).build());
+      .setBackground('#F1F8E9').setFontColor('#33691E').setBold(true).setRanges([ws.getRange(DS,6,MR,1)]).build());
   ws.setConditionalFormatRules(cf);
 
   [['PASSED','PASSED','PASSED'],['PASSED','PASSED','FAILED'],
-   ['FAILED','PASSED','BLOCKED'],['TODO','TODO','TODO'],
-   ['PASSED','PASSED','PASSED'],['TODO','TODO','TODO'],['TODO','TODO','TODO']].forEach((row,i)=>{
+    ['FAILED','PASSED','BLOCKED'],['TODO','TODO','TODO'],
+    ['PASSED','PASSED','PASSED'],['TODO','TODO','TODO'],['TODO','TODO','TODO']].forEach((row,i)=>{
     const r=DS+i;
     row.forEach((val,c)=>{ bd(cell_style(ws.getRange(r,STAG+c),i%2===0?'#F8F9FA':'#FFFFFF'))
-      .setValue(val).setHorizontalAlignment('center'); });
+        .setValue(val).setHorizontalAlignment('center'); });
     ws.setRowHeight(r,34);
   });
 
@@ -802,21 +820,21 @@ function createAPIExecution(ss) {
   // LATEST STATUS col Z -- ARRAYFORMULA
   for(let r=DS;r<DS+MR;r++){
     ws.getRange(r,STATUS_Z).setFormula(
-      '=IF(A'+r+'="","",IF(COUNTIF(G'+r+':Y'+r+',"FAILED")>0,"FAILED",'+
-      'IF(COUNTIF(G'+r+':Y'+r+',"BLOCKED")>0,"BLOCKED",'+
-      'IF(COUNTA(G'+r+':Y'+r+')=0,"TODO",'+
-      'IF(AND(COUNTIF(G'+r+':Y'+r+',"PASSED")>0,COUNTIF(G'+r+':Y'+r+',"TODO")>0),"IN PROGRESS",'+
-      'IF(COUNTIF(G'+r+':Y'+r+',"PASSED")>0,"PASSED","TODO"))))))')
+        '=IF(A'+r+'="","",IF(COUNTIF(G'+r+':Y'+r+',"FAILED")>0,"FAILED",'+
+        'IF(COUNTIF(G'+r+':Y'+r+',"BLOCKED")>0,"BLOCKED",'+
+        'IF(COUNTA(G'+r+':Y'+r+')=0,"TODO",'+
+        'IF(AND(COUNTIF(G'+r+':Y'+r+',"PASSED")>0,COUNTIF(G'+r+':Y'+r+',"TODO")>0),"IN PROGRESS",'+
+        'IF(COUNTIF(G'+r+':Y'+r+',"PASSED")>0,"PASSED","TODO"))))))')
     ;
   }
   ws.getRange(DS,STATUS_Z,MR,1)
-    .setFontFamily('Arial').setFontSize(9).setFontWeight('bold')
-    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+      .setFontFamily('Arial').setFontSize(9).setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
   statusCF_(ws, ws.getRange(DS, STATUS_Z, MR, 1));
 
   ws.getRange(DS, SHOT_COL, MR, 1)
-    .setBackground('#FAFAFA').setFontColor('#1A73E8')
-    .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle').setWrap(true);
+      .setBackground('#FAFAFA').setFontColor('#1A73E8')
+      .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle').setWrap(true);
 
   [100,110,130,80,220,75].forEach((w,i)=>ws.setColumnWidth(i+1,w));
   for(let i=0;i<STAG_N;i++) ws.setColumnWidth(STAG+i,100);
@@ -827,7 +845,7 @@ function createAPIExecution(ss) {
   ws.setFrozenRows(2);
 
   ws.getRange(1, STAG+STAG_N).setValue('<- Insert kolom di sini untuk run baru. Isi tanggal di baris 2, copy formula baris 3?7.')
-    .setFontColor('#90A4AE').setFontStyle('italic').setFontSize(8).setFontFamily('Arial');
+      .setFontColor('#90A4AE').setFontStyle('italic').setFontSize(8).setFontFamily('Arial');
 }
 
 // ===================================================================
@@ -839,21 +857,21 @@ function createSummary(ss) {
 
   function h_(range, bg, fg, sz) {
     return bd(range).setBackground(bg||'#0D47A1').setFontColor(fg||'#FFFFFF')
-      .setFontWeight('bold').setFontSize(sz||9).setFontFamily('Arial')
-      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+        .setFontWeight('bold').setFontSize(sz||9).setFontFamily('Arial')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle');
   }
   function m_(row,col,nr,nc){ return ws.getRange(row,col,nr,nc).merge(); }
   function lbl(row,col,text,bg){
     bd(ws.getRange(row,col)).setValue(text)
-      .setBackground(bg||'#E3F2FD').setFontColor('#0D47A1').setFontWeight('bold')
-      .setFontFamily('Arial').setFontSize(9)
-      .setHorizontalAlignment('right').setVerticalAlignment('middle');
+        .setBackground(bg||'#E3F2FD').setFontColor('#0D47A1').setFontWeight('bold')
+        .setFontFamily('Arial').setFontSize(9)
+        .setHorizontalAlignment('right').setVerticalAlignment('middle');
     ws.setRowHeight(row,24);
   }
   function inp(row,col,ncols,dv_list,isStatus){
     m_(row,col,1,ncols);
     const c=bd(ws.getRange(row,col)).setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(9)
-      .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
+        .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
     if(dv_list) ws.getRange(row,col).setDataValidation(dv(dv_list));
     if(isStatus){ stCF(ws.getRange(row,col)); inputBorder(ws.getRange(row,col,1,ncols)); }
     return c;
@@ -861,30 +879,30 @@ function createSummary(ss) {
   function passRateCF(range){
     const rules=ws.getConditionalFormatRules();
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(0.8)
-      .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true).setRanges([range]).build());
+        .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true).setRanges([range]).build());
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberBetween(0.5,0.799)
-      .setBackground('#FFF8E1').setFontColor('#E65100').setBold(true).setRanges([range]).build());
+        .setBackground('#FFF8E1').setFontColor('#E65100').setBold(true).setRanges([range]).build());
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberLessThan(0.5)
-      .setBackground('#FFEBEE').setFontColor('#C62828').setBold(true).setRanges([range]).build());
+        .setBackground('#FFEBEE').setFontColor('#C62828').setBold(true).setRanges([range]).build());
     ws.setConditionalFormatRules(rules);
   }
   function stCF(range){
     const rules=ws.getConditionalFormatRules();
     [{v:'PASSED',bg:'#C8E6C9',fg:'#1B5E20'},{v:'IN PROGRESS',bg:'#E3F2FD',fg:'#1565C0'},
-     {v:'FAILED',bg:'#FFCDD2',fg:'#B71C1C'},{v:'BLOCKED',bg:'#FFE0B2',fg:'#E65100'},
-     {v:'--',bg:'#F5F5F5',fg:'#9E9E9E'},{v:'PASS',bg:'#C8E6C9',fg:'#1B5E20'},
-     {v:'FAIL',bg:'#FFCDD2',fg:'#B71C1C'},{v:'Completed',bg:'#C8E6C9',fg:'#1B5E20'},
-     {v:'In Progress',bg:'#E3F2FD',fg:'#1565C0'},{v:'Not Started',bg:'#F5F5F5',fg:'#616161'},
-     {v:'On Hold',bg:'#FFE0B2',fg:'#E65100'}].forEach(s=>rules.push(
-      SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(s.v)
-        .setBackground(s.bg).setFontColor(s.fg).setBold(true).setRanges([range]).build()));
+      {v:'FAILED',bg:'#FFCDD2',fg:'#B71C1C'},{v:'BLOCKED',bg:'#FFE0B2',fg:'#E65100'},
+      {v:'--',bg:'#F5F5F5',fg:'#9E9E9E'},{v:'PASS',bg:'#C8E6C9',fg:'#1B5E20'},
+      {v:'FAIL',bg:'#FFCDD2',fg:'#B71C1C'},{v:'Completed',bg:'#C8E6C9',fg:'#1B5E20'},
+      {v:'In Progress',bg:'#E3F2FD',fg:'#1565C0'},{v:'Not Started',bg:'#F5F5F5',fg:'#616161'},
+      {v:'On Hold',bg:'#FFE0B2',fg:'#E65100'}].forEach(s=>rules.push(
+        SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(s.v)
+            .setBackground(s.bg).setFontColor(s.fg).setBold(true).setRanges([range]).build()));
     ws.setConditionalFormatRules(rules);
   }
 
   // Column layout: L cols 1-10, GAP col 11, R cols 12-21
   const L=1, G=11, R_=12, LW=10, RW=10;
   [95,55,55,55,55,55,60,55,60,55, 10, 95,55,55,55,55,55,60,55,60,55]
-    .forEach((w,i)=>ws.setColumnWidth(i+1,w));
+      .forEach((w,i)=>ws.setColumnWidth(i+1,w));
   ws.getRange(1,G,400,1).setBackground('#CFD8DC');
 
   const wZ='TC_Execution!Z9:Z1000', aZ='API_Execution!Z9:Z1000';
@@ -922,7 +940,7 @@ function createSummary(ss) {
     if(isAutoPerf){
       m_(row,L+1,1,LW-1);
       bd(ws.getRange(row,L+1)).setFormula('=IFERROR(IF(COUNTA(PerfTest!E16:E45)=0,"--",IF(COUNTIF(PerfTest!L16:L45,"FAIL")>0,"FAIL","PASS")),"--")')
-        .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
+          .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
       stCF(ws.getRange(row,L+1));
     } else {
       inp(row,L+1,LW-1,dvList,isStatus);
@@ -935,7 +953,7 @@ function createSummary(ss) {
     if(isAutoPerf){
       m_(row,R_+1,1,RW-1);
       bd(ws.getRange(row,R_+1)).setFormula('=IFERROR(IF(COUNTA(PerfTest!E16:E45)=0,"--",IF(COUNTIF(PerfTest!L16:L45,"FAIL")>0,"FAIL","PASS")),"--")')
-        .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
+          .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
       stCF(ws.getRange(row,R_+1));
     } else {
       inp(row,R_+1,RW-1,dvList,isStatus);
@@ -984,24 +1002,24 @@ function createSummary(ss) {
   ];
   wForms.forEach((f,i)=>{
     const c=bd(ws.getRange(R,L+i)).setFormula(f).setBackground('#FFFFFF')
-      .setFontWeight('bold').setFontSize(i<6?16:13).setFontFamily('Arial')
-      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+        .setFontWeight('bold').setFontSize(i<6?16:13).setFontFamily('Arial')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle');
     if(i>=6){ c.setNumberFormat('0%'); passRateCF(ws.getRange(R,L+i)); }
   });
   aForms.forEach((f,i)=>{
     const c=bd(ws.getRange(R,R_+i)).setFormula(f).setBackground('#FFFFFF')
-      .setFontWeight('bold').setFontSize(i<6?16:13).setFontFamily('Arial')
-      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+        .setFontWeight('bold').setFontSize(i<6?16:13).setFontFamily('Arial')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle');
     if(i>=6){ c.setNumberFormat('0%'); passRateCF(ws.getRange(R,R_+i)); }
   });
   ws.setRowHeight(R,36); R++;
 
   m_(R,L,1,LW);
   ws.getRange(R,L).setValue('Hijau >=80%  |  Kuning 50-79%  |  Merah <50%  |  Exec Rate = % TC sudah dapat hasil (bukan TODO)')
-    .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic').setFontSize(7).setFontFamily('Arial').setHorizontalAlignment('left');
+      .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic').setFontSize(7).setFontFamily('Arial').setHorizontalAlignment('left');
   m_(R,R_,1,RW);
   ws.getRange(R,R_).setValue('Hijau >=80%  |  Kuning 50-79%  |  Merah <50%')
-    .setBackground('#E8EAF6').setFontColor('#283593').setFontStyle('italic').setFontSize(7).setFontFamily('Arial').setHorizontalAlignment('left');
+      .setBackground('#E8EAF6').setFontColor('#283593').setFontStyle('italic').setFontSize(7).setFontFamily('Arial').setHorizontalAlignment('left');
   ws.setRowHeight(R,14); R++;
 
   // =====================================================================
@@ -1021,10 +1039,10 @@ function createSummary(ss) {
   });
   ws.setRowHeight(R,16); R++;
   [['PASSED',  '=COUNTIF('+wZ+',"PASSED")',   '=COUNTIF('+aZ+',"PASSED")'],
-   ['FAILED',  '=COUNTIF('+wZ+',"FAILED")',   '=COUNTIF('+aZ+',"FAILED")'],
-   ['BLOCKED', '=COUNTIF('+wZ+',"BLOCKED")',  '=COUNTIF('+aZ+',"BLOCKED")'],
-   ['IN PROG', '=COUNTIF('+wZ+',"IN PROGRESS")','=COUNTIF('+aZ+',"IN PROGRESS")'],
-   ['TODO',    '=COUNTIF('+wZ+',"TODO")',      '=COUNTIF('+aZ+',"TODO")'],
+    ['FAILED',  '=COUNTIF('+wZ+',"FAILED")',   '=COUNTIF('+aZ+',"FAILED")'],
+    ['BLOCKED', '=COUNTIF('+wZ+',"BLOCKED")',  '=COUNTIF('+aZ+',"BLOCKED")'],
+    ['IN PROG', '=COUNTIF('+wZ+',"IN PROGRESS")','=COUNTIF('+aZ+',"IN PROGRESS")'],
+    ['TODO',    '=COUNTIF('+wZ+',"TODO")',      '=COUNTIF('+aZ+',"TODO")'],
   ].forEach((row,i)=>{
     const rr=R+i, bg=i%2===0?'#F8F9FA':'#FFFFFF';
     const totW='SUM('+colLetter(L+1)+(PIE_DATA_ROW+1)+':'+colLetter(L+1)+(PIE_DATA_ROW+5)+')';
@@ -1042,21 +1060,21 @@ function createSummary(ss) {
   // Pie charts anchored BELOW header row (PIE_HDR_ROW+1), offset right of data table
   try {
     ws.insertChart(ws.newChart().setChartType(Charts.ChartType.PIE)
-      .addRange(ws.getRange(PIE_DATA_ROW,L,6,2))
-      .setPosition(PIE_HDR_ROW+1,L+3,0,0)
-      .setOption('title','Web + Mobile').setOption('pieHole',0.4)
-      .setOption('colors',['#4CAF50','#F44336','#FF9800','#2196F3','#9E9E9E'])
-      .setOption('pieSliceText','percentage')
-      .setOption('legend',{position:'right'}).setOption('width',300).setOption('height',170).build());
+        .addRange(ws.getRange(PIE_DATA_ROW,L,6,2))
+        .setPosition(PIE_HDR_ROW+1,L+3,0,0)
+        .setOption('title','Web + Mobile').setOption('pieHole',0.4)
+        .setOption('colors',['#4CAF50','#F44336','#FF9800','#2196F3','#9E9E9E'])
+        .setOption('pieSliceText','percentage')
+        .setOption('legend',{position:'right'}).setOption('width',300).setOption('height',170).build());
   }catch(e){}
   try {
     ws.insertChart(ws.newChart().setChartType(Charts.ChartType.PIE)
-      .addRange(ws.getRange(PIE_DATA_ROW,R_,6,2))
-      .setPosition(PIE_HDR_ROW+1,R_+3,0,0)
-      .setOption('title','API Only').setOption('pieHole',0.4)
-      .setOption('colors',['#4CAF50','#F44336','#FF9800','#2196F3','#9E9E9E'])
-      .setOption('pieSliceText','percentage')
-      .setOption('legend',{position:'right'}).setOption('width',300).setOption('height',170).build());
+        .addRange(ws.getRange(PIE_DATA_ROW,R_,6,2))
+        .setPosition(PIE_HDR_ROW+1,R_+3,0,0)
+        .setOption('title','API Only').setOption('pieHole',0.4)
+        .setOption('colors',['#4CAF50','#F44336','#FF9800','#2196F3','#9E9E9E'])
+        .setOption('pieSliceText','percentage')
+        .setOption('legend',{position:'right'}).setOption('width',300).setOption('height',170).build());
   }catch(e){}
   // space for charts (about 8 rows @ ~22px = 176px)
   for(let i=0;i<8;i++){ ws.setRowHeight(R+i,22); }
@@ -1120,33 +1138,33 @@ function createSummary(ss) {
   // Trend charts anchored at TREND_HDR+1 (just below section header)
   try {
     ws.insertChart(ws.newChart().setChartType(Charts.ChartType.LINE)
-      .addRange(ws.getRange(RH_DATE_HDR,L,4,1))
-      .addRange(ws.getRange(RH_DATE_HDR,L+4,4,1))
-      .setPosition(TREND_HDR+1,L,0,0)
-      .setOption('title','Trend Pass Rate - Web/Mobile')
-      .setOption('curveType','function').setOption('legend',{position:'none'})
-      .setOption('colors',['#1565C0']).setOption('pointSize',6)
-      .setOption('vAxis',{format:'0%',minValue:0,maxValue:1})
-      .setOption('width',320).setOption('height',150).build());
+        .addRange(ws.getRange(RH_DATE_HDR,L,4,1))
+        .addRange(ws.getRange(RH_DATE_HDR,L+4,4,1))
+        .setPosition(TREND_HDR+1,L,0,0)
+        .setOption('title','Trend Pass Rate - Web/Mobile')
+        .setOption('curveType','function').setOption('legend',{position:'none'})
+        .setOption('colors',['#1565C0']).setOption('pointSize',6)
+        .setOption('vAxis',{format:'0%',minValue:0,maxValue:1})
+        .setOption('width',320).setOption('height',150).build());
   }catch(e){}
   try {
     ws.insertChart(ws.newChart().setChartType(Charts.ChartType.LINE)
-      .addRange(ws.getRange(RH_DATE_HDR,R_,4,1))
-      .addRange(ws.getRange(RH_DATE_HDR,R_+4,4,1))
-      .setPosition(TREND_HDR+1,R_,0,0)
-      .setOption('title','Trend Pass Rate - API')
-      .setOption('curveType','function').setOption('legend',{position:'none'})
-      .setOption('colors',['#283593']).setOption('pointSize',6)
-      .setOption('vAxis',{format:'0%',minValue:0,maxValue:1})
-      .setOption('width',320).setOption('height',150).build());
+        .addRange(ws.getRange(RH_DATE_HDR,R_,4,1))
+        .addRange(ws.getRange(RH_DATE_HDR,R_+4,4,1))
+        .setPosition(TREND_HDR+1,R_,0,0)
+        .setOption('title','Trend Pass Rate - API')
+        .setOption('curveType','function').setOption('legend',{position:'none'})
+        .setOption('colors',['#283593']).setOption('pointSize',6)
+        .setOption('vAxis',{format:'0%',minValue:0,maxValue:1})
+        .setOption('width',320).setOption('height',150).build());
   }catch(e){}
 
   m_(R,L,1,LW);
   ws.getRange(R,L).setValue('+ Tambah baris run baru: isi tanggal di kolom pertama, formula lain pickup otomatis dari Execution sheet.')
-    .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic').setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
+      .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic').setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
   m_(R,R_,1,RW);
   ws.getRange(R,R_).setValue('+ Tambah baris run baru: isi tanggal di kolom pertama.')
-    .setBackground('#E8EAF6').setFontColor('#283593').setFontStyle('italic').setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
+      .setBackground('#E8EAF6').setFontColor('#283593').setFontStyle('italic').setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
   ws.setRowHeight(R,14); R++;
 
   // =====================================================================
@@ -1158,7 +1176,7 @@ function createSummary(ss) {
 
   function buildCov(startRow,sc,master,subCol,prioCol,autoCol,execSh,hbg){
     ['SubModul','Total','Smoke','Regression','Auto%','Pass%'].forEach((h,i)=>
-      h_(ws.getRange(startRow,sc+i),hbg).setValue(h).setFontSize(8).setWrap(true));
+        h_(ws.getRange(startRow,sc+i),hbg).setValue(h).setFontSize(8).setWrap(true));
     ws.setRowHeight(startRow,22);
     const DS=startRow+1, MAX=12;
     for(let idx=0;idx<MAX;idx++){
@@ -1176,13 +1194,13 @@ function createSummary(ss) {
     passRateCF(ws.getRange(DS,sc+5,MAX,1));
     const totBg=hbg==='#0D47A1'?'#E3F2FD':'#E8EAF6', totRow=DS+MAX;
     ['TOTAL','=SUM('+colLetter(sc+1)+DS+':'+colLetter(sc+1)+(totRow-1)+')',
-     '=SUM('+colLetter(sc+2)+DS+':'+colLetter(sc+2)+(totRow-1)+')',
-     '=SUM('+colLetter(sc+3)+DS+':'+colLetter(sc+3)+(totRow-1)+')',
-     '=IFERROR(COUNTIF('+master+'!'+autoCol+'3:'+autoCol+'1000,"Automated")/MAX(1,COUNTA('+master+'!'+subCol+'3:'+subCol+'1000)),0)',
-     '=IFERROR(COUNTIF('+execSh+'!Z9:Z1000,"PASSED")/MAX(1,COUNTA('+master+'!'+subCol+'3:'+subCol+'1000)),0)',
+      '=SUM('+colLetter(sc+2)+DS+':'+colLetter(sc+2)+(totRow-1)+')',
+      '=SUM('+colLetter(sc+3)+DS+':'+colLetter(sc+3)+(totRow-1)+')',
+      '=IFERROR(COUNTIF('+master+'!'+autoCol+'3:'+autoCol+'1000,"Automated")/MAX(1,COUNTA('+master+'!'+subCol+'3:'+subCol+'1000)),0)',
+      '=IFERROR(COUNTIF('+execSh+'!Z9:Z1000,"PASSED")/MAX(1,COUNTA('+master+'!'+subCol+'3:'+subCol+'1000)),0)',
     ].forEach((v,i)=>{
       const c=bd(ws.getRange(totRow,sc+i)).setBackground(totBg).setFontWeight('bold')
-        .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment(i===0?'left':'center');
+          .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment(i===0?'left':'center');
       if(typeof v==='string'&&v.startsWith('=')) c.setFormula(v); else c.setValue(v);
       if(i>=4){ c.setNumberFormat('0%'); passRateCF(ws.getRange(totRow,sc+i)); }
     });
@@ -1192,6 +1210,84 @@ function createSummary(ss) {
   buildCov(R,L,'TC_Master','B','E','H','TC_Execution','#0D47A1');
   buildCov(R,R_,'API_Master','B','G','J','API_Execution','#283593');
   R+=14;
+
+  // ?? E. BUG SUMMARY ?????????????????????????????????????????????????????
+  const BUG_COL = 'BugReport!D5:D5000'; // Status col (col 4), DS=5
+  const BUG_PRO = 'BugReport!C5:C5000'; // Priority col (col 3)
+  const BUG_TYP = 'BugReport!B5:B5000'; // Type col (col 2)
+
+  // Left header
+  m_(R,L,1,LW); h_(ws.getRange(R,L),'#0D47A1').setValue('E.  BUG SUMMARY  -  Web + Mobile');
+  ws.setRowHeight(R,20);
+  // Right header
+  m_(R,R_,1,RW); h_(ws.getRange(R,R_),'#1565C0').setValue('E.  BUG SUMMARY  -  API');
+  R++;
+
+  // Bug KPI cards (left = Web+Mobile, right = API)
+  const bugMetrics = [
+    ['Total Bugs',  null, null],
+    ['Open',        'Open', null],
+    ['In Progress', 'In Progress', null],
+    ['Fixed',       'Fixed', null],
+    ['Verified',    'Verified', null],
+    ['Critical',    null, 'Critical'],
+    ['High',        null, 'High'],
+    ['Medium (Blocker)', null, 'Medium'],
+  ];
+
+  const bugColors = {
+    'Total Bugs':'#E3F2FD','Open':'#FFCDD2','In Progress':'#E3F2FD',
+    'Fixed':'#FFF9C4','Verified':'#C8E6C9','Critical':'#FFCDD2',
+    'High':'#FFE0B2','Medium (Blocker)':'#E3F2FD'
+  };
+  const bugFgColors = {
+    'Total Bugs':'#0D47A1','Open':'#B71C1C','In Progress':'#1565C0',
+    'Fixed':'#E65100','Verified':'#2E7D32','Critical':'#B71C1C',
+    'High':'#E65100','Medium (Blocker)':'#1565C0'
+  };
+
+  // Helpers for bug formula
+  function bugCount(typFilter, statFilter, prioFilter) {
+    let inner;
+    if (typFilter === 'API') {
+      if (statFilter)      inner = 'COUNTIFS('+BUG_TYP+',"API",'+BUG_COL+',"'+statFilter+'")';
+      else if (prioFilter) inner = 'COUNTIFS('+BUG_TYP+',"API",'+BUG_PRO+',"'+prioFilter+'")';
+      else                 inner = 'COUNTIF('+BUG_TYP+',"API")';
+    } else {
+      if (statFilter) {
+        inner = 'COUNTIFS('+BUG_TYP+',"Web",'+BUG_COL+',"'+statFilter+'")+'+
+            'COUNTIFS('+BUG_TYP+',"Mobile",'+BUG_COL+',"'+statFilter+'")';
+      } else if (prioFilter) {
+        inner = 'COUNTIFS('+BUG_TYP+',"Web",'+BUG_PRO+',"'+prioFilter+'")+'+
+            'COUNTIFS('+BUG_TYP+',"Mobile",'+BUG_PRO+',"'+prioFilter+'")';
+      } else {
+        inner = 'COUNTIF('+BUG_TYP+',"Web")+COUNTIF('+BUG_TYP+',"Mobile")';
+      }
+    }
+    return '=IFERROR('+inner+',0)';
+  }
+
+  bugMetrics.forEach(([label, statF, sevF], i) => {
+    const rr = R+i, bg = bugColors[label]||'#FFFFFF', fg = bugFgColors[label]||'#333333';
+    // Left (Web+Mobile)
+    bd(ws.getRange(rr,L)).setValue(label+':').setBackground('#FFEBEE').setFontFamily('Arial')
+        .setFontSize(9).setFontWeight('bold').setHorizontalAlignment('right')
+        .setFontColor('#C62828').setVerticalAlignment('middle');
+    m_(rr,L+1,1,LW-1);
+    bd(ws.getRange(rr,L+1)).setFormula(bugCount(null,statF,sevF))
+        .setBackground(bg).setFontFamily('Arial').setFontSize(11).setFontWeight('bold')
+        .setFontColor(fg).setHorizontalAlignment('center').setVerticalAlignment('middle');
+    // Right (API)
+    bd(ws.getRange(rr,R_)).setValue(label+':').setBackground('#FFEBEE').setFontFamily('Arial')
+        .setFontSize(9).setFontWeight('bold').setHorizontalAlignment('right')
+        .setFontColor('#B71C1C').setVerticalAlignment('middle');
+    m_(rr,R_+1,1,RW-1);
+    bd(ws.getRange(rr,R_+1)).setFormula(bugCount('API',statF,sevF))
+        .setBackground(bg).setFontFamily('Arial').setFontSize(11).setFontWeight('bold')
+        .setFontColor(fg).setHorizontalAlignment('center').setVerticalAlignment('middle');
+    ws.setRowHeight(rr,24);
+  });
+  R += bugMetrics.length + 1;
 
   addPeruriFooter(ws,R+1,21);
   ws.setFrozenRows(0);
@@ -1204,27 +1300,27 @@ function createPerfTest(ss) {
 
   function h_(range, bg, fg, sz) {
     return bd(range).setBackground(bg||'#37474F').setFontColor(fg||'#FFFFFF')
-      .setFontWeight('bold').setFontSize(sz||9).setFontFamily('Arial')
-      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+        .setFontWeight('bold').setFontSize(sz||9).setFontFamily('Arial')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle');
   }
   function lbl(row, col, text) {
     bd(ws.getRange(row,col)).setValue(text).setBackground('#E3F2FD')
-      .setFontFamily('Arial').setFontSize(9).setFontWeight('bold')
-      .setHorizontalAlignment('right').setFontColor('#546E7A').setVerticalAlignment('middle');
+        .setFontFamily('Arial').setFontSize(9).setFontWeight('bold')
+        .setHorizontalAlignment('right').setFontColor('#546E7A').setVerticalAlignment('middle');
   }
   function inp(row, col, ncols, val) {
     const r = ncols>1 ? ws.getRange(row,col,1,ncols).merge() : ws.getRange(row,col);
     bd(r).setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(9)
-      .setHorizontalAlignment('left').setVerticalAlignment('middle');
+        .setHorizontalAlignment('left').setVerticalAlignment('middle');
     if(val!==undefined) r.setValue(val);
     return r;
   }
   function passfailCF(range){
     const rules=ws.getConditionalFormatRules();
     rules.push(SpreadsheetApp.newConditionalFormatRule()
-      .whenTextEqualTo('PASS').setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true).setRanges([range]).build());
+        .whenTextEqualTo('PASS').setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true).setRanges([range]).build());
     rules.push(SpreadsheetApp.newConditionalFormatRule()
-      .whenTextEqualTo('FAIL').setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true).setRanges([range]).build());
+        .whenTextEqualTo('FAIL').setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true).setRanges([range]).build());
     ws.setConditionalFormatRules(rules);
   }
 
@@ -1234,9 +1330,9 @@ function createPerfTest(ss) {
   ws.setRowHeight(1,30);
   ws.getRange(2,1,1,15).merge();
   ws.getRange(2,1)
-    .setValue('Isi threshold (baris 11) sesuai SLA yang disepakati. Isi kolom Actual setelah menjalankan test. STATUS dihitung otomatis.')
-    .setFontColor('#78909C').setFontStyle('italic').setFontSize(9).setFontFamily('Arial')
-    .setBackground('#F8F9FA').setHorizontalAlignment('center');
+      .setValue('Isi threshold (baris 11) sesuai SLA yang disepakati. Isi kolom Actual setelah menjalankan test. STATUS dihitung otomatis.')
+      .setFontColor('#78909C').setFontStyle('italic').setFontSize(9).setFontFamily('Arial')
+      .setBackground('#F8F9FA').setHorizontalAlignment('center');
   ws.setRowHeight(2,18);
 
   // -- SESSION INFO ---------------------------------------------
@@ -1273,15 +1369,15 @@ function createPerfTest(ss) {
   metrics.forEach(m=>{
     h_(ws.getRange(10,m.col),m.color).setValue(m.label).setNote(m.note).setWrap(true).setFontSize(8);
     bd(ws.getRange(11,m.col)).setValue(m.default)
-      .setBackground('#F3E5F5').setFontFamily('Arial').setFontSize(12)
-      .setFontWeight('bold').setHorizontalAlignment('center').setFontColor('#4A148C').setVerticalAlignment('middle');
+        .setBackground('#F3E5F5').setFontFamily('Arial').setFontSize(12)
+        .setFontWeight('bold').setHorizontalAlignment('center').setFontColor('#4A148C').setVerticalAlignment('middle');
   });
   ws.setRowHeight(10,40); ws.setRowHeight(11,32);
 
   ws.getRange(12,1,1,15).merge();
   ws.getRange(12,1).setValue('? Edit nilai di baris 11 sesuai SLA yang disepakati.')
-    .setFontColor('#78909C').setFontStyle('italic').setFontSize(8).setFontFamily('Arial')
-    .setBackground('#E3F2FD');
+      .setFontColor('#78909C').setFontStyle('italic').setFontSize(8).setFontFamily('Arial')
+      .setBackground('#E3F2FD');
   ws.setRowHeight(12,16);
 
   // -- RESULTS TABLE ---------------------------------------------
@@ -1306,11 +1402,11 @@ function createPerfTest(ss) {
 
   // Row 15: detail col headers
   [{col:1,h:'Scenario'},{col:2,h:'Endpoint'},{col:3,h:'VU'},{col:4,h:'Duration\n(s)'},
-   {col:5,h:'RPS\nActual'},{col:6,h:'Error %\nActual'},
-   {col:7,h:'P90 ms'},{col:8,h:'P95 ms'},{col:9,h:'P99 ms'},
-   {col:10,h:'CPU %'},{col:11,h:'Memory %'},
-   {col:12,h:'STATUS'},{col:13,h:'Notes / Observasi'},
-   {col:14,h:'Screenshot 1\n(URL)'},{col:15,h:'Screenshot 2\n(URL)'},
+    {col:5,h:'RPS\nActual'},{col:6,h:'Error %\nActual'},
+    {col:7,h:'P90 ms'},{col:8,h:'P95 ms'},{col:9,h:'P99 ms'},
+    {col:10,h:'CPU %'},{col:11,h:'Memory %'},
+    {col:12,h:'STATUS'},{col:13,h:'Notes / Observasi'},
+    {col:14,h:'Screenshot 1\n(URL)'},{col:15,h:'Screenshot 2\n(URL)'},
   ].forEach(c=>h_(ws.getRange(15,c.col),'#7B1FA2').setValue(c.h).setFontSize(8).setWrap(true));
   ws.setRowHeight(15,38);
 
@@ -1351,29 +1447,29 @@ function createPerfTest(ss) {
     // Data cols 1-11
     for(let c=1;c<=11;c++){
       bd(ws.getRange(r,c)).setBackground(bg).setFontFamily('Arial').setFontSize(9)
-        .setHorizontalAlignment(c<=2?'left':'center').setVerticalAlignment('middle');
+          .setHorizontalAlignment(c<=2?'left':'center').setVerticalAlignment('middle');
     }
     // STATUS col 12
     const f='=IF(AND(E'+r+'="",F'+r+'="",G'+r+'=""),"",'+
-      'IF(AND('+
-      'IF(E'+r+'<>"",E'+r+'>=$A$11,TRUE),'+      // RPS >= min
-      'IF(F'+r+'<>"",F'+r+'<=$B$11,TRUE),'+      // Error% <= max
-      'IF(G'+r+'<>"",G'+r+'<=$C$11,TRUE),'+      // P90 <= max
-      'IF(H'+r+'<>"",H'+r+'<=$D$11,TRUE),'+      // P95 <= max
-      'IF(I'+r+'<>"",I'+r+'<=$E$11,TRUE),'+      // P99 <= max
-      'IF(J'+r+'<>"",J'+r+'<=$G$11,TRUE),'+      // CPU <= max
-      'IF(K'+r+'<>"",K'+r+'<=$H$11,TRUE)'+       // Memory <= max
-      '),"PASS","FAIL"))';
+        'IF(AND('+
+        'IF(E'+r+'<>"",E'+r+'>=$A$11,TRUE),'+      // RPS >= min
+        'IF(F'+r+'<>"",F'+r+'<=$B$11,TRUE),'+      // Error% <= max
+        'IF(G'+r+'<>"",G'+r+'<=$C$11,TRUE),'+      // P90 <= max
+        'IF(H'+r+'<>"",H'+r+'<=$D$11,TRUE),'+      // P95 <= max
+        'IF(I'+r+'<>"",I'+r+'<=$E$11,TRUE),'+      // P99 <= max
+        'IF(J'+r+'<>"",J'+r+'<=$G$11,TRUE),'+      // CPU <= max
+        'IF(K'+r+'<>"",K'+r+'<=$H$11,TRUE)'+       // Memory <= max
+        '),"PASS","FAIL"))';
     bd(ws.getRange(r,12)).setFormula(f).setBackground(bg)
-      .setFontFamily('Arial').setFontSize(9).setFontWeight('bold').setHorizontalAlignment('center');
+        .setFontFamily('Arial').setFontSize(9).setFontWeight('bold').setHorizontalAlignment('center');
     passfailCF(ws.getRange(r,12));
     // Notes col 13 + Screenshot cols 14-15
     bd(ws.getRange(r,13)).setBackground(bg).setFontFamily('Arial').setFontSize(9)
-      .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
+        .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
     bd(ws.getRange(r,14)).setBackground(bg).setFontColor('#1A73E8').setFontFamily('Arial').setFontSize(9)
-      .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
+        .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
     bd(ws.getRange(r,15)).setBackground(bg).setFontColor('#1A73E8').setFontFamily('Arial').setFontSize(9)
-      .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
+        .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
     ws.setRowHeight(r,22);
   }
 
@@ -1390,15 +1486,15 @@ function createPerfTest(ss) {
   const totRow=DS+MR;
   ws.getRange(totRow,1,1,11).merge(); // spans scenario+config cols
   bd(ws.getRange(totRow,1)).setValue('OVERALL RESULT')
-    .setBackground('#E3F2FD').setFontWeight('bold').setFontFamily('Arial').setFontSize(10)
-    .setHorizontalAlignment('right').setFontColor('#37474F');
+      .setBackground('#E3F2FD').setFontWeight('bold').setFontFamily('Arial').setFontSize(10)
+      .setHorizontalAlignment('right').setFontColor('#37474F');
   bd(ws.getRange(totRow,12))
-    .setFormula('=IF(COUNTIF(L'+DS+':L'+(totRow-1)+',"FAIL")>0,"FAIL","PASS")')
-    .setBackground('#E3F2FD').setFontWeight('bold').setFontFamily('Arial').setFontSize(12)
-    .setHorizontalAlignment('center').setFontColor('#37474F');
+      .setFormula('=IF(COUNTIF(L'+DS+':L'+(totRow-1)+',"FAIL")>0,"FAIL","PASS")')
+      .setBackground('#E3F2FD').setFontWeight('bold').setFontFamily('Arial').setFontSize(12)
+      .setHorizontalAlignment('center').setFontColor('#37474F');
   passfailCF(ws.getRange(totRow,12));
   bd(ws.getRange(totRow,13)).setBackground('#E3F2FD').setFontFamily('Arial').setFontSize(9)
-    .setValue('PASS = semua skenario memenuhi threshold  .  Link ke Summary: lihat sel Perf Test Status di tab Summary');
+      .setValue('PASS = semua skenario memenuhi threshold  .  Link ke Summary: lihat sel Perf Test Status di tab Summary');
   ws.setRowHeight(totRow,28);
 
   // Column widths
@@ -1410,11 +1506,11 @@ function createPerfTest(ss) {
   // Guide note
   ws.getRange(totRow+2,1,1,15).merge();
   ws.getRange(totRow+2,1)
-    .setValue('Panduan: Kolom STATUS otomatis PASS/FAIL berdasarkan threshold baris 11. '+
-              'Edit threshold sesuai SLA. Tambah baris untuk skenario baru. '+
-              'OVERALL RESULT di baris terakhir terhubung ke tab Summary (Perf Test Status).')
-    .setFontColor('#78909C').setFontStyle('italic').setFontSize(8).setFontFamily('Arial')
-    .setBackground('#E3F2FD').setWrap(true);
+      .setValue('Panduan: Kolom STATUS otomatis PASS/FAIL berdasarkan threshold baris 11. '+
+          'Edit threshold sesuai SLA. Tambah baris untuk skenario baru. '+
+          'OVERALL RESULT di baris terakhir terhubung ke tab Summary (Perf Test Status).')
+      .setFontColor('#78909C').setFontStyle('italic').setFontSize(8).setFontFamily('Arial')
+      .setBackground('#E3F2FD').setWrap(true);
   ws.setRowHeight(totRow+2,30);
   addPeruriFooter(ws, totRow+4, 15);
 }
@@ -1424,13 +1520,176 @@ function createPerfTest(ss) {
 // ===================================================================
 //  TAB 6 -- Appendix
 // ===================================================================
+function createBugReport(ss) {
+  const ws = safeSheet(ss, 'BugReport');
+  ws.clear(); ws.setTabColor('#1565C0');
+
+  function h_(r,c,nr,nc,txt,bg,fg,sz){
+    const rng=nr>1||nc>1?ws.getRange(r,c,nr,nc).merge():ws.getRange(r,c);
+    return rng.setValue(txt||'').setBackground(bg||'#0D47A1').setFontColor(fg||'#FFFFFF')
+        .setFontWeight('bold').setFontSize(sz||9).setFontFamily('Arial')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle')
+        .setBorder(true,true,true,true,false,false,'#90CAF9',SpreadsheetApp.BorderStyle.SOLID);
+  }
+  function dv_(list){ return SpreadsheetApp.newDataValidation().requireValueInList(list,true).build(); }
+
+  // Columns (19 total ? Severity removed):
+  //  1=BugID  2=Type  3=Priority  4=Status  5=Feature  6=SubModul
+  //  7=Title  8=Environment  9=Steps  10=Expected  11=Actual
+  //  12=Related TC_ID  13=Reported By  14=Assigned To
+  //  15=Date Found  16=Date Fixed  17=Sprint  18=Jira/Link  19=Notes
+  [70,75,80,90,100,90, 220,90,160,140,160, 110,100,110, 90,90,80,130,150,160]
+      .forEach((w,i)=>ws.setColumnWidth(i+1,w));
+
+  // Row 1: title
+  h_(1,1,1,19,'BUG REPORT  |  Web  ?  Mobile  ?  API','#0D47A1','#FFFFFF',12);
+  ws.setRowHeight(1,30);
+
+  // Row 2: note
+  ws.getRange(2,1,1,20).merge()
+      .setValue('Priority: Critical = showstopper ? High = blocker ? Medium = degraded (still counts as blocker) ? Low = minor  |  Status: Open ? In Progress ? Fixed ? Verified ? Closed')
+      .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic')
+      .setFontFamily('Arial').setFontSize(8).setHorizontalAlignment('left');
+  ws.setRowHeight(2,16);
+
+  // Row 3: group headers
+  h_(3,1,1,4,'IDENTIFICATION','#0D47A1');
+  h_(3,5,1,2,'CLASSIFICATION','#1565C0');
+  h_(3,7,1,5,'DETAIL','#1976D2');
+  h_(3,12,1,3,'OWNERSHIP','#1565C0');
+  h_(3,15,1,2,'TIMELINE','#0D47A1');
+  h_(3,17,1,4,'REFERENCE','#0D47A1');
+  ws.setRowHeight(3,18);
+
+  // Row 4: column headers
+  ['Bug ID','Type','Priority','Status',
+    'Feature','SubModul',
+    'Title / Summary','Environment','Steps to Reproduce','Expected Result','Actual Result',
+    'Related TC_ID','Reported By','Assigned To',
+    'Date Found','Date Fixed',
+    'Sprint','Jira / Link','Notes','Screenshot / Evidence'
+  ].forEach((h,i) => h_(4,i+1,1,1,h,'#0D47A1'));
+  ws.setRowHeight(4,22);
+
+  // Notes
+  ws.getRange(4,1).setNote(
+      'Bug ID Format: BUG-[TYPE]-[000]\n\n'+
+      'BUG-WEB-001  = Web/UI bug ke-1\n'+
+      'BUG-MOB-001  = Mobile bug ke-1\n'+
+      'BUG-API-001  = API bug ke-1\n\n'+
+      'Nomor urut 3 digit, mulai 001.\nJangan reuse ID yang sudah ada.'
+  );
+  ws.getRange(4,3).setNote(
+      'Priority Level:\n\n'+
+      'Critical  = Showstopper. Fitur/app tidak bisa digunakan sama sekali. Release DITAHAN.\n'+
+      'High      = Blocker. Fitur utama terdampak signifikan.\n'+
+      'Medium    = Blocker (degraded). Ada workaround tapi experience buruk.\n'+
+      '            --> Medium, High, Critical semua dihitung sebagai blocker di dashboard.\n'+
+      'Low       = Minor. Kosmetik atau edge case kecil, tidak blokir release.'
+  );
+  ws.getRange(4,4).setNote(
+      'Status Flow:\n'+
+      'Open --> In Progress --> Fixed --> Verified --> Closed\n\n'+
+      "Won't Fix = diputuskan tidak diperbaiki (dengan alasan)\n"+
+      'Reopen    = sudah Fixed tapi masih reproducible'
+  );
+
+  // Data rows
+  const DS = 5, MR = 200;
+
+  ws.getRange(DS,2,MR,1).setDataValidation(dv_(['Web','Mobile','API']));
+  ws.getRange(DS,3,MR,1).setDataValidation(dv_(['Critical','High','Medium','Low']));
+  ws.getRange(DS,4,MR,1).setDataValidation(dv_(['Open','In Progress','Fixed','Verified','Closed',"Won't Fix",'Reopen']));
+  ws.getRange(DS,8,MR,1).setDataValidation(dv_(['Dev','Staging / UAT','Production','All']));
+
+  // Alternating row bg
+  for (let r=DS; r<DS+MR; r++) {
+    const bg = (r-DS)%2===0 ? '#F8FBFF' : '#FFFFFF';
+    ws.getRange(r,1,1,20).setBackground(bg).setFontFamily('Arial').setFontSize(9)
+        .setVerticalAlignment('middle')
+        .setBorder(true,true,true,true,false,false,'#90CAF9',SpreadsheetApp.BorderStyle.SOLID);
+    ws.setRowHeight(r,22);
+  }
+  ws.getRange(DS,7,MR,1).setWrap(true);  // Title
+  ws.getRange(DS,9,MR,1).setWrap(true);  // Steps
+  ws.getRange(DS,10,MR,1).setWrap(true); // Expected
+  ws.getRange(DS,11,MR,1).setWrap(true); // Actual
+  ws.getRange(DS,15,MR,1).setNumberFormat('yyyy-mm-dd');
+  ws.getRange(DS,16,MR,1).setNumberFormat('yyyy-mm-dd');
+  ws.getRange(DS,20,MR,1).setWrap(false).setFontColor('#1A73E8'); // Screenshot link
+
+  // Conditional Formatting
+  const rules = ws.getConditionalFormatRules();
+  const prioRange = ws.getRange(DS,3,MR,1);
+  const statRange = ws.getRange(DS,4,MR,1);
+  const typeRange = ws.getRange(DS,2,MR,1);
+
+  // Priority CF (red-blue theme: critical=deep red, high=orange-red, medium=amber, low=light blue)
+  [{v:'Critical',bg:'#FFCDD2',fg:'#B71C1C'},
+    {v:'High',    bg:'#FFE0B2',fg:'#E65100'},
+    {v:'Medium',  bg:'#E3F2FD',fg:'#1565C0'},
+    {v:'Low',     bg:'#F1F8E9',fg:'#388E3C'}
+  ].forEach(s=>rules.push(SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo(s.v).setBackground(s.bg).setFontColor(s.fg).setBold(true)
+      .setRanges([prioRange]).build()));
+
+  // Status CF
+  [{v:'Open',        bg:'#FFCDD2',fg:'#C62828'},
+    {v:'In Progress', bg:'#E3F2FD',fg:'#1565C0'},
+    {v:'Fixed',       bg:'#FFF9C4',fg:'#F57F17'},
+    {v:'Verified',    bg:'#C8E6C9',fg:'#2E7D32'},
+    {v:'Closed',      bg:'#E8F5E9',fg:'#388E3C'},
+    {v:"Won't Fix",   bg:'#F5F5F5',fg:'#9E9E9E'},
+    {v:'Reopen',      bg:'#EDE7F6',fg:'#6A1B9A'}
+  ].forEach(s=>rules.push(SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo(s.v).setBackground(s.bg).setFontColor(s.fg).setBold(true)
+      .setRanges([statRange]).build()));
+
+  // Type CF
+  [{v:'Web',    bg:'#E3F2FD',fg:'#1565C0'},
+    {v:'Mobile', bg:'#E8F5E9',fg:'#2E7D32'},
+    {v:'API',    bg:'#EDE7F6',fg:'#6A1B9A'}
+  ].forEach(s=>rules.push(SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo(s.v).setBackground(s.bg).setFontColor(s.fg).setBold(true)
+      .setRanges([typeRange]).build()));
+
+  // Sample row
+  const sampleRow = [
+    'BUG-WEB-001','Web','High','Open','Login','1.1',
+    'Tombol Login tidak aktif setelah input password yang benar',
+    'Staging / UAT',
+    '1. Buka halaman Login\n2. Input email & password yang valid\n3. Klik tombol Login',
+    'User berhasil login dan diarahkan ke Dashboard',
+    'Tombol Login tetap disabled / tidak bisa diklik setelah input benar',
+    'WEB.LOG.001','Tester A','Dev B',
+    new Date(),'',
+    'Sprint 12','','Reproduced di Chrome 121 & Firefox 122. Tidak terjadi di Safari.',
+    ''
+  ];
+  sampleRow.forEach((v,ci) => {
+    const c = ws.getRange(DS,ci+1);
+    if (ci===14||ci===15) { if(v) c.setValue(v).setNumberFormat('yyyy-mm-dd'); }
+    else c.setValue(v||'');
+    c.setBackground('#F8FBFF').setFontFamily('Arial').setFontSize(9)
+        .setVerticalAlignment('middle')
+        .setBorder(true,true,true,true,false,false,'#90CAF9',SpreadsheetApp.BorderStyle.SOLID);
+  });
+  ws.setRowHeight(DS, 60); // taller for wrapped text
+
+  ws.getRange(4,20).setNote('Paste link screenshot/evidence.\nContoh: URL Google Drive, Jira attachment, atau direct image URL.\nPastikan link bisa diakses oleh reviewer.');
+  ws.setConditionalFormatRules(rules);
+  ws.setFrozenRows(4);
+  Logger.log('BugReport created OK');
+}
+
+
 function createAppendix(ss) {
   const ws = safeSheet(ss,'Appendix');
   ws.clear(); ws.setTabColor('#1A237E');
 
   ws.getRange(1,1,1,4).merge();
   hdr(ws.getRange(1,1,1,4),'#0D47A1','#FFFFFF',11)
-    .setValue('APPENDIX  .  Definisi, Konvensi & Panduan');
+      .setValue('APPENDIX  .  Definisi, Konvensi & Panduan');
   ws.setRowHeight(1,30);
 
   let r=2;
@@ -1441,12 +1700,12 @@ function createAppendix(ss) {
   }
   function row2(label,desc,bg){
     bd(ws.getRange(r,1)).setValue(label)
-      .setBackground(bg||'#ECEFF1').setFontFamily('Arial').setFontSize(9)
-      .setFontWeight('bold').setHorizontalAlignment('left').setVerticalAlignment('top').setWrap(true);
+        .setBackground(bg||'#ECEFF1').setFontFamily('Arial').setFontSize(9)
+        .setFontWeight('bold').setHorizontalAlignment('left').setVerticalAlignment('top').setWrap(true);
     ws.getRange(r,2,1,3).merge();
     bd(ws.getRange(r,2)).setValue(desc).setBackground('#FFFFFF')
-      .setFontFamily('Arial').setFontSize(9).setWrap(true)
-      .setHorizontalAlignment('left').setVerticalAlignment('top');
+        .setFontFamily('Arial').setFontSize(9).setWrap(true)
+        .setHorizontalAlignment('left').setVerticalAlignment('top');
     ws.setRowHeight(r,48); r++;
   }
 
@@ -1462,16 +1721,16 @@ function createAppendix(ss) {
 
   sec('2. STATUS EKSEKUSI','#0D47A1');
   [['PASSED',      'Skenario berhasil -- hasil sesuai Expected Result.','#C8E6C9'],
-   ['IN PROGRESS', 'Ada skenario yang sudah PASSED di run sebelumnya namun masih ada TODO -- eksekusi belum selesai.','#E3F2FD'],
-   ['FAILED',      'Skenario gagal -- hasil tidak sesuai Expected Result. Wajib buat bug report.','#FFCDD2'],
-   ['BLOCKED',     'Tidak bisa dieksekusi -- environment down, dependensi belum siap, atau data belum ada.','#FFE0B2'],
-   ['TODO',        'Belum dieksekusi pada run ini.','#F5F5F5'],
+    ['IN PROGRESS', 'Ada skenario yang sudah PASSED di run sebelumnya namun masih ada TODO -- eksekusi belum selesai.','#E3F2FD'],
+    ['FAILED',      'Skenario gagal -- hasil tidak sesuai Expected Result. Wajib buat bug report.','#FFCDD2'],
+    ['BLOCKED',     'Tidak bisa dieksekusi -- environment down, dependensi belum siap, atau data belum ada.','#FFE0B2'],
+    ['TODO',        'Belum dieksekusi pada run ini.','#F5F5F5'],
   ].forEach(([s,d,bg])=>{
     bd(ws.getRange(r,1)).setValue(s).setBackground(bg).setFontWeight('bold')
-      .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle');
+        .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle');
     ws.getRange(r,2,1,3).merge();
     bd(ws.getRange(r,2)).setValue(d).setBackground('#FFFFFF').setFontFamily('Arial')
-      .setFontSize(9).setWrap(true).setHorizontalAlignment('left').setVerticalAlignment('middle');
+        .setFontSize(9).setWrap(true).setHorizontalAlignment('left').setVerticalAlignment('middle');
     ws.setRowHeight(r,34); r++;
   });
   r++;
@@ -1483,16 +1742,16 @@ function createAppendix(ss) {
 
   sec('4. PRIORITY','#0D47A1');
   [['Critical  [BLOCKER]','Fungsi utama tidak bisa digunakan. Release DITAHAN jika FAIL/BLOCKED.','#FFEBEE'],
-   ['High      [BLOCKER]','Fungsi penting terganggu. Jika FAIL: perlu approval PM untuk release.','#FFF3E0'],
-   ['Medium    [POTENTIAL BLOCKER]','Fungsi terganggu sebagian. Jika FAIL sebelum UAT: flagged ke tech lead.','#FFF8E1'],
-   ['Low',     'Masalah minor: UI, typo, UX kurang optimal.','#F1F8E9'],
-   ['Lowest',  'Nice to have. Fix opsional.','#ECEFF1'],
+    ['High      [BLOCKER]','Fungsi penting terganggu. Jika FAIL: perlu approval PM untuk release.','#FFF3E0'],
+    ['Medium    [POTENTIAL BLOCKER]','Fungsi terganggu sebagian. Jika FAIL sebelum UAT: flagged ke tech lead.','#FFF8E1'],
+    ['Low',     'Masalah minor: UI, typo, UX kurang optimal.','#F1F8E9'],
+    ['Lowest',  'Nice to have. Fix opsional.','#ECEFF1'],
   ].forEach(([p,d,bg])=>{
     bd(ws.getRange(r,1)).setValue(p).setBackground(bg).setFontWeight('bold')
-      .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle');
+        .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle');
     ws.getRange(r,2,1,3).merge();
     bd(ws.getRange(r,2)).setValue(d).setBackground('#FFFFFF').setFontFamily('Arial')
-      .setFontSize(9).setWrap(true).setHorizontalAlignment('left').setVerticalAlignment('middle');
+        .setFontSize(9).setWrap(true).setHorizontalAlignment('left').setVerticalAlignment('middle');
     ws.setRowHeight(r,34); r++;
   });
   r++;
@@ -1505,34 +1764,34 @@ function createAppendix(ss) {
   r++;
   sec('6. AUTOMATION STATUS','#0D47A1');
   [['Automated',          'Script sudah dibuat dan dapat dijalankan via CI/CD atau manual run.'],
-   ['Manual',             'Tidak akan diautomasi -- memerlukan penilaian manusia (exploratory, visual, UX).'],
-   ['To Do',              'Direncanakan untuk diautomasi, belum dikerjakan.'],
-   ['Cannot be Automated','Secara teknis tidak bisa diautomasi (scan QR fisik, biometrik, hardware-dependent).'],
+    ['Manual',             'Tidak akan diautomasi -- memerlukan penilaian manusia (exploratory, visual, UX).'],
+    ['To Do',              'Direncanakan untuk diautomasi, belum dikerjakan.'],
+    ['Cannot be Automated','Secara teknis tidak bisa diautomasi (scan QR fisik, biometrik, hardware-dependent).'],
   ].forEach(([s,d])=>row2(s,d));
   r++;
 
   sec('9. PERFORMANCE TEST -- METRIK','#4A148C');
   [['RPS (req/s)',    'Requests Per Second -- jumlah request per detik yang berhasil diproses.\nThreshold: MINIMUM. Jika actual < threshold ? FAIL.'],
-   ['Error Rate (%)', 'Persentase request yang mengembalikan error (status ? 400 atau timeout).\nThreshold: MAKSIMUM. Jika actual > threshold ? FAIL.'],
-   ['P90 / P95 / P99','Percentile response time -- 90% / 95% / 99% dari semua request selesai dalam waktu ini.\nThreshold: MAKSIMUM (ms). Semakin kecil semakin baik.'],
-   ['VU (Virtual User)','Jumlah concurrent user yang disimulasikan dalam satu skenario test.\nDiisi sebagai config, bukan sebagai threshold PASS/FAIL.'],
-   ['CPU Usage (%)',   'Persentase penggunaan CPU server selama test berlangsung.\nThreshold: MAKSIMUM. Jika actual > threshold ? FAIL.'],
-   ['Memory Usage (%)','Persentase penggunaan memory server selama test berlangsung.\nThreshold: MAKSIMUM. Jika actual > threshold ? FAIL.'],
+    ['Error Rate (%)', 'Persentase request yang mengembalikan error (status ? 400 atau timeout).\nThreshold: MAKSIMUM. Jika actual > threshold ? FAIL.'],
+    ['P90 / P95 / P99','Percentile response time -- 90% / 95% / 99% dari semua request selesai dalam waktu ini.\nThreshold: MAKSIMUM (ms). Semakin kecil semakin baik.'],
+    ['VU (Virtual User)','Jumlah concurrent user yang disimulasikan dalam satu skenario test.\nDiisi sebagai config, bukan sebagai threshold PASS/FAIL.'],
+    ['CPU Usage (%)',   'Persentase penggunaan CPU server selama test berlangsung.\nThreshold: MAKSIMUM. Jika actual > threshold ? FAIL.'],
+    ['Memory Usage (%)','Persentase penggunaan memory server selama test berlangsung.\nThreshold: MAKSIMUM. Jika actual > threshold ? FAIL.'],
   ].forEach(([m,d])=>row2(m,d));
   r++;
 
   sec('10. HTTP METHOD','#0D47A1');
   [['GET','Mengambil data. Tidak mengubah state.','#E8F0FE'],
-   ['POST','Membuat resource baru.','#E8F5E9'],
-   ['PUT','Update resource secara penuh (replace).','#FFF8E1'],
-   ['PATCH','Update resource sebagian (partial).','#F3E5F5'],
-   ['DELETE','Menghapus resource.','#FCE4EC'],
+    ['POST','Membuat resource baru.','#E8F5E9'],
+    ['PUT','Update resource secara penuh (replace).','#FFF8E1'],
+    ['PATCH','Update resource sebagian (partial).','#F3E5F5'],
+    ['DELETE','Menghapus resource.','#FCE4EC'],
   ].forEach(([m,d,bg])=>{
     bd(ws.getRange(r,1)).setValue(m).setBackground(bg).setFontWeight('bold')
-      .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle');
+        .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle');
     ws.getRange(r,2,1,3).merge();
     bd(ws.getRange(r,2)).setValue(d).setBackground('#FFFFFF').setFontFamily('Arial')
-      .setFontSize(9).setHorizontalAlignment('left').setVerticalAlignment('middle');
+        .setFontSize(9).setHorizontalAlignment('left').setVerticalAlignment('middle');
     ws.setRowHeight(r,28); r++;
   });
 

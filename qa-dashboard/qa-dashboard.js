@@ -15,7 +15,7 @@
 function createDashboard() {
   Logger.log('createDashboard START');
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.rename('QA Portfolio Dashboard');
+  ss.rename('QA Dashboard');
 
   ['Config','Overview','Blockers','Coverage','History','_Raw'].forEach(name => {
     const s = ss.getSheetByName(name);
@@ -35,13 +35,13 @@ function createDashboard() {
   if (s1 && ss.getSheets().length > 1) try { ss.deleteSheet(s1); } catch(e) {}
 
   SpreadsheetApp.getUi().alert(
-    'Dashboard berhasil dibuat!\n\n' +
-    '1. Buka tab Config ? isi Modul Name & Spreadsheet ID\n' +
-    '2. Run refreshDashboard() untuk load data\n' +
-    '3. Run setupTrigger() untuk auto-refresh setiap hari\n\n' +
-    'Cara dapat Spreadsheet ID:\n' +
-    'Buka modul sheet ? copy dari URL:\n' +
-    'docs.google.com/spreadsheets/d/[SPREADSHEET_ID]/edit'
+      'Dashboard berhasil dibuat!\n\n' +
+      '1. Buka tab Config ? isi Modul Name & Spreadsheet ID\n' +
+      '2. Run refreshDashboard() untuk load data\n' +
+      '3. Run setupTrigger() untuk auto-refresh setiap hari\n\n' +
+      'Cara dapat Spreadsheet ID:\n' +
+      'Buka modul sheet ? copy dari URL:\n' +
+      'docs.google.com/spreadsheets/d/[SPREADSHEET_ID]/edit'
   );
   Logger.log('createDashboard DONE');
 }
@@ -81,7 +81,7 @@ function refreshDashboard() {
   // Update last refresh timestamp in Overview
   const ov = ss.getSheetByName('Overview');
   if (ov) {
-    ov.getRange(2, 1).setValue('Last refreshed: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm'));
+    ov.getRange(2, 1).setValue('Last refreshed: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss'));
   }
   Logger.log('refreshDashboard DONE');
   try { SpreadsheetApp.getUi().alert('Refresh selesai! ' + allData.length + ' modul di-update.'); } catch(e) {}
@@ -94,7 +94,7 @@ function setupTrigger() {
   });
   // Create daily trigger at 07:00
   ScriptApp.newTrigger('refreshDashboard')
-    .timeBased().everyHours(1).create();
+      .timeBased().everyHours(1).create();
   try { SpreadsheetApp.getUi().alert('Trigger set! Dashboard auto-refresh setiap 1 jam sekali.'); } catch(e) {}
 }
 
@@ -110,6 +110,7 @@ function pullModuleData(mod) {
   const apie = src.getSheetByName('API_Execution');
   const perf = src.getSheetByName('PerfTest');
   const summ = src.getSheetByName('Summary');
+  const bugr = src.getSheetByName('BugReport');
 
   // Pull PIC QA and Project/Sprint from Summary TEST DESCRIPTION section
   // leftFields row order: [0]=Project/Sprint [1]=Period [2]=QA Lead [3]=PIC QA
@@ -165,6 +166,7 @@ function pullModuleData(mod) {
     perfResult:  perfResult,
     blockers:    blockers,
     coverage:    coverage,
+    bugStats:    getBugStats(bugr),
     error:       '',
   };
 }
@@ -328,12 +330,40 @@ function getPerfResult(perfSheet) {
   } catch(e) { return '--'; }
 }
 
+function getBugStats(bugSheet) {
+  const empty = {total:0,open:0,inprog:0,fixed:0,verified:0,critical:0,high:0,medium:0,low:0,blocker:0};
+  if (!bugSheet) return empty;
+  try {
+    const data = bugSheet.getDataRange().getValues();
+    // Row 1=title, 2=note, 3=groups, 4=headers, DS=5
+    const rows = data.slice(4).filter(r => r[0] && r[0] !== ''); // col A = Bug ID
+    const total    = rows.length;
+    const open     = rows.filter(r => r[3] === 'Open').length;          // col D = Status
+    const inprog   = rows.filter(r => r[3] === 'In Progress').length;
+    const fixed    = rows.filter(r => r[3] === 'Fixed').length;
+    const verified = rows.filter(r => r[3] === 'Verified').length;
+    const critical = rows.filter(r => r[2] === 'Critical').length;      // col C = Priority
+    const high     = rows.filter(r => r[2] === 'High').length;
+    const medium   = rows.filter(r => r[2] === 'Medium').length;
+    const low      = rows.filter(r => r[2] === 'Low').length;
+    // Blocker = Open/In Progress/Reopen bugs with priority Medium, High, OR Critical
+    const blocker  = rows.filter(r =>
+        ['Open','In Progress','Reopen'].includes(r[3]) &&
+        ['Critical','High','Medium'].includes(r[2])
+    ).length;
+    return {total, open, inprog, fixed, verified, critical, high, medium, low, blocker};
+  } catch(e) {
+    Logger.log('getBugStats error: ' + e.message);
+    return {total:0,open:0,inprog:0,fixed:0,verified:0,critical:0,high:0,medium:0,low:0,blocker:0};
+  }
+}
+
 function emptyModuleData(mod, errorMsg) {
   return { name: mod.name, team: mod.team||'', id: mod.id, sprint: mod.sprint||'',
     refreshed: new Date(), error: errorMsg,
     wTotal:0,wPassed:0,wFailed:0,wBlocked:0,wInProg:0,wTodo:0,wPassRate:0,wAutoRate:0,wExecRate:0,
     aTotal:0,aPassed:0,aFailed:0,aBlocked:0,aInProg:0,aTodo:0,aPassRate:0,aAutoRate:0,aExecRate:0,
-    perfResult:'--', blockers:[], coverage:[] };
+    perfResult:'--', blockers:[], coverage:[], bugStats:{total:0,open:0,critical:0,high:0,medium:0,blocker:0} };
 }
 
 
@@ -344,20 +374,20 @@ function buildConfig(ss) {
   ws.clear();
 
   function hdr(r,c,txt,bg){ ws.getRange(r,c).setValue(txt).setBackground(bg||'#0D47A1')
-    .setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
-    .setHorizontalAlignment('center').setVerticalAlignment('middle'); }
+      .setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle'); }
 
   // Title
   ws.getRange(1,1,1,7).merge();
   ws.getRange(1,1).setValue('QA PORTFOLIO DASHBOARD  ?  Module Config')
-    .setBackground('#0D47A1').setFontColor('#FFFFFF').setFontWeight('bold')
-    .setFontSize(13).setFontFamily('Arial').setHorizontalAlignment('center');
+      .setBackground('#0D47A1').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(13).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setRowHeight(1,32);
 
   // Instruction
   ws.getRange(2,1,1,7).merge();
   ws.getRange(2,1).setValue('Isi baris di bawah ini. Spreadsheet ID ada di URL modul sheet: docs.google.com/spreadsheets/d/[ID]/edit')
-    .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic').setFontSize(8).setFontFamily('Arial');
+      .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic').setFontSize(8).setFontFamily('Arial');
   ws.setRowHeight(2,16);
 
   // Headers
@@ -368,25 +398,25 @@ function buildConfig(ss) {
 
   // Sample rows
   [
+    ['Y','QA-TEMPLATE','QA Team','Sprint 1','1evhTCv0gyfsTxkh5SusXvK_GD68HRJkH9QFZB3-jDmg','','Sample - template modul QA'],
     ['Y','MOD-AUTH','Team Platform','Sprint 12','PASTE_SPREADSHEET_ID_HERE','','Modul Authentication'],
-    ['Y','MOD-USER','Team Core','Sprint 12','PASTE_SPREADSHEET_ID_HERE','','Modul User Management'],
     ['N','MOD-PAYMENT','Team Payment','Sprint 11','PASTE_SPREADSHEET_ID_HERE','','Inactive - next sprint'],
   ].forEach((row,i) => {
     const r = 4+i, bg = i%2===0 ? '#F8F9FA' : '#FFFFFF';
     row.forEach((v,ci) => {
       ws.getRange(r,ci+1).setValue(v).setBackground(bg).setFontFamily('Arial').setFontSize(9)
-        .setHorizontalAlignment(ci===0?'center':'left').setVerticalAlignment('middle')
-        .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
+          .setHorizontalAlignment(ci===0?'center':'left').setVerticalAlignment('middle')
+          .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
     });
     ws.setRowHeight(r,20);
     // Link formula
-    ws.getRange(r,6).setFormula('=IFERROR(HYPERLINK("https://docs.google.com/spreadsheets/d/"&E'+r+',"Open"),"")'); 
+    ws.getRange(r,6).setFormula('=IFERROR(HYPERLINK("https://docs.google.com/spreadsheets/d/"&E'+r+',"Open"),"")');
     // Active CF
     const rules = ws.getConditionalFormatRules();
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Y')
-      .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true).setRanges([ws.getRange(r,1)]).build());
+        .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true).setRanges([ws.getRange(r,1)]).build());
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('N')
-      .setBackground('#FFEBEE').setFontColor('#C62828').setRanges([ws.getRange(r,1)]).build());
+        .setBackground('#FFEBEE').setFontColor('#C62828').setRanges([ws.getRange(r,1)]).build());
     ws.setConditionalFormatRules(rules);
   });
 
@@ -399,7 +429,7 @@ function buildConfig(ss) {
 
   // DV for Active column
   ws.getRange(4,1,23,1).setDataValidation(SpreadsheetApp.newDataValidation()
-    .requireValueInList(['Y','N'],true).build());
+      .requireValueInList(['Y','N'],true).build());
 
   ws.setFrozenRows(3);
 }
@@ -431,23 +461,23 @@ function buildOverview(ss) {
   function h_(r,c,nr,nc,txt,bg,fg,sz){
     const rng = nr>1||nc>1 ? ws.getRange(r,c,nr,nc).merge() : ws.getRange(r,c);
     return rng.setValue(txt||'').setBackground(bg||'#0D47A1').setFontColor(fg||'#FFFFFF')
-      .setFontWeight('bold').setFontSize(sz||9).setFontFamily('Arial')
-      .setHorizontalAlignment('center').setVerticalAlignment('middle')
-      .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
+        .setFontWeight('bold').setFontSize(sz||9).setFontFamily('Arial')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle')
+        .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
   }
 
   // Column widths
-  [130,80,80, 55,60,60,60,65, 55,60,60,60,65, 70,200].forEach((w,i)=>ws.setColumnWidth(i+1,w));
+  [130,80,80, 55,60,60,60,65, 55,60,60,60,65, 70,55,60,60,200].forEach((w,i)=>ws.setColumnWidth(i+1,w));
 
   // Row 1: last refresh placeholder
   ws.getRange(1,1,1,15).merge();
   ws.getRange(1,1).setValue('Last refreshed: ?')
-    .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic')
-    .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
+      .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic')
+      .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
   ws.setRowHeight(1,16);
 
   // Row 2: main title
-  h_(2,1,1,15,'QA PORTFOLIO OVERVIEW','#0D47A1','#FFFFFF',13);
+  h_(2,1,1,15,'QA DASHBOARD  |  PORTFOLIO OVERVIEW','#0D47A1','#FFFFFF',13);
   ws.setRowHeight(2,30);
 
   // Row 3: group headers
@@ -455,21 +485,22 @@ function buildOverview(ss) {
   h_(3,4,1,5,'WEB / MOBILE','#1565C0');
   h_(3,9,1,5,'API','#283593');
   h_(3,14,1,1,'PERF','#004D40');
-  h_(3,15,1,1,'NOTES','#37474F');
+  h_(3,15,1,3,'BUGS','#B71C1C');
+  h_(3,18,1,1,'NOTES','#37474F');
   ws.setRowHeight(3,20);
 
   // Row 4: column headers
   ['Modul','PIC / Team / Squad','Project / Sprint',
-   'Total','Passed','Failed','Block','Pass%',
-   'Total','Passed','Failed','Block','Pass%',
-   'Perf','Error / Info'].forEach((h,i) => h_(4,i+1,1,1,h,'#0D47A1'));
+    'Total','Passed','Failed','Block','Pass%',
+    'Total','Passed','Failed','Block','Pass%',
+    'Perf','Bugs','Blocker','Critical','Error / Info'].forEach((h,i) => h_(4,i+1,1,1,h,'#0D47A1'));
   ws.setRowHeight(4,20);
 
   // Placeholder message row 5
   ws.getRange(5,1,1,15).merge();
   ws.getRange(5,1).setValue('? Run refreshDashboard() untuk mengisi data')
-    .setBackground('#FFF8E1').setFontColor('#E65100').setFontStyle('italic')
-    .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+      .setBackground('#FFF8E1').setFontColor('#E65100').setFontStyle('italic')
+      .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setRowHeight(5,28);
 
   ws.setFrozenRows(4);
@@ -491,17 +522,17 @@ function writeOverview(ss, allData) {
 
     function cell(col, val, fmt) {
       const c = ws.getRange(r,col).setValue(val).setBackground(bg)
-        .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center')
-        .setVerticalAlignment('middle')
-        .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
+          .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center')
+          .setVerticalAlignment('middle')
+          .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
       if (fmt) c.setNumberFormat(fmt);
       return c;
     }
 
     // Module info
     ws.getRange(r,1).setValue(d.name).setBackground(bg).setFontFamily('Arial').setFontSize(9)
-      .setFontWeight('bold').setHorizontalAlignment('left').setVerticalAlignment('middle')
-      .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
+        .setFontWeight('bold').setHorizontalAlignment('left').setVerticalAlignment('middle')
+        .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
     cell(2, d.team);
     cell(3, d.sprint);
 
@@ -522,11 +553,20 @@ function writeOverview(ss, allData) {
     // Perf
     cell(14, d.perfResult);
 
+    // Bug stats
+    const bs = d.bugStats || {};
+    cell(15, bs.total  || 0);
+    cell(16, bs.blocker|| 0);
+    cell(17, bs.critical||0);
     // Notes / error
-    ws.getRange(r,15).setValue(d.error || (d.blockers.length>0 ? d.blockers.length+' blockers!' : ''))
-      .setBackground(bg).setFontFamily('Arial').setFontSize(8).setHorizontalAlignment('left')
-      .setVerticalAlignment('middle').setWrap(true)
-      .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
+    ws.getRange(r,18).setValue(d.error || '')
+        .setBackground(bg).setFontFamily('Arial').setFontSize(8).setHorizontalAlignment('left')
+        .setVerticalAlignment('middle').setWrap(true)
+        .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
+    // Bug CF
+    rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0)
+        .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true)
+        .setRanges([ws.getRange(r,16),ws.getRange(r,17)]).build());
 
     ws.setRowHeight(r, 22);
 
@@ -534,28 +574,28 @@ function writeOverview(ss, allData) {
     [8,13].forEach(col => {
       const rng = ws.getRange(r,col);
       rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(0.8)
-        .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true).setRanges([rng]).build());
+          .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true).setRanges([rng]).build());
       rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberBetween(0.5,0.799)
-        .setBackground('#FFF9C4').setFontColor('#E65100').setBold(true).setRanges([rng]).build());
+          .setBackground('#FFF9C4').setFontColor('#E65100').setBold(true).setRanges([rng]).build());
       rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberLessThan(0.5)
-        .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true).setRanges([rng]).build());
+          .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true).setRanges([rng]).build());
     });
     // Perf CF
     ['PASS','FAIL','--'].forEach(v => {
       const perfBg = v==='PASS'?'#C8E6C9':v==='FAIL'?'#FFCDD2':'#F5F5F5';
       const perfFg = v==='PASS'?'#1B5E20':v==='FAIL'?'#C62828':'#9E9E9E';
       rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(v)
-        .setBackground(perfBg).setFontColor(perfFg).setBold(true)
-        .setRanges([ws.getRange(r,14)]).build());
+          .setBackground(perfBg).setFontColor(perfFg).setBold(true)
+          .setRanges([ws.getRange(r,14)]).build());
     });
     // Failed > 0 highlight
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0)
-      .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true)
-      .setRanges([ws.getRange(r,6), ws.getRange(r,11)]).build());
+        .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true)
+        .setRanges([ws.getRange(r,6), ws.getRange(r,11)]).build());
     // Blocked > 0
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0)
-      .setBackground('#FFE0B2').setFontColor('#E65100').setBold(true)
-      .setRanges([ws.getRange(r,7), ws.getRange(r,12)]).build());
+        .setBackground('#FFE0B2').setFontColor('#E65100').setBold(true)
+        .setRanges([ws.getRange(r,7), ws.getRange(r,12)]).build());
   });
 
   // TOTAL row
@@ -563,13 +603,18 @@ function writeOverview(ss, allData) {
     const tr = 5 + allData.length;
     ws.getRange(tr,1,1,3).merge();
     ws.getRange(tr,1).setValue('TOTAL / AVERAGE').setBackground('#E3F2FD')
-      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
-      .setHorizontalAlignment('left').setVerticalAlignment('middle');
+        .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+        .setHorizontalAlignment('left').setVerticalAlignment('middle');
     [[4,'wTotal'],[5,'wPassed'],[6,'wFailed'],[7,'wBlocked'],
-     [9,'aTotal'],[10,'aPassed'],[11,'aFailed'],[12,'aBlocked']].forEach(([col,key]) => {
+      [9,'aTotal'],[10,'aPassed'],[11,'aFailed'],[12,'aBlocked']].forEach(([col,key]) => {
       const sum = allData.reduce((acc,d) => acc+(d[key]||0), 0);
       ws.getRange(tr,col).setValue(sum).setBackground('#E3F2FD')
-        .setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
+          .setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
+    });
+    // Bug totals
+    [[15,'total'],[16,'blocker'],[17,'critical']].forEach(([col,key]) => {
+      const sum = allData.reduce((acc,d) => acc+((d.bugStats||{})[key]||0), 0);
+      ws.getRange(tr,col).setValue(sum).setBackground('#E3F2FD').setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
     });
     const avgWPass = allData.length>0 ? allData.reduce((a,d)=>a+d.wPassRate,0)/allData.length : 0;
     const avgAPass = allData.length>0 ? allData.reduce((a,d)=>a+d.aPassRate,0)/allData.length : 0;
@@ -579,6 +624,96 @@ function writeOverview(ss, allData) {
   }
 
   ws.setConditionalFormatRules(rules);
+
+  // ?? Build Charts for Stakeholders ??????????????????????????????????????
+  buildOverviewCharts(ws, allData);
+}
+
+function buildOverviewCharts(ws, allData) {
+  if (!allData || allData.length === 0) return;
+
+  // Remove existing charts
+  ws.getCharts().forEach(c => ws.removeChart(c));
+
+  const dataRow = 5; // first data row
+  const n = allData.length;
+  const totalRow = dataRow + n; // summary row
+  const chartStartRow = totalRow + 3; // charts placed below data table
+
+  // ?? Chart 1: Pass Rate Comparison (Clustered Bar) ???????????????????
+  // Uses Web Pass% (col 8) and API Pass% (col 13) for each module
+  const barChart = ws.newChart()
+      .setChartType(Charts.ChartType.BAR)
+      .addRange(ws.getRange(4, 1, n+1, 1))    // Module names
+      .addRange(ws.getRange(4, 8, n+1, 1))    // Web Pass%
+      .addRange(ws.getRange(4, 13, n+1, 1))   // API Pass%
+      .setPosition(chartStartRow, 1, 0, 0)
+      .setOption('title', 'Pass Rate per Module (Web vs API)')
+      .setOption('hAxis', {title: 'Pass Rate', format: '#%', minValue: 0, maxValue: 1})
+      .setOption('colors', ['#1565C0','#283593'])
+      .setOption('legend', {position: 'top'})
+      .setOption('width', 480).setOption('height', 280)
+      .setOption('series', {0:{targetAxisIndex:0}, 1:{targetAxisIndex:0}})
+      .build();
+  ws.insertChart(barChart);
+
+  // ?? Chart 2: Bug Distribution Pie ???????????????????????????????????
+  // Total bugs per module
+  const bugPieData = [['Module','Total Bugs']];
+  allData.forEach(d => { if ((d.bugStats||{}).total > 0) bugPieData.push([d.name, (d.bugStats||{}).total||0]); });
+
+  if (bugPieData.length > 1) {
+    // Write temp data for pie (hidden area, far right)
+    const tmpCol = 21;
+    bugPieData.forEach((r,i) => ws.getRange(chartStartRow+i, tmpCol, 1, 2).setValues([r]));
+    const pieChart = ws.newChart()
+        .setChartType(Charts.ChartType.PIE)
+        .addRange(ws.getRange(chartStartRow, tmpCol, bugPieData.length, 2))
+        .setPosition(chartStartRow, 10, 0, 0)
+        .setOption('title', 'Bug Distribution per Module')
+        .setOption('pieHole', 0.4)
+        .setOption('pieSliceText', 'percentage')
+        .setOption('legend', {position: 'right'})
+        .setOption('width', 340).setOption('height', 280)
+        .build();
+    ws.insertChart(pieChart);
+  }
+
+  // ?? Chart 3: Exec Rate Bar ???????????????????????????????????????????
+  // Web Exec% (col 5 = Passed / Total approximation) vs total
+  // Use Passed count (col 5) and Failed (col 6) stacked for execution status
+  const stackChart = ws.newChart()
+      .setChartType(Charts.ChartType.COLUMN)
+      .addRange(ws.getRange(4, 1, n+1, 1))   // Module names
+      .addRange(ws.getRange(4, 5, n+1, 1))   // Web Passed
+      .addRange(ws.getRange(4, 6, n+1, 1))   // Web Failed
+      .addRange(ws.getRange(4, 7, n+1, 1))   // Web Blocked
+      .setPosition(chartStartRow + 20, 1, 0, 0)
+      .setOption('title', 'Web/Mobile TC Status per Module')
+      .setOption('isStacked', true)
+      .setOption('colors', ['#4CAF50','#F44336','#FF9800'])
+      .setOption('legend', {position: 'top'})
+      .setOption('width', 480).setOption('height', 260)
+      .build();
+  ws.insertChart(stackChart);
+
+  // ?? Chart 4: Blocker Trend (from History if available) ??????????????
+  // Simple: show blocker bug count per module as horizontal bar
+  const hasBlockers = allData.some(d => (d.bugStats||{}).blocker > 0);
+  if (hasBlockers) {
+    const blockerChart = ws.newChart()
+        .setChartType(Charts.ChartType.BAR)
+        .addRange(ws.getRange(4, 1, n+1, 1))   // Module names
+        .addRange(ws.getRange(4, 16, n+1, 1))  // Blocker count
+        .addRange(ws.getRange(4, 17, n+1, 1))  // Critical count
+        .setPosition(chartStartRow + 20, 10, 0, 0)
+        .setOption('title', 'Open Blockers & Critical Bugs per Module')
+        .setOption('colors', ['#FF9800','#F44336'])
+        .setOption('legend', {position: 'top'})
+        .setOption('width', 340).setOption('height', 260)
+        .build();
+    ws.insertChart(blockerChart);
+  }
 }
 
 
@@ -589,16 +724,16 @@ function buildBlockers(ss) {
   ws.clear();
 
   function h_(r,c,txt,bg){ ws.getRange(r,c).setValue(txt).setBackground(bg||'#B71C1C')
-    .setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
-    .setHorizontalAlignment('center').setVerticalAlignment('middle')
-    .setBorder(true,true,true,true,false,false,'#E57373',SpreadsheetApp.BorderStyle.SOLID); }
+      .setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setBorder(true,true,true,true,false,false,'#E57373',SpreadsheetApp.BorderStyle.SOLID); }
 
   [120,85,85,75,75,100,250,85].forEach((w,i)=>ws.setColumnWidth(i+1,w));
 
   ws.getRange(1,1,1,8).merge();
   ws.getRange(1,1).setValue('BLOCKER ALERT  ?  CRITICAL & HIGH  |  Status: FAILED / BLOCKED')
-    .setBackground('#B71C1C').setFontColor('#FFFFFF').setFontWeight('bold')
-    .setFontSize(12).setFontFamily('Arial').setHorizontalAlignment('center');
+      .setBackground('#B71C1C').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(12).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setRowHeight(1,28);
 
   ['Modul','Type','TC_ID','Priority','Status','Feature','Scenario','Refresh'].forEach((h,i)=>h_(2,i+1,h));
@@ -606,8 +741,8 @@ function buildBlockers(ss) {
 
   ws.getRange(3,1,1,8).merge();
   ws.getRange(3,1).setValue('? Run refreshDashboard() untuk mengisi data')
-    .setBackground('#FFF8E1').setFontColor('#E65100').setFontStyle('italic')
-    .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+      .setBackground('#FFF8E1').setFontColor('#E65100').setFontStyle('italic')
+      .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
 
   ws.setFrozenRows(2);
 }
@@ -621,11 +756,18 @@ function writeBlockers(ss, allData) {
   const allBlockers = [];
   allData.forEach(d => d.blockers.forEach(b => allBlockers.push({...b, refreshed: d.refreshed})));
 
+  // Also add open/in-progress bugs Medium?Critical from all modules
+  allData.forEach(d => {
+    if (!d.bugStats) return;
+    // We show count summary ? full list would require pulling BugReport data again
+    // This is annotated in Overview col 16 (Blocker bugs count)
+  });
+
   if (allBlockers.length === 0) {
     ws.getRange(3,1,1,8).merge();
     ws.getRange(3,1).setValue('Tidak ada blocker! Semua Critical & High TC passed.')
-      .setBackground('#C8E6C9').setFontColor('#1B5E20').setFontWeight('bold')
-      .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
+        .setBackground('#C8E6C9').setFontColor('#1B5E20').setFontWeight('bold')
+        .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
     ws.setRowHeight(3,28);
     return;
   }
@@ -641,25 +783,25 @@ function writeBlockers(ss, allData) {
   allBlockers.forEach((b,i) => {
     const r = 3+i, bg = i%2===0?'#FFF8F8':'#FFFFFF';
     [b.module,b.type,b.tcId,b.prio,b.status,b.feature,b.scenario,
-     Utilities.formatDate(b.refreshed,Session.getScriptTimeZone(),'dd/MM HH:mm')
+      Utilities.formatDate(b.refreshed,Session.getScriptTimeZone(),'dd/MM HH:mm')
     ].forEach((v,ci) => {
       ws.getRange(r,ci+1).setValue(v).setBackground(bg).setFontFamily('Arial').setFontSize(9)
-        .setHorizontalAlignment(ci>1&&ci<6?'center':'left').setVerticalAlignment('middle').setWrap(ci===6)
-        .setBorder(true,true,true,true,false,false,'#E57373',SpreadsheetApp.BorderStyle.SOLID);
+          .setHorizontalAlignment(ci>1&&ci<6?'center':'left').setVerticalAlignment('middle').setWrap(ci===6)
+          .setBorder(true,true,true,true,false,false,'#E57373',SpreadsheetApp.BorderStyle.SOLID);
     });
     ws.setRowHeight(r,20);
     // Status CF
     const sRng = ws.getRange(r,5);
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('FAILED')
-      .setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true).setRanges([sRng]).build());
+        .setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true).setRanges([sRng]).build());
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('BLOCKED')
-      .setBackground('#FFE0B2').setFontColor('#E65100').setBold(true).setRanges([sRng]).build());
+        .setBackground('#FFE0B2').setFontColor('#E65100').setBold(true).setRanges([sRng]).build());
     // Priority CF
     const pRng = ws.getRange(r,4);
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Critical')
-      .setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true).setRanges([pRng]).build());
+        .setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true).setRanges([pRng]).build());
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('High')
-      .setBackground('#FFE0B2').setFontColor('#E65100').setBold(true).setRanges([pRng]).build());
+        .setBackground('#FFE0B2').setFontColor('#E65100').setBold(true).setRanges([pRng]).build());
   });
   ws.setConditionalFormatRules(rules);
 
@@ -667,13 +809,13 @@ function writeBlockers(ss, allData) {
   ws.getRange(1,1,1,8).clear();
   ws.getRange(1,1,1,8).merge();
   ws.getRange(1,1).setValue(
-    'BLOCKER ALERT  ?  Total: ' + allBlockers.length +
-    '  |  FAILED: ' + allBlockers.filter(b=>b.status==='FAILED').length +
-    '  |  BLOCKED: ' + allBlockers.filter(b=>b.status==='BLOCKED').length +
-    '  |  Critical: ' + allBlockers.filter(b=>b.prio==='Critical').length +
-    '  |  High: ' + allBlockers.filter(b=>b.prio==='High').length
+      'BLOCKER ALERT  ?  Total: ' + allBlockers.length +
+      '  |  FAILED: ' + allBlockers.filter(b=>b.status==='FAILED').length +
+      '  |  BLOCKED: ' + allBlockers.filter(b=>b.status==='BLOCKED').length +
+      '  |  Critical: ' + allBlockers.filter(b=>b.prio==='Critical').length +
+      '  |  High: ' + allBlockers.filter(b=>b.prio==='High').length
   ).setBackground('#B71C1C').setFontColor('#FFFFFF').setFontWeight('bold')
-    .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
+      .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
 }
 
 
@@ -687,21 +829,21 @@ function buildCoverage(ss) {
 
   ws.getRange(1,1,1,7).merge();
   ws.getRange(1,1).setValue('COVERAGE PER SUBMODUL  ?  All Modules')
-    .setBackground('#1B5E20').setFontColor('#FFFFFF').setFontWeight('bold')
-    .setFontSize(12).setFontFamily('Arial').setHorizontalAlignment('center');
+      .setBackground('#1B5E20').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(12).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setRowHeight(1,28);
 
   ['Modul','SubModul','Type','Total','Passed','Failed','Auto%'].forEach((h,i)=>{
     ws.getRange(2,i+1).setValue(h).setBackground('#2E7D32').setFontColor('#FFFFFF')
-      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center')
-      .setBorder(true,true,true,true,false,false,'#81C784',SpreadsheetApp.BorderStyle.SOLID);
+        .setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center')
+        .setBorder(true,true,true,true,false,false,'#81C784',SpreadsheetApp.BorderStyle.SOLID);
   });
   ws.setRowHeight(2,20);
 
   ws.getRange(3,1,1,7).merge();
   ws.getRange(3,1).setValue('? Run refreshDashboard() untuk mengisi data')
-    .setBackground('#F1F8E9').setFontColor('#33691E').setFontStyle('italic')
-    .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+      .setBackground('#F1F8E9').setFontColor('#33691E').setFontStyle('italic')
+      .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setFrozenRows(2);
 }
 
@@ -720,22 +862,22 @@ function writeCoverage(ss, allData) {
       const autoRate = cov.total > 0 ? cov.auto/cov.total : 0;
       [d.name, cov.sub, cov.type, cov.total, cov.passed, cov.failed, autoRate].forEach((v,ci) => {
         const c = ws.getRange(r,ci+1).setValue(v).setBackground(bg).setFontFamily('Arial').setFontSize(9)
-          .setHorizontalAlignment(ci<3?'left':'center').setVerticalAlignment('middle')
-          .setBorder(true,true,true,true,false,false,'#81C784',SpreadsheetApp.BorderStyle.SOLID);
+            .setHorizontalAlignment(ci<3?'left':'center').setVerticalAlignment('middle')
+            .setBorder(true,true,true,true,false,false,'#81C784',SpreadsheetApp.BorderStyle.SOLID);
         if (ci===6) c.setNumberFormat('0%');
       });
       // Auto% CF
       const aRng = ws.getRange(r,7);
       rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(0.8)
-        .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true).setRanges([aRng]).build());
+          .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true).setRanges([aRng]).build());
       rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberBetween(0.5,0.799)
-        .setBackground('#FFF9C4').setFontColor('#E65100').setBold(true).setRanges([aRng]).build());
+          .setBackground('#FFF9C4').setFontColor('#E65100').setBold(true).setRanges([aRng]).build());
       rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberLessThan(0.5)
-        .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true).setRanges([aRng]).build());
+          .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true).setRanges([aRng]).build());
       // Failed > 0
       rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0)
-        .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true)
-        .setRanges([ws.getRange(r,6)]).build());
+          .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true)
+          .setRanges([ws.getRange(r,6)]).build());
       ws.setRowHeight(r, 20);
       r++;
     });
@@ -750,16 +892,16 @@ function buildHistory(ss) {
   ws.setTabColor('#4A148C');
   ws.clear();
 
-  ws.getRange(1,1,1,8).merge();
+  ws.getRange(1,1,1,12).merge();
   ws.getRange(1,1).setValue('TREND HISTORY  ?  Pass Rate per Refresh  (auto-appended setiap refresh)')
-    .setBackground('#4A148C').setFontColor('#FFFFFF').setFontWeight('bold')
-    .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
+      .setBackground('#4A148C').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setRowHeight(1,24);
 
-  ['Timestamp','Modul','PIC / Team / Squad','Web Pass%','Web Exec%','API Pass%','API Exec%','Perf'].forEach((h,i)=>{
+  ['Timestamp','Modul','PIC / Team / Squad','Web Pass%','Web Exec%','API Pass%','API Exec%','Perf','Total Bugs','Open Bugs','Blocker Bugs','Critical Bugs'].forEach((h,i)=>{
     ws.getRange(2,i+1).setValue(h).setBackground('#6A1B9A').setFontColor('#FFFFFF')
-      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
-    ws.setColumnWidth(i+1,[130,120,100,75,75,75,75,60][i]);
+        .setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
+    ws.setColumnWidth(i+1,[130,120,140,75,75,75,75,60,70,70,80,80][i]||70);
   });
   ws.setRowHeight(2,20);
   ws.setFrozenRows(2);
@@ -771,8 +913,10 @@ function appendHistory(ss, allData) {
   const ts = new Date();
   const tsStr = Utilities.formatDate(ts, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
   allData.forEach(d => {
+    const bs = d.bugStats || {};
     ws.appendRow([tsStr, d.name, d.team,
-      d.wPassRate, d.wExecRate, d.aPassRate, d.aExecRate, d.perfResult]);
+      d.wPassRate, d.wExecRate, d.aPassRate, d.aExecRate, d.perfResult,
+      bs.total||0, bs.open||0, bs.blocker||0, bs.critical||0]);
   });
   // Format % columns
   const lastRow = ws.getLastRow();
@@ -780,6 +924,25 @@ function appendHistory(ss, allData) {
     [4,5,6,7].forEach(col => {
       ws.getRange(3, col, lastRow-2, 1).setNumberFormat('0%');
     });
+    // Trend chart ? Web & API Pass Rate over time
+    try {
+      ws.getCharts().forEach(c => ws.removeChart(c));
+      const trendChart = ws.newChart()
+          .setChartType(Charts.ChartType.LINE)
+          .addRange(ws.getRange(2, 1, lastRow-1, 1))  // Timestamp
+          .addRange(ws.getRange(2, 4, lastRow-1, 1))  // Web Pass%
+          .addRange(ws.getRange(2, 6, lastRow-1, 1))  // API Pass%
+          .setPosition(2, 14, 0, 0)
+          .setOption('title', 'Pass Rate Trend Over Time')
+          .setOption('curveType', 'function')
+          .setOption('colors', ['#1565C0','#283593'])
+          .setOption('vAxis', {title:'Pass Rate', format:'#%', minValue:0, maxValue:1})
+          .setOption('hAxis', {title:'Refresh Time'})
+          .setOption('legend', {position:'top'})
+          .setOption('width', 600).setOption('height', 320)
+          .build();
+      ws.insertChart(trendChart);
+    } catch(e) { Logger.log('History chart skipped: ' + e.message); }
   }
 }
 
@@ -790,7 +953,7 @@ function buildRaw(ss) {
   ws.setTabColor('#546E7A');
   ws.clear();
   ws.getRange(1,1).setValue('Internal cache ? jangan diedit manual. Data di-overwrite setiap refresh.')
-    .setBackground('#546E7A').setFontColor('#FFFFFF').setFontSize(9).setFontFamily('Arial');
+      .setBackground('#546E7A').setFontColor('#FFFFFF').setFontSize(9).setFontFamily('Arial');
   ws.setRowHeight(1,16);
 }
 

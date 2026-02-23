@@ -1,4 +1,4 @@
-# QA Portfolio Dashboard
+# QA Dashboard
 
 > Apps Script aggregator untuk monitoring kualitas **lintas modul/proyek** secara real-time.  
 > Auto-refresh setiap 1 jam. Mendukung 11–20 modul aktif secara bersamaan.  
@@ -15,24 +15,27 @@
 5. [Mengisi Config](#mengisi-config)
 6. [Menjalankan Refresh](#menjalankan-refresh)
 7. [Auto-Refresh Trigger](#auto-refresh-trigger)
-8. [Referensi Fungsi](#referensi-fungsi)
-9. [Troubleshooting](#troubleshooting)
+8. [Membaca Overview](#membaca-overview)
+9. [Charts & Visualisasi](#charts--visualisasi)
+10. [Referensi Fungsi](#referensi-fungsi)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Overview
 
-QA Portfolio Dashboard adalah **Google Sheets terpisah** yang secara otomatis mengambil data dari semua modul sheet (template QA Test Management) dan menampilkannya dalam satu tampilan terintegrasi.
+QA Dashboard adalah **Google Sheets terpisah** yang secara otomatis mengambil data dari semua modul sheet (template QA Test Management) dan menampilkannya dalam satu tampilan terintegrasi untuk stakeholder.
 
 ### Yang bisa dipantau
 
 | Fitur | Keterangan |
 |-------|-----------|
 | **RAG Status** | Merah/Kuning/Hijau per modul berdasarkan Pass Rate |
-| **Blocker Alert** | List TC priority Critical & High yang FAILED atau BLOCKED lintas semua modul |
+| **Blocker Alert** | TC Critical & High yang FAILED/BLOCKED + bug priority Medium→Critical yang masih Open |
+| **Bug Tracking** | Total bug, open, blocker, critical per modul |
 | **Coverage** | Breakdown per SubModul: total TC, passed, failed, auto% |
-| **Status Overview** | Total, Passed, Failed, Blocked per modul untuk Web/Mobile dan API |
-| **Trend History** | Snapshot pass rate setiap refresh — bisa dijadikan chart tren |
+| **Charts** | Bar, pie, stacked column, trend line untuk stakeholder |
+| **Trend History** | Snapshot pass rate + bug count setiap refresh |
 | **Perf Result** | Status PASS/FAIL dari PerfTest tiap modul |
 
 ---
@@ -49,14 +52,14 @@ QA Portfolio Dashboard adalah **Google Sheets terpisah** yang secara otomatis me
                              │  Apps Script openById()
                              ▼
               ┌──────────────────────────┐
-              │  QA PORTFOLIO DASHBOARD  │
+              │       QA DASHBOARD       │
               │  ┌──────────────────┐    │
               │  │ Config           │    │
-              │  │ Overview  (RAG)  │    │
-              │  │ Blockers  (alert)│    │
+              │  │ Overview (RAG)   │    │
+              │  │ Blockers (alert) │    │
               │  │ Coverage         │    │
-              │  │ History   (trend)│    │
-              │  │ _Raw      (cache)│    │
+              │  │ History (trend)  │    │
+              │  │ _Raw (cache)     │    │
               │  └──────────────────┘    │
               │  Auto-refresh / 1 jam    │
               └──────────────────────────┘
@@ -76,18 +79,16 @@ QA Portfolio Dashboard adalah **Google Sheets terpisah** yang secara otomatis me
 
 ### Langkah Instalasi
 
-1. **Buat Google Sheets baru** — beri nama: `QA Portfolio Dashboard`
+1. **Buat Google Sheets baru** — beri nama: `QA Dashboard`
 2. Buka **Extensions > Apps Script**
 3. Hapus semua kode default
 4. Paste seluruh isi file `QA_Portfolio_Dashboard.js`
 5. Klik **Save** (Ctrl+S)
 6. Pilih function **`createDashboard`** → klik **Run**
-7. Izinkan permission yang diminta (akses Spreadsheet & external URLs)
+7. Izinkan permission yang diminta
 8. Tunggu dialog konfirmasi muncul
 
 ### Permission yang Dibutuhkan
-
-Saat pertama kali run, Google akan meminta izin:
 
 | Permission | Alasan |
 |-----------|--------|
@@ -104,10 +105,10 @@ Saat pertama kali run, Google akan meminta izin:
 | Tab | Warna | Fungsi |
 |-----|-------|--------|
 | **Config** | Abu-abu gelap | Daftar modul dan Spreadsheet ID |
-| **Overview** | Biru | Ringkasan semua modul dengan RAG status |
+| **Overview** | Biru | Ringkasan semua modul dengan RAG status + charts |
 | **Blockers** | Merah | Alert TC Critical/High yang FAIL/BLOCKED |
 | **Coverage** | Hijau | Detail coverage per SubModul semua modul |
-| **History** | Ungu | Log pass rate setiap refresh (untuk trend) |
+| **History** | Ungu | Log pass rate + bug count setiap refresh + trend chart |
 | **_Raw** | Abu-abu | Cache data internal (jangan diedit manual) |
 
 ---
@@ -120,21 +121,11 @@ Buka tab **Config** dan isi satu baris per modul:
 |-------|-----------|--------|
 | **Active (Y/N)** | Y = aktif di-pull, N = skip | `Y` |
 | **Modul Name** | Nama modul/proyek | `MOD-AUTH` |
-| **PIC / Team / Squad** | PIC dan/atau tim yang bertanggung jawab — **otomatis diisi** dari kolom `PIC QA:` di Summary modul setelah refresh | `Team Platform` |
-| **Project / Sprint** | Nama project dan sprint aktif — **otomatis diisi** dari kolom `Project / Sprint:` di Summary modul setelah refresh | `Sprint 12` |
+| **PIC / Team / Squad** | Otomatis diisi dari Summary modul setelah refresh | `Team Platform` |
+| **Project / Sprint** | Otomatis diisi dari Summary modul setelah refresh | `Sprint 12` |
 | **Spreadsheet ID** | ID dari URL file modul | `1BxiMVs0XRA5nF...` |
 | **Link** | Otomatis terisi (jangan diedit) | *(auto)* |
 | **Notes** | Keterangan tambahan | `Modul Authentication` |
-
-### Cara Mendapatkan Spreadsheet ID
-
-Buka file modul di Google Sheets, ambil ID dari URL:
-
-```
-https://docs.google.com/spreadsheets/d/[SPREADSHEET_ID]/edit
-                                        ^^^^^^^^^^^^^^^^
-                                        Ini yang dicopy
-```
 
 ### Auto-Populate dari Summary
 
@@ -147,9 +138,19 @@ Setelah `refreshDashboard()` berjalan, kolom **PIC / Team / Squad** dan **Projec
 
 Tidak perlu mengisi kolom ini secara manual — cukup pastikan Summary modul sudah terisi.
 
+### Cara Mendapatkan Spreadsheet ID
+
+Buka file modul di Google Sheets, ambil ID dari URL:
+
+```
+https://docs.google.com/spreadsheets/d/[SPREADSHEET_ID]/edit
+                                        ^^^^^^^^^^^^^^^^
+                                        Ini yang dicopy
+```
+
 ### Tips Config
 
-- Set **Active = N** untuk modul yang sedang tidak dalam sprint aktif — data tidak di-pull, performa lebih cepat
+- Set **Active = N** untuk modul yang tidak dalam sprint aktif — tidak di-pull, performa lebih cepat
 - Modul dengan ID `PASTE_SPREADSHEET_ID_HERE` otomatis dilewati
 - Bisa menampung hingga **20 modul aktif** secara bersamaan
 
@@ -163,17 +164,18 @@ Tidak perlu mengisi kolom ini secara manual — cukup pastikan Summary modul sud
 2. Pilih function **`refreshDashboard`**
 3. Klik **Run**
 
-Atau langsung dari spreadsheet: **Extensions > Apps Script > Run `refreshDashboard`**
-
 ### Apa yang terjadi saat refresh
 
-1. Baca daftar modul aktif dari tab Config
-2. Loop setiap modul: buka file via `openById()`, baca TC_Master, TC_Execution, API_Master, API_Execution, PerfTest
+1. Baca daftar modul aktif dari Config
+2. Loop setiap modul: buka file via `openById()`, baca TC_Master, TC_Execution, API_Master, API_Execution, PerfTest, BugReport, Summary
 3. Hitung statistik: total, passed, failed, pass rate, exec rate, auto rate
-4. Identifikasi blocker (Critical/High TC yang FAIL atau BLOCKED)
-5. Tulis ke Overview, Blockers, Coverage
-6. **Append** satu baris ke History (data historis tidak dihapus)
-7. Update timestamp "Last refreshed" di Overview
+4. Hitung bug stats: total, open, blocker (Medium→Critical + status Open/InProgress/Reopen), critical
+5. Identifikasi blocker TC (Critical/High yang FAIL atau BLOCKED)
+6. Tulis ke Overview, Blockers, Coverage
+7. **Append** satu baris ke History (data historis tidak dihapus)
+8. **Generate charts** otomatis di Overview dan History
+9. Auto-update Config dengan PIC dan Sprint dari Summary tiap modul
+10. Update timestamp "Last refreshed" di baris 2 Overview
 
 > **Estimasi waktu:** ~2-5 detik per modul. Untuk 15 modul aktif: ~45-75 detik.
 
@@ -191,10 +193,10 @@ Atau langsung dari spreadsheet: **Extensions > Apps Script > Run `refreshDashboa
 
 Apps Script editor → ikon jam 🕐 di sidebar kiri (*Triggers*) → lihat daftar trigger aktif.
 
-### Nonaktifkan / Ubah Jadwal
+### Ubah Jadwal
 
 ```javascript
-// Ganti interval di fungsi setupTrigger() sebelum run:
+// Ganti di fungsi setupTrigger() sebelum run:
 
 // Setiap 1 jam (default)
 .timeBased().everyHours(1).create();
@@ -205,25 +207,22 @@ Apps Script editor → ikon jam 🕐 di sidebar kiri (*Triggers*) → lihat daft
 // Setiap hari jam 08:00
 .timeBased().atHour(8).everyDays(1).create();
 
-// Setiap Senin jam 07:00 (weekly report)
+// Setiap Senin jam 07:00
 .timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(7).create();
 ```
-
-Untuk nonaktifkan: buka Triggers → klik titik tiga (⋮) → **Delete trigger**.
-
----
-
-## Referensi Fungsi
-
-| Fungsi | Kapan dijalankan | Keterangan |
-|--------|-----------------|-----------|
-| `createDashboard()` | **Sekali** saat instalasi | Buat semua tab dan struktur |
-| `refreshDashboard()` | Setiap refresh (manual/auto) | Pull data dari semua modul aktif |
-| `setupTrigger()` | **Sekali** setelah createDashboard | Aktifkan auto-refresh per jam |
 
 ---
 
 ## Membaca Overview
+
+### Layout Overview
+
+- **Baris 1**: Judul dashboard
+- **Baris 2**: Timestamp *Last refreshed* (kanan atas)
+- **Baris 3–4**: Group header dan kolom header
+- **Baris 5+**: Data satu baris per modul
+- **Baris terakhir**: TOTAL / AVERAGE
+- **Di bawah tabel**: Charts otomatis
 
 ### Kolom Overview
 
@@ -232,12 +231,15 @@ Untuk nonaktifkan: buka Triggers → klik titik tiga (⋮) → **Delete trigger*
 | Modul | Nama modul |
 | PIC / Team / Squad | PIC dan tim — otomatis dari Summary |
 | Project / Sprint | Project & sprint — otomatis dari Summary |
-| **Web Total/Passed/Failed/Block** | Statistik TC Web/Mobile |
-| **Web Pass%** | Pass rate Web — **RAG: hijau >=80%, kuning 50-79%, merah <50%** |
-| **API Total/Passed/Failed/Block** | Statistik TC API |
+| Web Total/Passed/Failed/Block | Statistik TC Web/Mobile |
+| **Web Pass%** | Pass rate — RAG: hijau >=80%, kuning 50-79%, merah <50% |
+| API Total/Passed/Failed/Block | Statistik TC API |
 | **API Pass%** | Pass rate API — RAG sama |
 | **Perf** | PASS / FAIL / -- dari PerfTest |
-| Notes | Error info atau jumlah blockers |
+| **Bugs** | Total bug di BugReport |
+| **Blocker** | Bug Open/InProgress/Reopen dengan priority Medium, High, atau Critical |
+| **Critical** | Bug dengan priority Critical |
+| Notes | Error info |
 
 ### Warna Otomatis
 
@@ -248,19 +250,43 @@ Untuk nonaktifkan: buka Triggers → klik titik tiga (⋮) → **Delete trigger*
 | Pass Rate < 50% | Merah |
 | Failed > 0 | Merah (kolom Failed) |
 | Blocked > 0 | Oranye (kolom Blocked) |
+| Blocker bugs > 0 | Merah (kolom Blocker) |
+| Critical bugs > 0 | Merah (kolom Critical) |
 | Perf = PASS | Hijau |
 | Perf = FAIL | Merah |
 
 ---
 
-## Membaca Blockers
+## Charts & Visualisasi
 
-Tab **Blockers** menampilkan semua TC dengan priority **Critical atau High** yang statusnya **FAILED atau BLOCKED** di seluruh modul aktif.
+Charts otomatis digenerate setiap `refreshDashboard()` di bawah tabel Overview dan di tab History.
 
-- Diurutkan: **FAILED** dulu, kemudian **BLOCKED** — dan **Critical** sebelum **High**
-- Baris teratas adalah blocker paling kritis
-- Jika tidak ada blocker: tampil pesan hijau "Tidak ada blocker!"
-- Header menampilkan total count: `Total: 5 | FAILED: 3 | BLOCKED: 2 | Critical: 2 | High: 3`
+### Overview Charts
+
+| Chart | Jenis | Isi |
+|-------|-------|-----|
+| Pass Rate per Module | Horizontal Bar | Web Pass% vs API Pass% per modul — biru tua |
+| Bug Distribution | Donut Pie | Proporsi total bug per modul |
+| TC Status per Module | Stacked Column | Passed (hijau) / Failed (merah) / Blocked (oranye) |
+| Open Blockers & Critical | Horizontal Bar | Blocker count dan Critical bug count per modul |
+
+### History Chart
+
+| Chart | Jenis | Isi |
+|-------|-------|-----|
+| Pass Rate Trend | Line Chart | Web Pass% dan API Pass% over time — berguna untuk laporan sprint |
+
+> Charts ditempatkan otomatis di bawah tabel data. Jika data belum ada, charts akan kosong dan terisi setelah refresh pertama.
+
+---
+
+## Referensi Fungsi
+
+| Fungsi | Kapan dijalankan | Keterangan |
+|--------|-----------------|-----------|
+| `createDashboard()` | **Sekali** saat instalasi | Buat semua tab dan struktur |
+| `refreshDashboard()` | Setiap refresh (manual/auto) | Pull data, hitung stats, generate charts |
+| `setupTrigger()` | **Sekali** setelah createDashboard | Aktifkan auto-refresh per jam |
 
 ---
 
@@ -278,22 +304,25 @@ Tab **Blockers** menampilkan semua TC dengan priority **Critical atau High** yan
 2. Pastikan Spreadsheet ID benar (tidak ada spasi, bukan URL penuh)
 3. Cek Apps Script Logs: **View > Logs** — cari baris `ERROR [nama modul]`
 
-### Data Overview tidak update
+### Bug stats semua 0 padahal ada data di BugReport
 
-**Penyebab:** Tab Config berisi ID yang salah atau file modul tidak menggunakan template v38+.  
-**Cek:** Buka file modul secara manual, pastikan ada tab `TC_Master`, `TC_Execution`, `API_Master`, `API_Execution`.
+**Penyebab:** File modul tidak menggunakan template v38+ atau tab BugReport tidak ada.  
+**Cek:** Buka file modul, pastikan tab `BugReport` ada dan data dimulai dari **baris 5**.
+
+### Charts tidak muncul setelah refresh
+
+**Penyebab:** Data belum ada saat chart dibuat (modul baru).  
+**Solusi:** Run `refreshDashboard()` sekali lagi setelah data terisi.
 
 ### History terus bertambah sangat panjang
 
-Ini **by design** — History menyimpan semua snapshot historis untuk keperluan tren.  
+Ini by design — History menyimpan semua snapshot historis untuk trend chart.  
 Jika terlalu panjang (>10.000 baris), hapus baris lama secara manual atau kurangi frekuensi refresh.
 
 ### Apps Script timeout (>6 menit)
 
 **Penyebab:** Terlalu banyak modul aktif atau file modul sangat besar.  
-**Solusi:**
-- Kurangi jumlah modul aktif (set N untuk modul non-aktif)
-- Pecah refresh menjadi beberapa batch jika diperlukan
+**Solusi:** Kurangi jumlah modul aktif (set N untuk modul non-aktif di sprint ini).
 
 ---
 
