@@ -27,7 +27,7 @@ function addRunStatusCF(ws, statusRow, startCol, endCol) {
 // -- QA PERURI BRANDING ------------------------------------------
 const PERURI = {
   primary:   '#0D47A1',   // deep navy
-  mid:       '#1565C0',   // main blue  
+  mid:       '#1565C0',   // main blue
   accent:    '#1976D2',   // medium blue
   light:     '#E3F2FD',   // pale blue bg
   text:      '#FFFFFF',
@@ -408,7 +408,7 @@ function createTCExecution(ss) {
     const sc = SHOT_COL+ri;
     // Header: formula links to the corresponding date in row 2
     hdr(ws.getRange(2,sc),'#1565C0','#FFFFFF',8)
-        .setFormula('=IFERROR(IF(INDIRECT(ADDRESS(2,'+(STAG+ri)+'))="","Screenshot "+'+(ri+1)+',INDIRECT(ADDRESS(2,'+(STAG+ri)+'))&"\nShot"),"Screenshot '+(ri+1)+'")')
+        .setFormula('=IFERROR(IF(INDIRECT(ADDRESS(2,'+(STAG+ri)+'))="","Screenshot "+'+(ri+1)+',TEXT(INDIRECT(ADDRESS(2,'+(STAG+ri)+')),"yyyy-mm-dd")&"\nShot"),"Screenshot '+(ri+1)+'")')
         .setWrap(true);
     ws.setColumnWidth(sc, 140);
   }
@@ -516,7 +516,7 @@ function createTCExecution(ss) {
   statusCF_(ws, ws.getRange(DS, STAG, MR, STAG_COLS));
   ws.getRange(DS, STAG, MR, STAG_COLS).setDataValidation(dv(['TODO','PASSED','FAILED','BLOCKED']));
   inputBorder(ws.getRange(DS, STAG, MR, STAG_COLS));
-  inputBorder(ws.getRange(DS, SHOT_COL, MR, 1));
+  for(let ri=0;ri<MAX_RUNS;ri++) inputBorder(ws.getRange(DS, SHOT_COL+ri, MR, 1));
   // Blue border on staging cols = INPUT area
   inputBorder(ws.getRange(DS, STAG, MR, STAG_COLS));
   // Blue border on screenshot cols
@@ -730,7 +730,14 @@ function createAPIExecution(ss) {
   ['2025-01-20','2025-02-10','2025-02-21']
       .forEach((h,i)=>hdr(ws.getRange(2,STAG+i),'#283593').setValue(h).setWrap(true));
   hdr(ws.getRange(2,STATUS_Z),'#455A64','#FFFFFF',8).setValue('[AUTO]\nLatest Status').setWrap(true);
-  hdr(ws.getRange(2,SHOT_COL),'#0D47A1','#FFFFFF',8).setValue('[INPUT]\nEvidence Link').setWrap(true);
+  // Dynamic screenshot cols: one per run date
+  for(let ri=0; ri<MAX_RUNS; ri++){
+    const sc = SHOT_COL+ri;
+    hdr(ws.getRange(2,sc),'#1565C0','#FFFFFF',8)
+        .setFormula('=IFERROR(IF(INDIRECT(ADDRESS(2,'+(STAG+ri)+'))="","Screenshot "+'+(ri+1)+',TEXT(INDIRECT(ADDRESS(2,'+(STAG+ri)+')),"yyyy-mm-dd")&"\nShot"),"Screenshot '+(ri+1)+'")')
+        .setWrap(true);
+    ws.setColumnWidth(sc, 140);
+  }
   ws.setRowHeight(2,38);
 
 
@@ -832,14 +839,17 @@ function createAPIExecution(ss) {
       .setHorizontalAlignment('center').setVerticalAlignment('middle');
   statusCF_(ws, ws.getRange(DS, STATUS_Z, MR, 1));
 
-  ws.getRange(DS, SHOT_COL, MR, 1)
-      .setBackground('#FAFAFA').setFontColor('#1A73E8')
-      .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle').setWrap(true);
+  for(let ri=0;ri<MAX_RUNS;ri++){
+    ws.getRange(DS,SHOT_COL+ri,MR,1)
+        .setBackground('#F0F4FF').setFontColor('#1A73E8')
+        .setFontFamily('Arial').setFontSize(8).setVerticalAlignment('middle')
+        .setWrap(false).setHorizontalAlignment('left');
+  }
 
   [100,110,130,80,220,75].forEach((w,i)=>ws.setColumnWidth(i+1,w));
   for(let i=0;i<STAG_N;i++) ws.setColumnWidth(STAG+i,100);
   ws.setColumnWidth(STATUS_Z,100);
-  ws.setColumnWidth(SHOT_COL,160);
+  // screenshot col widths set in header loop above
 
   ws.setFrozenColumns(6);
   ws.setFrozenRows(2);
@@ -1102,31 +1112,31 @@ function createSummary(ss) {
   const RH_L=R, RH_A=R;
 
   // Dynamic trend rows ? dates auto-pulled from TC_Execution row 2 (col H onwards)
-  const MAX_RUNS = 10;
+  const MAX_RUNS = 15;
   for (let idx=0; idx<MAX_RUNS; idx++) {
     const rl=R+idx, bg=idx%2===0?'#F8F9FA':'#FFFFFF';
     const tcDateCol = 'INDIRECT("TC_Execution!"&ADDRESS(2,'+idx+'+8))'; // col H=8, I=9...
     // Date: pull from TC_Execution row 2, col H+idx
-    const dateForm = '=IFERROR(INDEX(TC_Execution!2:2,'+(idx+8)+'),"")';
-    const aDateForm = '=IFERROR(INDEX(API_Execution!2:2,'+(idx+7)+'),"")';
+    const dateForm = '=IFERROR(INDEX(TC_Execution!$2:$2,'+(idx+8)+'),"")';
+    const aDateForm = '=IFERROR(INDEX(API_Execution!$2:$2,'+(idx+7)+'),"")';
     // Web row - date auto from TC_Execution row 2
     bd(ws.getRange(rl,L)).setFormula(dateForm).setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left').setFontWeight('bold').setNumberFormat('yyyy-mm-dd');
-    const mfl='MATCH('+colLetter(L)+rl+',TC_Execution!2:2,0)';
-    bd(ws.getRange(rl,L+1)).setFormula('=IFERROR(IF('+colLetter(L)+rl+'="","",INDEX(TC_Execution!4:4,'+mfl+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
-    bd(ws.getRange(rl,L+2)).setFormula('=IFERROR(IF('+colLetter(L)+rl+'="","",INDEX(TC_Execution!5:5,'+mfl+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
-    bd(ws.getRange(rl,L+3)).setFormula('=IFERROR(IF('+colLetter(L)+rl+'="","",INDEX(TC_Execution!6:6,'+mfl+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
+    const mfl='MATCH('+colLetter(L)+rl+',TC_Execution!$2:$2,0)';
+    bd(ws.getRange(rl,L+1)).setFormula('=IFERROR(IF('+colLetter(L)+rl+'="","",INDEX(TC_Execution!$4:$4,'+mfl+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
+    bd(ws.getRange(rl,L+2)).setFormula('=IFERROR(IF('+colLetter(L)+rl+'="","",INDEX(TC_Execution!$5:$5,'+mfl+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
+    bd(ws.getRange(rl,L+3)).setFormula('=IFERROR(IF('+colLetter(L)+rl+'="","",INDEX(TC_Execution!$6:$6,'+mfl+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
     bd(ws.getRange(rl,L+4)).setFormula('=IFERROR(IF('+colLetter(L)+rl+'="","",'+colLetter(L+1)+rl+'/MAX(1,'+colLetter(L+1)+rl+'+'+colLetter(L+2)+rl+'+'+colLetter(L+3)+rl+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setNumberFormat('0%');
     bd(ws.getRange(rl,L+5)).setFormula('=IFERROR(IF('+colLetter(L)+rl+'=""," ",('+colLetter(L+1)+rl+'+'+colLetter(L+2)+rl+'+'+colLetter(L+3)+rl+')/MAX(1,'+wTOT+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setNumberFormat('0%');
-    bd(ws.getRange(rl,L+6)).setFormula('=IFERROR(IF('+colLetter(L)+rl+'="","",INDEX(TC_Execution!3:3,'+mfl+')),"--")').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setFontWeight('bold');
+    bd(ws.getRange(rl,L+6)).setFormula('=IFERROR(IF('+colLetter(L)+rl+'="","",INDEX(TC_Execution!$3:$3,'+mfl+')),"--")').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setFontWeight('bold');
     // API row
     bd(ws.getRange(rl,R_)).setFormula(aDateForm).setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left').setFontWeight('bold').setNumberFormat('yyyy-mm-dd');
-    const mfa='MATCH('+colLetter(R_)+rl+',API_Execution!2:2,0)';
-    bd(ws.getRange(rl,R_+1)).setFormula('=IFERROR(IF('+colLetter(R_)+rl+'="","",INDEX(API_Execution!4:4,'+mfa+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
-    bd(ws.getRange(rl,R_+2)).setFormula('=IFERROR(IF('+colLetter(R_)+rl+'="","",INDEX(API_Execution!5:5,'+mfa+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
-    bd(ws.getRange(rl,R_+3)).setFormula('=IFERROR(IF('+colLetter(R_)+rl+'="","",INDEX(API_Execution!6:6,'+mfa+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
+    const mfa='MATCH('+colLetter(R_)+rl+',API_Execution!$2:$2,0)';
+    bd(ws.getRange(rl,R_+1)).setFormula('=IFERROR(IF('+colLetter(R_)+rl+'="","",INDEX(API_Execution!$4:$4,'+mfa+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
+    bd(ws.getRange(rl,R_+2)).setFormula('=IFERROR(IF('+colLetter(R_)+rl+'="","",INDEX(API_Execution!$5:$5,'+mfa+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
+    bd(ws.getRange(rl,R_+3)).setFormula('=IFERROR(IF('+colLetter(R_)+rl+'="","",INDEX(API_Execution!$6:$6,'+mfa+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
     bd(ws.getRange(rl,R_+4)).setFormula('=IFERROR(IF('+colLetter(R_)+rl+'="","",'+colLetter(R_+1)+rl+'/MAX(1,'+colLetter(R_+1)+rl+'+'+colLetter(R_+2)+rl+'+'+colLetter(R_+3)+rl+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setNumberFormat('0%');
     bd(ws.getRange(rl,R_+5)).setFormula('=IFERROR(IF('+colLetter(R_)+rl+'=""," ",('+colLetter(R_+1)+rl+'+'+colLetter(R_+2)+rl+'+'+colLetter(R_+3)+rl+')/MAX(1,'+aTOT+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setNumberFormat('0%');
-    bd(ws.getRange(rl,R_+6)).setFormula('=IFERROR(IF('+colLetter(R_)+rl+'="","",INDEX(API_Execution!3:3,'+mfa+')),"--")').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setFontWeight('bold');
+    bd(ws.getRange(rl,R_+6)).setFormula('=IFERROR(IF('+colLetter(R_)+rl+'="","",INDEX(API_Execution!$3:$3,'+mfa+')),"--")').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setFontWeight('bold');
     ws.setRowHeight(rl,18);
   }
   passRateCF(ws.getRange(RH_L,L+4,3,1)); passRateCF(ws.getRange(RH_L,L+5,3,1));
