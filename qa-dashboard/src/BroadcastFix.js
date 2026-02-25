@@ -218,7 +218,7 @@ var APPENDIX_ROWS = [
         'Feature   = Fitur besar dalam SubModule. Dibedakan di kolom Feature, bukan TC_ID.'
     ],
     [
-        'Pola A -- Project Berlayer (SIPGN)',
+        'Pola A -- Project Berlayer\n(SIPGN)',
         'Project  : SIPGN\n' +
         '  Module 1  : Manajemen Gizi\n' +
         '    SubModule 1.1 : Aplikasi Nutritionist\n' +
@@ -230,7 +230,7 @@ var APPENDIX_ROWS = [
         '    SubModule 2.1 : ...'
     ],
     [
-        'Pola B -- Project Flat (INAGOV)',
+        'Pola B -- Project Flat\n(INAGOV)',
         'Project   : INAGOV\n' +
         '  Module  : - (kosong)\n' +
         '    SubModule : Talenta\n' +
@@ -240,25 +240,6 @@ var APPENDIX_ROWS = [
         '\n' +
         'Pada pola flat, SubModule setara dengan Module di pola berlayer.\n' +
         'Kolom Module di Summary dan Config dikosongkan.'
-    ],
-    [
-        'TC_ID per SubModule',
-        'Format  : [SubModule].[3-digit]\n' +
-        'Pola A  : 1.1.001  (SubModule 1.1, TC ke-1)\n' +
-        '          1.2.001  (SubModule 1.2, TC ke-1)\n' +
-        'Pola B  : Talenta.001  atau tetap numerik 1.001\n' +
-        '\n' +
-        'Boleh pakai Inisial jika nama SubModule terlalu panjang:\n' +
-        '  Portal           -> PO  -> PO.001\n' +
-        '  Layanan SmartASN -> SA  -> SA.001\n' +
-        '  BackOffice       -> BO  -> BO.001\n' +
-        '\n' +
-        'Aturan inisial:\n' +
-        '  - 2-3 huruf kapital, unik per project\n' +
-        '  - Konsisten di TC_Master, API_Master, dan Execution\n' +
-        '  - Dokumentasikan mapping di Appendix (baris ini)\n' +
-        '\n' +
-        'API prefix wajib: API.1.1.001 / API.PO.001 / API.SA.015'
     ],
 ];
 
@@ -511,13 +492,14 @@ function broadcastFixAppendix() {
                 .setValue(APPENDIX_SECTION_TITLE)
                 .setBackground('#1565C0').setFontColor('#FFFFFF')
                 .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
-                .setHorizontalAlignment('left').setVerticalAlignment('middle')
+                .setHorizontalAlignment('center').setVerticalAlignment('middle')
                 .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
             ws.setRowHeight(r, 24);
             r++;
 
             // Content rows
-            APPENDIX_ROWS.forEach(function(rowData) {
+            var rowHeights = [85, 105, 105]; // Definisi, Pola A, Pola B
+            APPENDIX_ROWS.forEach(function(rowData, idx) {
                 ws.getRange(r, 1)
                     .setValue(rowData[0])
                     .setBackground('#E3F2FD').setFontColor('#0D47A1')
@@ -530,12 +512,12 @@ function broadcastFixAppendix() {
                     .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(9)
                     .setHorizontalAlignment('left').setVerticalAlignment('top').setWrap(true)
                     .setBorder(true, true, true, true, false, false, '#BBDEFB', SpreadsheetApp.BorderStyle.SOLID);
-                ws.setRowHeight(r, 70);
+                ws.setRowHeight(r, rowHeights[idx] || 85);
                 r++;
             });
 
-            // Spacer row
-            ws.setRowHeight(r, 8);
+            // Spacer row (minimal)
+            ws.setRowHeight(r, 6);
 
             SpreadsheetApp.flush();
             Logger.log('OK: ' + name + ' -- section ditambahkan');
