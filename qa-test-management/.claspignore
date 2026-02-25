@@ -1,0 +1,32 @@
+# clasp ignore file
+# Exclude files from being pushed to Apps Script
+
+# Documentation
+*.md
+*.txt
+README*
+
+# Config files (keep these local only)
+.clasp.json
+
+# Original files (we use src/ versions)
+qa-test-management.js
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+
+# OS
+.DS_Store
+Thumbs.db
