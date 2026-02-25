@@ -220,7 +220,10 @@ function fixAppendixContent() {
         // Update label (column A)
         ws.getRange(currentRow, 1).setValue(rowData.label);
 
-        // Update content (column B, merged B:D)
+        // Merge B:D first (important!)
+        ws.getRange(currentRow, 2, 1, 3).merge();
+
+        // Update content (column B, now merged B:D)
         ws.getRange(currentRow, 2).setValue(rowData.content);
 
         // Set row height
