@@ -51,6 +51,10 @@ npm install -g @google/clasp
 # Login to Google
 clasp login
 
+# Enable Apps Script API (one-time setup)
+# Visit: https://script.google.com/home/usersettings
+# Toggle ON "Google Apps Script API"
+
 # Setup project
 ./setup-clasp.sh
 
@@ -244,8 +248,10 @@ clasp status
 ```
 
 ### "User has not enabled the Apps Script API"
+**Required before first clasp push/pull:**
 1. Go to: https://script.google.com/home/usersettings
-2. Enable "Google Apps Script API"
+2. Toggle ON "Google Apps Script API"
+3. Wait 1-2 minutes, then retry `clasp push`
 
 ### "Push failed - Authorization required"
 ```bash

@@ -56,7 +56,20 @@ clasp login
 
 Browser akan terbuka untuk authorize clasp. Login dengan akun Google yang memiliki akses ke Apps Script projects.
 
-### 3. Verify Configuration
+### 3. Enable Apps Script API
+
+**PENTING:** Sebelum bisa push/pull, Anda harus enable Apps Script API:
+
+1. Buka: https://script.google.com/home/usersettings
+2. Toggle **ON** untuk "Google Apps Script API"
+3. Tunggu 1-2 menit untuk propagasi
+
+Jika skip step ini, Anda akan mendapat error:
+```
+User has not enabled the Apps Script API. Enable it by visiting...
+```
+
+### 4. Verify Configuration
 
 ```bash
 # Check Dashboard config
@@ -264,8 +277,32 @@ clasp status
 
 ### Error: "User has not enabled the Apps Script API"
 
-1. Go to: https://script.google.com/home/usersettings
-2. Enable "Google Apps Script API"
+**Full error message:**
+```
+User has not enabled the Apps Script API. Enable it by visiting
+https://script.google.com/home/usersettings then retry. If you
+enabled this API recently, wait a few minutes for the action to
+propagate to our systems and retry.
+```
+
+**Solution:**
+
+1. **Enable API:**
+   - Go to: https://script.google.com/home/usersettings
+   - Find "Google Apps Script API" toggle
+   - Turn it **ON**
+
+2. **Wait for propagation:**
+   - Wait 1-2 minutes for changes to take effect
+   - Don't rush to retry immediately
+
+3. **Test:**
+   ```bash
+   cd qa-dashboard
+   clasp push --force
+   ```
+
+**Note:** You only need to enable this once per Google account. After enabling, all future clasp operations will work.
 
 ### Error: "Push failed - Authorization required"
 
