@@ -13,6 +13,19 @@
  * ─────────────────────────────────────────────────────────────────────────
  */
 
+// ── Helper: Safe UI alert (fallback to Logger if no UI context) ───────────
+function safeAlert_(message) {
+  try {
+    SpreadsheetApp.getUi().alert(message);
+  } catch (e) {
+    // When called from trigger or Apps Script Editor, getUi() fails
+    // Fallback to Logger so script can still complete
+    Logger.log('='.repeat(60));
+    Logger.log('INFO: ' + message);
+    Logger.log('='.repeat(60));
+  }
+}
+
 // ── Note content ──────────────────────────────────────────────────────────
 
 var SUBMODUL_NOTE_TC =
@@ -359,13 +372,13 @@ function broadcastFixNotes() {
     var ss  = SpreadsheetApp.getActiveSpreadsheet();
     var cfg = ss.getSheetByName('Config');
     if (!cfg) {
-        SpreadsheetApp.getUi().alert('Config tab tidak ditemukan.\nPastikan script dijalankan dari QA Dashboard.');
+        safeAlert_('Config tab tidak ditemukan.\nPastikan script dijalankan dari QA Dashboard.');
         return;
     }
 
     var modules = getModulesFromConfig_(cfg);
     if (modules.length === 0) {
-        SpreadsheetApp.getUi().alert('Tidak ada modul aktif ditemukan di Config.\nCek kolom Active (Y/N) dan Spreadsheet ID.');
+        safeAlert_('Tidak ada modul aktif ditemukan di Config.\nCek kolom Active (Y/N) dan Spreadsheet ID.');
         return;
     }
 
@@ -404,7 +417,7 @@ function broadcastFixNotes() {
         }
     });
 
-    SpreadsheetApp.getUi().alert(
+    safeAlert_(
         'broadcastFixNotes selesai\n\n' +
         'Berhasil : ' + done    + ' modul\n' +
         'Dilewati : ' + skipped + ' modul\n' +
@@ -420,7 +433,7 @@ function fixNotesSingleSheet() {
     var apiMaster = ss.getSheetByName('API_Master');
 
     if (!tcMaster && !apiMaster) {
-        SpreadsheetApp.getUi().alert('TC_Master dan API_Master tidak ditemukan di spreadsheet ini.');
+        safeAlert_('TC_Master dan API_Master tidak ditemukan di spreadsheet ini.');
         return;
     }
 
@@ -428,7 +441,7 @@ function fixNotesSingleSheet() {
     if (tcMaster)  total += applyNotes_(tcMaster,  TC_MASTER_NOTES);
     if (apiMaster) total += applyNotes_(apiMaster, API_MASTER_NOTES);
 
-    SpreadsheetApp.getUi().alert(
+    safeAlert_(
         'Done -- ' + total + ' notes diupdate di:\n' +
         (tcMaster  ? '  - TC_Master\n'  : '') +
         (apiMaster ? '  - API_Master\n' : '') +
@@ -445,13 +458,13 @@ function broadcastFixAppendix() {
     var ss  = SpreadsheetApp.getActiveSpreadsheet();
     var cfg = ss.getSheetByName('Config');
     if (!cfg) {
-        SpreadsheetApp.getUi().alert('Config tab tidak ditemukan.\nJalankan dari QA Dashboard.');
+        safeAlert_('Config tab tidak ditemukan.\nJalankan dari QA Dashboard.');
         return;
     }
 
     var modules = getModulesFromConfig_(cfg);
     if (modules.length === 0) {
-        SpreadsheetApp.getUi().alert('Tidak ada modul aktif ditemukan di Config.\nCek kolom Active (Y/N) dan Spreadsheet ID.');
+        safeAlert_('Tidak ada modul aktif ditemukan di Config.\nCek kolom Active (Y/N) dan Spreadsheet ID.');
         return;
     }
 
@@ -534,7 +547,7 @@ function broadcastFixAppendix() {
         }
     });
 
-    SpreadsheetApp.getUi().alert(
+    safeAlert_(
         'broadcastFixAppendix selesai\n\n' +
         'Berhasil : ' + done    + ' modul\n' +
         'Dilewati : ' + skipped + ' modul (sudah ada / no Appendix)\n' +
@@ -550,5 +563,5 @@ function broadcastFixAppendix() {
 function broadcastFixAll() {
     broadcastFixNotes();
     broadcastFixAppendix();
-    SpreadsheetApp.getUi().alert('broadcastFixAll selesai.\nCek Logs untuk detail per modul.');
+    safeAlert_('broadcastFixAll selesai.\nCek Logs untuk detail per modul.');
 }
