@@ -103,7 +103,6 @@ function setupTrigger() {
 function pullModuleData(mod) {
   const src = SpreadsheetApp.openById(mod.id);
 
-  // Read raw sheets
   const tcm  = src.getSheetByName('TC_Master');
   const tce  = src.getSheetByName('TC_Execution');
   const apim = src.getSheetByName('API_Master');
@@ -112,27 +111,94 @@ function pullModuleData(mod) {
   const summ = src.getSheetByName('Summary');
   const bugr = src.getSheetByName('BugReport');
 
-  // Pull PIC QA and Project/Sprint from Summary TEST DESCRIPTION section
-  // leftFields row order: [0]=Project/Sprint [1]=Period [2]=QA Lead [3]=PIC QA
-  // Summary row 1=title, row 2=TEST DESCRIPTION header, rows 3+ = fields
-  // Value is in col 2 (B), merged
+  // ?? Summary cell map (QA Test Management v38+) ???????????????????????
+  // TEST DESCRIPTION: row 1=title, rows 2-9=fields, value col=B(2) left / M(13) right
+  //   B2=Project/Sprint  B3=Period    B4=QA Lead   B5=PIC QA
+  //   B6=Environment     B7=Issue Tracker           B8=Test Status  B9=Scope
+  //   M2=Base URL        M6=Collection URL          M7=Test Status(API)
+  //   M8=Perf Test Result
+  // STATUS OVERVIEW KPI: row 13 (L=1, R_=12)
+  //   Web: A13=Total B13=Passed C13=Failed D13=Blocked E13=InProg F13=TODO
+  //        G13=PassRate H13=AutoRate I13=ExecRate
+  //   API: L13=Total M13=Passed N13=Failed O13=Blocked P13=InProg Q13=TODO
+  //        R13=PassRate S13=AutoRate T13=ExecRate
+  const SUMM_KPI_ROW = 13;
+
   let picQA = mod.team || '';
   let projectSprint = mod.sprint || '';
+  let wTotal=0, wPassed=0, wFailed=0, wBlocked=0, wInProg=0, wTodo=0;
+  let wPassRate=0, wAutoRate=0, wExecRate=0;
+  let aTotal=0, aPassed=0, aFailed=0, aBlocked=0, aInProg=0, aTodo=0;
+  let aPassRate=0, aAutoRate=0, aExecRate=0;
+  let perfResult = '--';
+
   try {
     if (summ) {
-      const ps = summ.getRange(2, 2).getValue();
+      // Description fields
+      const ps  = summ.getRange(2, 2).getValue();
       const pic = summ.getRange(5, 2).getValue();
-      if (ps && String(ps).trim()) projectSprint = String(ps).trim();
-      if (pic && String(pic).trim()) picQA = String(pic).trim();
-    }
-  } catch(e) { Logger.log('Summary read error for ' + mod.name + ': ' + e.message); }
+      if (ps  && String(ps).trim())  projectSprint = String(ps).trim();
+      if (pic && String(pic).trim()) picQA         = String(pic).trim();
 
-  // ?? Web/Mobile stats from TC_Master + TC_Execution ??
-  const wStats = getSheetStats(tcm, tce, 'TC');
-  const aStats = getSheetStats(apim, apie, 'API');
-  const blockers = getBlockers(tcm, tce, apim, apie, mod.name);
-  const coverage = getCoverage(tcm, tce, apim, apie);
-  const perfResult = getPerfResult(perf);
+      // Perf result from Summary M8 (rightFields index 6 = Perf Test Result)
+      const perfVal = summ.getRange(8, 13).getValue();
+      if (perfVal && String(perfVal).trim()) perfResult = String(perfVal).trim();
+
+      // Web/Mobile KPI from Summary row 13, cols A-I (1-9)
+      const wKpi = summ.getRange(SUMM_KPI_ROW, 1, 1, 9).getValues()[0];
+      wTotal    = Number(wKpi[0]) || 0;
+      wPassed   = Number(wKpi[1]) || 0;
+      wFailed   = Number(wKpi[2]) || 0;
+      wBlocked  = Number(wKpi[3]) || 0;
+      wInProg   = Number(wKpi[4]) || 0;
+      wTodo     = Number(wKpi[5]) || 0;
+      wPassRate = Number(wKpi[6]) || 0;
+      wAutoRate = Number(wKpi[7]) || 0;
+      wExecRate = Number(wKpi[8]) || 0;
+
+      // API KPI from Summary row 13, cols L-T (12-20)
+      const aKpi = summ.getRange(SUMM_KPI_ROW, 12, 1, 9).getValues()[0];
+      aTotal    = Number(aKpi[0]) || 0;
+      aPassed   = Number(aKpi[1]) || 0;
+      aFailed   = Number(aKpi[2]) || 0;
+      aBlocked  = Number(aKpi[3]) || 0;
+      aInProg   = Number(aKpi[4]) || 0;
+      aTodo     = Number(aKpi[5]) || 0;
+      aPassRate = Number(aKpi[6]) || 0;
+      aAutoRate = Number(aKpi[7]) || 0;
+      aExecRate = Number(aKpi[8]) || 0;
+
+      Logger.log(mod.name + ' | Summary KPI read OK | wTotal=' + wTotal + ' wPass%=' + Math.round(wPassRate*100) + '% | aTotal=' + aTotal + ' aPass%=' + Math.round(aPassRate*100) + '%');
+    } else {
+      // Fallback: Summary missing ? calculate from raw sheets
+      Logger.log(mod.name + ' | Summary not found, falling back to raw sheet calculation');
+      const wStats = getSheetStats(tcm, tce, 'TC');
+      const aStats = getSheetStats(apim, apie, 'API');
+      wTotal=wStats.total; wPassed=wStats.passed; wFailed=wStats.failed;
+      wBlocked=wStats.blocked; wInProg=wStats.inprog; wTodo=wStats.todo;
+      wPassRate=wStats.passRate; wAutoRate=wStats.autoRate; wExecRate=wStats.execRate;
+      aTotal=aStats.total; aPassed=aStats.passed; aFailed=aStats.failed;
+      aBlocked=aStats.blocked; aInProg=aStats.inprog; aTodo=aStats.todo;
+      aPassRate=aStats.passRate; aAutoRate=aStats.autoRate; aExecRate=aStats.execRate;
+      perfResult = getPerfResult(perf);
+    }
+  } catch(e) {
+    Logger.log('pullModuleData error [' + mod.name + ']: ' + e.message);
+    // Fallback on error too
+    try {
+      const wStats = getSheetStats(tcm, tce, 'TC');
+      const aStats = getSheetStats(apim, apie, 'API');
+      wTotal=wStats.total; wPassed=wStats.passed; wFailed=wStats.failed;
+      wBlocked=wStats.blocked; wInProg=wStats.inprog; wTodo=wStats.todo;
+      wPassRate=wStats.passRate; wAutoRate=wStats.autoRate; wExecRate=wStats.execRate;
+      aTotal=aStats.total; aPassed=aStats.passed; aFailed=aStats.failed;
+      aBlocked=aStats.blocked; aInProg=aStats.inprog; aTodo=aStats.todo;
+      aPassRate=aStats.passRate; aAutoRate=aStats.autoRate; aExecRate=aStats.execRate;
+    } catch(e2) { Logger.log('Fallback also failed: ' + e2.message); }
+  }
+
+  const blockers  = getBlockers(tcm, tce, apim, apie, mod.name);
+  const coverage  = getCoverage(tcm, tce, apim, apie);
 
   return {
     name:        mod.name,
@@ -140,32 +206,13 @@ function pullModuleData(mod) {
     id:          mod.id,
     sprint:      projectSprint,
     refreshed:   new Date(),
-
-    // Web stats
-    wTotal:      wStats.total,
-    wPassed:     wStats.passed,
-    wFailed:     wStats.failed,
-    wBlocked:    wStats.blocked,
-    wInProg:     wStats.inprog,
-    wTodo:       wStats.todo,
-    wPassRate:   wStats.passRate,
-    wAutoRate:   wStats.autoRate,
-    wExecRate:   wStats.execRate,
-
-    // API stats
-    aTotal:      aStats.total,
-    aPassed:     aStats.passed,
-    aFailed:     aStats.failed,
-    aBlocked:    aStats.blocked,
-    aInProg:     aStats.inprog,
-    aTodo:       aStats.todo,
-    aPassRate:   aStats.passRate,
-    aAutoRate:   aStats.autoRate,
-    aExecRate:   aStats.execRate,
-
-    perfResult:  perfResult,
-    blockers:    blockers,
-    coverage:    coverage,
+    wTotal, wPassed, wFailed, wBlocked, wInProg, wTodo,
+    wPassRate, wAutoRate, wExecRate,
+    aTotal, aPassed, aFailed, aBlocked, aInProg, aTodo,
+    aPassRate, aAutoRate, aExecRate,
+    perfResult,
+    blockers,
+    coverage,
     bugStats:    getBugStats(bugr),
     error:       '',
   };
@@ -176,35 +223,51 @@ function getSheetStats(masterSheet, execSheet, type) {
   if (!masterSheet || !execSheet) return empty;
 
   try {
-    // Master: col B=SubModul C=TC_ID, H=Auto(TC) or J=Auto(API), E=Priority(TC) or G=Priority(API)
+    // ?? Master: count total TC and auto rate ??????????????????????????????
+    // TC_Master:  A=No B=SubModul C=TC_ID(2) ... H=Automated(7)
+    // API_Master: A=No B=SubModul C=TC_ID(2) ... J=Automated(9)
+    // Data starts row 3 = slice(2)
     const mData = masterSheet.getDataRange().getValues();
-    // Execution: col Z = LATEST STATUS (index 25)
-    const eData = execSheet.getDataRange().getValues();
-
-    // Find data rows (skip headers, start from row index 2 = row 3 in sheet)
     const mRows = mData.slice(2).filter(r => r[2] && r[2] !== ''); // col C = TC_ID
-    const total = mRows.length;
-
-    // Auto column: TC_Master col H = index 7, API_Master col J = index 9
+    const total  = mRows.length;
     const autoIdx = type === 'TC' ? 7 : 9;
     const automated = mRows.filter(r => r[autoIdx] === 'Automated').length;
-    const autoRate = total > 0 ? automated / total : 0;
+    const autoRate  = total > 0 ? automated / total : 0;
 
-    // Execution status: rows with Z (index 25) having values
-    // Execution data rows start at index 8 (row 9)
-    const eRows = eData.slice(8).filter(r => r[2] && r[2] !== ''); // col C = TC_ID (synced)
-    const passed  = eRows.filter(r => r[25] === 'PASSED').length;
-    const failed  = eRows.filter(r => r[25] === 'FAILED').length;
-    const blocked = eRows.filter(r => r[25] === 'BLOCKED').length;
-    const inprog  = eRows.filter(r => r[25] === 'IN PROGRESS').length;
-    const todo    = eRows.filter(r => r[25] === 'TODO').length;
+    // ?? Execution: read STATUS from col Z (col 26) EXPLICITLY ????????????
+    // Root cause of 0%: getDataRange() stops at last col with direct input (often col J).
+    // Cols K-Y are empty, col Z has ARRAYFORMULA ? getDataRange() may not include Z.
+    // Fix: read col Z directly regardless of getDataRange range.
+    // TC_Execution DS=9, API_Execution DS=9
+    const DS = 9;
+    const lastRow = execSheet.getLastRow();
+    const STATUS_COL = 26; // col Z (1-indexed)
+    const ID_COL     = 1;  // col A = TC_ID
+
+    if (lastRow < DS) return { total, passed:0, failed:0, blocked:0, inprog:0, todo:0,
+      passRate:0, autoRate, execRate:0 };
+
+    const numRows  = lastRow - DS + 1;
+    const idVals   = execSheet.getRange(DS, ID_COL,     numRows, 1).getValues();
+    const statVals = execSheet.getRange(DS, STATUS_COL, numRows, 1).getValues();
+
+    let passed=0, failed=0, blocked=0, inprog=0, todo=0;
+    idVals.forEach((row, i) => {
+      if (!row[0] || row[0] === '') return; // skip empty rows
+      const st = String(statVals[i][0] || '').trim();
+      if (st === 'PASSED')      passed++;
+      else if (st === 'FAILED') failed++;
+      else if (st === 'BLOCKED') blocked++;
+      else if (st === 'IN PROGRESS') inprog++;
+      else if (st === 'TODO')   todo++;
+    });
     const executed = passed + failed + blocked + inprog;
 
     return {
       total, passed, failed, blocked, inprog, todo,
-      passRate: total > 0 ? passed / total : 0,
+      passRate:  total > 0 ? passed   / total : 0,
       autoRate,
-      execRate: total > 0 ? executed / total : 0,
+      execRate:  total > 0 ? executed / total : 0,
     };
   } catch(e) {
     Logger.log('getSheetStats error: ' + e.message);
