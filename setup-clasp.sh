@@ -27,6 +27,20 @@ else
 fi
 
 echo ""
+echo "⚠️  IMPORTANT: Enable Apps Script API"
+echo "   Before you can push/pull, you must enable the Apps Script API:"
+echo "   1. Visit: https://script.google.com/home/usersettings"
+echo "   2. Toggle ON 'Google Apps Script API'"
+echo "   3. Wait 1-2 minutes for propagation"
+echo ""
+read -p "Have you enabled the Apps Script API? (y/n) " -n 1 -r
+echo ""
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "⚠️  Please enable the API first, then re-run this script"
+    exit 1
+fi
+
+echo ""
 echo "📋 Verifying project configurations..."
 
 # Verify Dashboard
