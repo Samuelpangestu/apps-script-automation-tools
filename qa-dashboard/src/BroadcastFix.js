@@ -6,10 +6,11 @@
  * di TC_Master dan API_Master semua modul aktif -- tanpa menyentuh data lain.
  *
  * FUNCTIONS:
- *   broadcastFixAll()       -- jalankan semua fix sekaligus (RECOMMENDED)
- *   broadcastFixNotes()     -- broadcast notes ke semua modul aktif di Config
- *   broadcastFixAppendix()  -- tambah section Hierarki QA ke Appendix
- *   fixNotesSingleSheet()   -- update sheet yang sedang aktif saja
+ *   broadcastFixAll()             -- jalankan semua fix sekaligus (RECOMMENDED)
+ *   broadcastFixNotes()           -- broadcast notes ke semua modul aktif di Config
+ *   broadcastFixAppendix()        -- tambah section Hierarki QA ke Appendix (idempotent)
+ *   cleanupAndReapplyAppendix()   -- remove & re-apply Appendix section (untuk update format lama)
+ *   fixNotesSingleSheet()         -- update sheet yang sedang aktif saja
  * ─────────────────────────────────────────────────────────────────────────
  */
 
@@ -535,6 +536,133 @@ function broadcastFixAppendix() {
         'Dilewati : ' + skipped + ' modul (sudah ada / no Appendix)\n' +
         'Gagal    : ' + failed  + ' modul\n\n' +
         'Lihat Apps Script Logs untuk detail.'
+    );
+}
+
+// ── cleanupAndReapplyAppendix ────────────────────────────────────────────
+/**
+ * Remove existing "0. HIERARKI QA" section dari semua modul,
+ * lalu re-apply dengan format baru.
+ *
+ * Use this untuk update format dari versi lama ke versi baru.
+ */
+function cleanupAndReapplyAppendix() {
+    var ss  = SpreadsheetApp.getActiveSpreadsheet();
+    var cfg = ss.getSheetByName('Config');
+    if (!cfg) {
+        safeAlert_('Config tab tidak ditemukan.\nJalankan dari QA Dashboard.');
+        return;
+    }
+
+    var modules = getModulesFromConfig_(cfg);
+    if (modules.length === 0) {
+        safeAlert_('Tidak ada modul aktif ditemukan di Config.');
+        return;
+    }
+
+    var done = 0, skipped = 0, failed = 0;
+
+    modules.forEach(function(mod) {
+        var name    = mod.name;
+        var cleanId = mod.id.replace(/[^A-Za-z0-9_\-]/g, '');
+        if (cleanId.length < 20) {
+            Logger.log('SKIP ' + name + ': ID tidak valid');
+            skipped++;
+            return;
+        }
+
+        try {
+            var modSS = SpreadsheetApp.openById(cleanId);
+            var ws    = modSS.getSheetByName('Appendix');
+            if (!ws) {
+                Logger.log('SKIP ' + name + ': tab Appendix tidak ditemukan');
+                skipped++;
+                return;
+            }
+
+            // Find and delete existing section
+            var lastRow  = ws.getLastRow();
+            var data     = lastRow > 0 ? ws.getRange(1, 1, lastRow, 1).getValues() : [];
+            var foundRow = -1;
+
+            for (var i = 0; i < data.length; i++) {
+                if (String(data[i][0]).trim() === APPENDIX_SECTION_TITLE) {
+                    foundRow = i + 1; // 1-indexed
+                    break;
+                }
+            }
+
+            if (foundRow > 0) {
+                // Delete section: header + content rows + spacer
+                // Old format had 4 content rows + 1 header + 1 spacer = 6 rows
+                // New format has 3 content rows + 1 header + 1 spacer = 5 rows
+                // Delete up to 7 rows to be safe (accommodate any old format)
+                var deleteCount = Math.min(7, lastRow - foundRow + 1);
+                ws.deleteRows(foundRow, deleteCount);
+                SpreadsheetApp.flush();
+                Logger.log('CLEANUP ' + name + ': removed old section at row ' + foundRow);
+            }
+
+            // Now re-insert with new format
+            // (same logic as broadcastFixAppendix, but without idempotent check)
+            var insertCount = 1 + APPENDIX_ROWS.length + 1; // header + rows + spacer
+            ws.insertRowsBefore(2, insertCount);
+
+            var r = 2;
+
+            // Section header
+            ws.getRange(r, 1, 1, 4).merge();
+            ws.getRange(r, 1)
+                .setValue(APPENDIX_SECTION_TITLE)
+                .setBackground('#1565C0').setFontColor('#FFFFFF')
+                .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+                .setHorizontalAlignment('center').setVerticalAlignment('middle')
+                .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
+            ws.setRowHeight(r, 24);
+            r++;
+
+            // Content rows
+            var rowHeights = [85, 105, 105]; // Definisi, Pola A, Pola B
+            APPENDIX_ROWS.forEach(function(rowData, idx) {
+                ws.getRange(r, 1)
+                    .setValue(rowData[0])
+                    .setBackground('#E3F2FD').setFontColor('#0D47A1')
+                    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+                    .setHorizontalAlignment('left').setVerticalAlignment('top').setWrap(true)
+                    .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
+                ws.getRange(r, 2, 1, 3).merge();
+                ws.getRange(r, 2)
+                    .setValue(rowData[1])
+                    .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(9)
+                    .setHorizontalAlignment('left').setVerticalAlignment('top').setWrap(true)
+                    .setBorder(true, true, true, true, false, false, '#BBDEFB', SpreadsheetApp.BorderStyle.SOLID);
+                ws.setRowHeight(r, rowHeights[idx] || 85);
+                r++;
+            });
+
+            // Spacer row (minimal)
+            ws.setRowHeight(r, 6);
+
+            SpreadsheetApp.flush();
+            Logger.log('OK: ' + name + ' -- section re-applied with new format');
+            done++;
+
+        } catch (e) {
+            Logger.log('ERROR ' + name + ': ' + e.message);
+            failed++;
+        }
+    });
+
+    safeAlert_(
+        'cleanupAndReapplyAppendix selesai\n\n' +
+        'Berhasil : ' + done    + ' modul\n' +
+        'Dilewati : ' + skipped + ' modul\n' +
+        'Gagal    : ' + failed  + ' modul\n\n' +
+        'Semua modul sekarang menggunakan format baru:\n' +
+        '- Header centered\n' +
+        '- 3 content rows (Definisi, Pola A, Pola B)\n' +
+        '- Optimized row heights\n' +
+        '- No TC_ID section (moved to "1. STRUKTUR TAB")'
     );
 }
 
