@@ -1,7 +1,8 @@
 # ── Google Apps Script ────────────────────────────────────────────────────
-.clasp.json
-.claspignore
-appsscript.json
+# Allow .clasp.json (contains scriptId only, not sensitive)
+# But block .clasprc.json (contains auth tokens!)
+.clasprc.json
+**/.clasprc.json
 
 # ── Credentials & Secrets ─────────────────────────────────────────────────
 *.env

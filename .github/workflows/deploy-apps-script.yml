@@ -1,0 +1,64 @@
+name: Deploy Apps Script
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'qa-dashboard/src/**'
+      - 'qa-test-management/src/**'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy-dashboard:
+    name: Deploy QA Dashboard
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.modified, 'qa-dashboard/src')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install clasp
+        run: npm install -g @google/clasp
+
+      - name: Setup clasp credentials
+        run: |
+          echo "$CLASPRC_JSON" > ~/.clasprc.json
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+
+      - name: Push to Apps Script (Dashboard)
+        working-directory: ./qa-dashboard
+        run: clasp push --force
+
+  deploy-test-management:
+    name: Deploy QA Test Management
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.modified, 'qa-test-management/src')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install clasp
+        run: npm install -g @google/clasp
+
+      - name: Setup clasp credentials
+        run: |
+          echo "$CLASPRC_JSON" > ~/.clasprc.json
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+
+      - name: Push to Apps Script (Test Management)
+        working-directory: ./qa-test-management
+        run: clasp push --force
