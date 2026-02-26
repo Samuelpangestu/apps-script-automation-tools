@@ -1,677 +1,237 @@
 /**
- * broadcast_notes_fix.js
+ * broadcast_appendix_fix.js
  * ─────────────────────────────────────────────────────────────────────────
- * Paste ke Apps Script editor QA Dashboard, lalu run broadcastFixNotes().
- * Update notes pada kolom SubModul, TC_ID, Scenario, Steps, Expected Result
- * di TC_Master dan API_Master semua modul aktif -- tanpa menyentuh data lain.
- *
- * FUNCTIONS:
- *   broadcastFixAll()             -- jalankan semua fix sekaligus (RECOMMENDED)
- *   broadcastFixNotes()           -- broadcast notes ke semua modul aktif di Config
- *   broadcastFixAppendix()        -- tambah section Hierarki QA ke Appendix (idempotent)
- *   cleanupAndReapplyAppendix()   -- remove & re-apply Appendix section (untuk update format lama)
- *   fixNotesSingleSheet()         -- update sheet yang sedang aktif saja
+ * Paste ke Apps Script editor QA Dashboard, lalu run broadcastFixAppendix().
  * ─────────────────────────────────────────────────────────────────────────
  */
 
-// ── Helper: Safe UI alert (fallback to Logger if no UI context) ───────────
-function safeAlert_(message) {
+var SECTION_TITLE = '0. HIERARKI QA -- PROJECT / MODULE / SUBMODULE';
+
+var HIER_ROWS = [
+  [
+    'Definisi',
+    'Project   = Inisiatif / client / program kerja. Contoh: SIPGN, INAGOV\n' +
+    'Module    = Pengelompokan domain fungsional dalam project.\n' +
+    '            Kosongkan ("-") jika project flat (tidak punya layer domain).\n' +
+    'SubModule = Unit terkecil yang berdiri sendiri -- 1 aplikasi atau 1 domain.\n' +
+    '            ANCHOR utama untuk TC_ID, Coverage, dan Dashboard.\n' +
+    'Feature   = Fitur besar dalam SubModule. Dibedakan di kolom Feature, bukan TC_ID.'
+  ],
+  [
+    'Pola A -- Project Berlayer (SIPGN)',
+    'Project  : SIPGN\n' +
+    '  Module 1  : Manajemen Gizi\n' +
+    '    SubModule 1.1 : Aplikasi Nutritionist\n' +
+    '      Feature: Meal Plan, Menu Management\n' +
+    '    SubModule 1.2 : Aplikasi Courier\n' +
+    '      Feature: Pick Up, Delivery, Return\n' +
+    '    SubModule 1.3 : Aplikasi Beneficiary\n' +
+    '  Module 2  : Manajemen Distribusi\n' +
+    '    SubModule 2.1 : ...'
+  ],
+  [
+    'Pola B -- Project Flat (INAGOV)',
+    'Project   : INAGOV\n' +
+    '  Module  : - (kosong)\n' +
+    '    SubModule : Portal           -> inisial: PO\n' +
+    '    SubModule : Layanan SmartASN -> inisial: SA\n' +
+    '    SubModule : BackOffice       -> inisial: BO\n' +
+    '\n' +
+    'Pada pola flat, SubModule setara dengan Module di pola berlayer.\n' +
+    'Kolom Module di Summary dan Config dikosongkan.'
+  ],
+  [
+    'Format TC_ID',
+    'Format dasar : [SubModule].[3-digit]\n' +
+    '\n' +
+    'SubModule bisa berupa:\n' +
+    '  Numerik : 1.1.001  1.2.015  2.1.001     (pola berlayer)\n' +
+    '  Nama    : Talenta.001  eOffice.001       (pola flat, nama pendek)\n' +
+    '  Inisial : PO.001  SA.001  BO.001         (pola flat, nama panjang)\n' +
+    '\n' +
+    'Contoh inisial INAGOV:\n' +
+    '  Portal           -> PO   TC_ID: PO.001  PO.002\n' +
+    '  Layanan SmartASN -> SA   TC_ID: SA.001  SA.002\n' +
+    '  BackOffice       -> BO   TC_ID: BO.001  BO.002\n' +
+    '\n' +
+    'API prefix wajib: API.PO.001 / API.SA.001 / API.1.1.001\n' +
+    '\n' +
+    'Aturan:\n' +
+    '  - Pilih SATU format dan gunakan konsisten per project\n' +
+    '  - Harus UNIK -- jangan pernah reuse TC_ID yang sudah ada\n' +
+    '  - Jangan ubah TC_ID jika sudah ada hasil di Execution'
+  ],
+];
+
+var TC_MASTER_DESC =
+  'Master list test case Web / Mobile.\n' +
+  'Kolom [INPUT]: SubModul, TC_ID, Feature, Priority, Platform, Test Type, Automation, Version, Role (RBAC), Scenario, Steps, Expected Result.\n' +
+  'Kolom [AUTO]: Test Level (kolom N) -- jangan diedit.\n' +
+  'Format TC_ID: [SubModule].[3-digit]  contoh: 1.1.001  PO.001  Talenta.001\n' +
+  'Gunakan inisial jika nama SubModule terlalu panjang (contoh: PO, SA, BO).\n' +
+  'Role = peran RBAC yang menjalankan skenario, contoh: Admin, User, Viewer.';
+
+var API_MASTER_DESC =
+  'Master list test case API. Method (E) dan Endpoint URL (F) terpisah.\n' +
+  'Kolom [INPUT]: SubModul, TC_ID, Feature, Method, Endpoint, Priority, Auth, Test Type, Automation, Version, Role (RBAC), Scenario.\n' +
+  'Kolom [AUTO]: Test Level (kolom N) -- jangan diedit.\n' +
+  'Format TC_ID: API.[SubModule].[3-digit]  contoh: API.1.1.001  API.PO.001  API.SA.001\n' +
+  'Prefix API wajib. SubModule harus identik dengan TC_Master.\n' +
+  'Role = peran RBAC yang diuji aksesnya, contoh: Admin, Super Admin, User, Viewer.';
+
+// ── Auto-detect Spreadsheet ID column from Config header row ─────────────
+function getIdColIndex_(headerRow) {
+  for (var i = 0; i < headerRow.length; i++) {
+    var h = String(headerRow[i]).trim().toUpperCase();
+    if (h === 'SPREADSHEET ID' || h === 'SPREADSHEET_ID' || h === 'ID') {
+      return i;
+    }
+  }
+  // Fallback: try col E (index 4) then col F (index 5)
+  return 4;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function sectionHeader_(ws, row, title) {
+  ws.getRange(row, 1, 1, 4).merge();
+  ws.getRange(row, 1)
+    .setValue(title)
+    .setBackground('#1565C0').setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+    .setHorizontalAlignment('left').setVerticalAlignment('middle')
+    .setBorder(true,true,true,true,false,false,'#90CAF9',SpreadsheetApp.BorderStyle.SOLID);
+  ws.setRowHeight(row, 24);
+}
+
+function contentRow_(ws, row, label, desc) {
+  ws.getRange(row, 1)
+    .setValue(label)
+    .setBackground('#E3F2FD').setFontColor('#0D47A1')
+    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+    .setHorizontalAlignment('left').setVerticalAlignment('top').setWrap(true)
+    .setBorder(true,true,true,true,false,false,'#90CAF9',SpreadsheetApp.BorderStyle.SOLID);
+  ws.getRange(row, 2, 1, 3).merge();
+  ws.getRange(row, 2)
+    .setValue(desc)
+    .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(9)
+    .setHorizontalAlignment('left').setVerticalAlignment('top').setWrap(true)
+    .setBorder(true,true,true,true,false,false,'#BBDEFB',SpreadsheetApp.BorderStyle.SOLID);
+  ws.setRowHeight(row, 80);
+}
+
+function safeAlert_(msg) {
+  // getUi() fails when called from certain triggers — use Logger as fallback
   try {
-    SpreadsheetApp.getUi().alert(message);
-  } catch (e) {
-    // When called from trigger or Apps Script Editor, getUi() fails
-    // Fallback to Logger so script can still complete
-    Logger.log('='.repeat(60));
-    Logger.log('INFO: ' + message);
-    Logger.log('='.repeat(60));
+    SpreadsheetApp.getUi().alert(msg);
+  } catch(e) {
+    Logger.log('RESULT:\n' + msg);
+    Browser.msgBox(msg);
   }
 }
 
-// ── Note content ──────────────────────────────────────────────────────────
-
-var SUBMODUL_NOTE_TC =
-    'SubModule -- Level ke-3 dalam hierarki QA:\n' +
-    '\n' +
-    'Hierarki: Project > Module > SubModule > Feature\n' +
-    '\n' +
-    'SubModule = unit terkecil yang berdiri sendiri,\n' +
-    'biasanya 1 aplikasi atau 1 domain dalam project.\n' +
-    '\n' +
-    'Format berlayer (contoh: SIPGN)\n' +
-    '  1.1 = Module 1, SubModule ke-1 (Aplikasi Nutritionist)\n' +
-    '  1.2 = Module 1, SubModule ke-2 (Aplikasi Courier)\n' +
-    '  2.1 = Module 2, SubModule ke-1\n' +
-    '\n' +
-    'Format flat -- Module dikosongkan (contoh: INAGOV)\n' +
-    '  Nama atau INISIAL jika nama terlalu panjang:\n' +
-    '  1. Portal           -> PO\n' +
-    '  2. Layanan SmartASN -> SA\n' +
-    '  3. BackOffice       -> BO\n' +
-    '\n' +
-    'Aturan inisial:\n' +
-    '  - 2-4 huruf kapital, unik per project\n' +
-    '  - Konsisten di TC_Master, API_Master, dan Execution\n' +
-    '  - Dokumentasikan di Appendix\n' +
-    '\n' +
-    'Gunakan nilai KONSISTEN di TC_Master dan API_Master\n' +
-    'agar coverage Dashboard akurat.';
-
-var SUBMODUL_NOTE_API =
-    'SubModule -- sama dengan SubModule di TC_Master.\n' +
-    '\n' +
-    'Hierarki: Project > Module > SubModule > Feature\n' +
-    '\n' +
-    'Gunakan kode yang IDENTIK dengan TC_Master\n' +
-    'agar coverage tergabung dengan benar di Summary.\n' +
-    '\n' +
-    'Contoh berlayer       : 1.1 / 1.2 / 2.1\n' +
-    'Contoh flat (nama)    : Talenta / e-Office\n' +
-    'Contoh flat (inisial) : PO / SA / BO\n' +
-    '  Portal           -> PO\n' +
-    '  Layanan SmartASN -> SA\n' +
-    '  BackOffice       -> BO';
-
-var TC_ID_NOTE =
-    'TC_ID -- Format: [SubModule].[3-digit]\n' +
-    '\n' +
-    'Opsi 1 -- Numerik (project berlayer seperti SIPGN)\n' +
-    '  1.1.001  = SubModule 1.1, TC ke-1\n' +
-    '  1.2.015  = SubModule 1.2, TC ke-15\n' +
-    '\n' +
-    'Opsi 2 -- Inisial (jika SubModule punya nama, bukan nomor)\n' +
-    '  Gunakan 2-3 huruf kapital dari nama SubModule:\n' +
-    '  PO.001   = Portal, TC ke-1\n' +
-    '  SA.001   = Layanan SmartASN, TC ke-1\n' +
-    '  BO.001   = BackOffice, TC ke-1\n' +
-    '\n' +
-    'Aturan inisial:\n' +
-    '  - 2-3 huruf kapital, UNIK per project\n' +
-    '  - Daftarkan inisial di kolom SubModul Summary\n' +
-    '  - Konsisten di TC_Master, API_Master, dan Execution\n' +
-    '\n' +
-    'Pilih SATU format dan gunakan KONSISTEN dalam satu project.\n' +
-    'Harus UNIK. Jangan ubah TC_ID jika sudah ada hasil di Execution.\n' +
-    'API prefix wajib: API.1.1.001 / API.PO.001 / API.SA.001';
-
-var TC_ID_NOTE_API =
-    'TC_ID API -- Format: API.[SubModule].[3-digit]\n' +
-    '\n' +
-    'Opsi 1 -- Numerik:\n' +
-    '  API.1.1.001  API.1.2.015\n' +
-    '\n' +
-    'Opsi 2 -- Inisial SubModule:\n' +
-    '  API.PO.001   = Portal, TC ke-1\n' +
-    '  API.SA.001   = Layanan SmartASN, TC ke-1\n' +
-    '  API.BO.001   = BackOffice, TC ke-1\n' +
-    '\n' +
-    'Aturan inisial:\n' +
-    '  - 2-3 huruf kapital, UNIK per project\n' +
-    '  - Harus IDENTIK dengan inisial yang dipakai di TC_Master\n' +
-    '  - Konsisten di TC_Master, API_Master, dan Execution\n' +
-    '\n' +
-    'Prefix API wajib untuk semua test case API.\n' +
-    'Harus UNIK. Jangan ubah TC_ID jika sudah ada hasil di Execution.';
-
-var SCENARIO_NOTE =
-    'SCENARIO NAMING STANDARD\n' +
-    '\n' +
-    'FORMULA\n' +
-    '  Happy Path : [Role] + Successfully + [Verb] + [Object] + (from/to [Location])\n' +
-    '  Negative   : [Role] + Failed to + [Verb] + [Object] + with [Condition]\n' +
-    '\n' +
-    'RULES\n' +
-    '  - Role   -> Title Case  (Nutritionist, Courier, Beneficiary)\n' +
-    '  - Verb   -> Active verb (Create, Pick Up, Confirm, Return)\n' +
-    '  - Object -> Title Case  (Menu Plan, Meal Box, Food)\n' +
-    '  - Location -> Optional, gunakan "from" atau "to"\n' +
-    '\n' +
-    'DO NOT USE\n' +
-    '  X  success, succeed     (use: Successfully / Failed to)\n' +
-    '  X  do, perform, process (sebelum verb utama)\n' +
-    '\n' +
-    'GHERKIN\n' +
-    '  Given : Pre-kondisi / state awal sebelum aksi dimulai\n' +
-    '         Contoh: Given user sudah login sebagai Nutritionist\n' +
-    '  When  : Aksi yang dilakukan oleh aktor\n' +
-    '         Contoh: When user mengisi form dan klik Submit\n' +
-    '\n' +
-    'JANGAN tulis Then di sini -- Then ada di kolom Expected Result.\n' +
-    '\n' +
-    'EXAMPLE\n' +
-    '  OK  Nutritionist Successfully Creates Meal Plan\n' +
-    '  OK  Courier Successfully Picks Up Food from SPPG\n' +
-    '  OK  Nutritionist Failed to Create Menu with Incomplete Data';
-
-var SCENARIO_NOTE_API =
-    'SCENARIO NAMING STANDARD\n' +
-    '\n' +
-    'FORMULA\n' +
-    '  Happy Path : [Role] + Successfully + [Verb] + [Object]\n' +
-    '  Negative   : [Role] + Failed to + [Verb] + [Object] + with [Condition]\n' +
-    '\n' +
-    'DO NOT USE\n' +
-    '  X  success, succeed     (use: Successfully / Failed to)\n' +
-    '  X  do, perform, process (sebelum verb utama)\n' +
-    '\n' +
-    'GHERKIN\n' +
-    '  Given : Pre-kondisi / token / state awal\n' +
-    '         Contoh: Given user memiliki token Bearer valid\n' +
-    '  When  : Request yang dikirim\n' +
-    '         Contoh: When POST /api/v1/login dengan payload valid\n' +
-    '\n' +
-    'JANGAN tulis Then di sini.\n' +
-    'Sertakan expected HTTP status di akhir skenario.\n' +
-    '\n' +
-    'EXAMPLE\n' +
-    '  OK  Nutritionist Successfully Creates Meal Plan -- 201\n' +
-    '  OK  User Failed to Login with Wrong Password -- 401';
-
-var STEPS_NOTE =
-    '[INPUT WAJIB] Steps dalam format Gherkin:\n' +
-    '  Given : Pre-kondisi sebelum aksi\n' +
-    '         Contoh: Given user sudah login sebagai Courier\n' +
-    '  When  : Aksi yang dilakukan\n' +
-    '         Contoh: When user klik tombol Pick Up\n' +
-    '  And   : Aksi tambahan jika diperlukan\n' +
-    '         Contoh: And user konfirmasi dialog\n' +
-    '\n' +
-    'JANGAN tulis Then di sini -- Then ada di kolom Expected Result.';
-
-var EXPECTED_NOTE =
-    '[INPUT WAJIB] Isi dengan format Then Gherkin:\n' +
-    '  Then : Hasil / perubahan state setelah aksi selesai\n' +
-    '\n' +
-    'Tips:\n' +
-    '  - Spesifik: sebutkan elemen UI, pesan, atau status yang muncul\n' +
-    '  - Contoh: Then halaman dashboard tampil, nama user muncul di header\n' +
-    '  - Contoh: Then muncul toast "Berhasil disimpan" dan data terupdate';
-
-// ── Column header → note mapping ──────────────────────────────────────────
-var TC_MASTER_NOTES = {
-    'SUBMODUL':        SUBMODUL_NOTE_TC,
-    'SUBMODULE':       SUBMODUL_NOTE_TC,
-    'TC_ID':           TC_ID_NOTE,
-    'SCENARIO':        SCENARIO_NOTE,
-    'STEPS / GHERKIN': STEPS_NOTE,
-    'STEPS':           STEPS_NOTE,
-    'EXPECTED RESULT': EXPECTED_NOTE,
-    'EXPECTED':        EXPECTED_NOTE,
-};
-
-var API_MASTER_NOTES = {
-    'SUBMODUL':        SUBMODUL_NOTE_API,
-    'SUBMODULE':       SUBMODUL_NOTE_API,
-    'TC_ID':           TC_ID_NOTE_API,
-    'SCENARIO':        SCENARIO_NOTE_API,
-};
-
-// ── Appendix section content ──────────────────────────────────────────────
-var APPENDIX_SECTION_TITLE = '0. HIERARKI QA -- PROJECT / MODULE / SUBMODULE';
-
-var APPENDIX_ROWS = [
-    [
-        'Definisi',
-        'Project   = Inisiatif / client / program kerja. Contoh: SIPGN, INAGOV\n' +
-        'Module    = Pengelompokan domain fungsional dalam project.\n' +
-        '            Kosongkan ("-") jika project flat (tidak punya layer domain).\n' +
-        'SubModule = Unit terkecil yang berdiri sendiri -- 1 aplikasi atau 1 domain.\n' +
-        '            ANCHOR utama untuk TC_ID, Coverage, dan Dashboard.\n' +
-        'Feature   = Fitur besar dalam SubModule. Dibedakan di kolom Feature, bukan TC_ID.'
-    ],
-    [
-        'Pola A -- Project Berlayer\n(SIPGN)',
-        'Project  : SIPGN\n' +
-        '  Module 1  : Manajemen Gizi\n' +
-        '    SubModule 1.1 : Aplikasi Nutritionist\n' +
-        '      Feature: Meal Plan, Menu Management\n' +
-        '    SubModule 1.2 : Aplikasi Courier\n' +
-        '      Feature: Pick Up, Delivery, Return\n' +
-        '    SubModule 1.3 : Aplikasi Beneficiary\n' +
-        '  Module 2  : Manajemen Distribusi\n' +
-        '    SubModule 2.1 : ...'
-    ],
-    [
-        'Pola B -- Project Flat\n(INAGOV)',
-        'Project   : INAGOV\n' +
-        '  Module  : - (kosong)\n' +
-        '    SubModule : Talenta\n' +
-        '      Feature: Rekrutmen, Penggajian\n' +
-        '    SubModule : e-Office\n' +
-        '    SubModule : SIMPEG\n' +
-        '\n' +
-        'Pada pola flat, SubModule setara dengan Module di pola berlayer.\n' +
-        'Kolom Module di Summary dan Config dikosongkan.'
-    ],
-];
-
-// ── Auto-detect Config column layout ─────────────────────────────────────
-/**
- * Reads Config and auto-detects which column contains Spreadsheet IDs.
- * Returns array of { name, id, project, module, submodule, team }.
- */
-function getModulesFromConfig_(cfg) {
-    var data = cfg.getDataRange().getValues();
-    if (data.length < 4) return [];
-
-    // Find header row (scan rows 0–3)
-    var headerRow = null;
-    var headerIdx = -1;
-    for (var h = 0; h <= 3; h++) {
-        var row = data[h].map(function(c) { return String(c).trim().toUpperCase(); });
-        if (row.indexOf('SPREADSHEET ID') !== -1 || row.indexOf('SPREADSHEET_ID') !== -1) {
-            headerRow = row;
-            headerIdx = h;
-            break;
-        }
-    }
-
-    var COL_ACTIVE = 0;
-    var COL_ID     = -1;
-    var COL_NAME   = -1;
-
-    if (headerRow) {
-        headerRow.forEach(function(h, i) {
-            if (h === 'SPREADSHEET ID' || h === 'SPREADSHEET_ID') COL_ID = i;
-            if (h === 'SUBMODULE' || h === 'SUBMODUL' || h === 'MODUL NAME' || h === 'MODULE NAME') COL_NAME = i;
-            if (h === 'PROJECT' && COL_NAME === -1) COL_NAME = i;
-        });
-    }
-
-    // Heuristic: scan data rows for column whose cells look like Sheets IDs
-    var SHEETS_ID_RE = /^[A-Za-z0-9_\-]{20,}$/;
-    if (COL_ID === -1) {
-        var dataStart = headerIdx >= 0 ? headerIdx + 1 : 3;
-        var colScores = [];
-        for (var ci = 0; ci < (data[dataStart] || []).length; ci++) colScores[ci] = 0;
-        for (var ri = dataStart; ri < Math.min(dataStart + 10, data.length); ri++) {
-            data[ri].forEach(function(cell, ci) {
-                var v = String(cell).trim();
-                if (v.length > 20 && SHEETS_ID_RE.test(v)) colScores[ci]++;
-            });
-        }
-        var maxScore = 0;
-        colScores.forEach(function(s, ci) { if (s > maxScore) { maxScore = s; COL_ID = ci; } });
-        Logger.log('Auto-detected Spreadsheet ID column: ' + (COL_ID + 1) + ' (score: ' + maxScore + ')');
-    }
-
-    if (COL_ID === -1) {
-        Logger.log('ERROR: Cannot detect Spreadsheet ID column in Config');
-        return [];
-    }
-
-    if (COL_NAME === -1) COL_NAME = 1;
-
-    var modules = [];
-    var dataStart2 = headerIdx >= 0 ? headerIdx + 1 : 3;
-    for (var r = dataStart2; r < data.length; r++) {
-        var row    = data[r];
-        var active = String(row[COL_ACTIVE] || '').trim().toUpperCase();
-        var id     = String(row[COL_ID]     || '').trim();
-
-        if (active !== 'Y' || !id || id === 'PASTE_SPREADSHEET_ID_HERE' || id.length < 20) continue;
-
-        var project   = '';
-        var module_   = '';
-        var submodule = '';
-        var team      = '';
-        if (headerRow) {
-            headerRow.forEach(function(h, i) {
-                var v = String(row[i] || '').trim();
-                if (h === 'PROJECT')                                             project   = v;
-                if (h === 'MODULE')                                              module_   = v;
-                if (h === 'SUBMODULE' || h === 'SUBMODUL')                      submodule = v;
-                if (h === 'PIC / TEAM / SQUAD' || h === 'PIC' || h === 'TEAM') team      = v;
-                if ((h === 'MODUL NAME' || h === 'MODUL') && !submodule)        submodule = v;
-            });
-        }
-        var name = submodule || project || String(row[COL_NAME] || '').trim() || id;
-        modules.push({ name: name, id: id, project: project, module: module_, submodule: submodule, team: team });
-    }
-
-    Logger.log('Config: found ' + modules.length + ' active modules (ID col=' + (COL_ID + 1) + ')');
-    return modules;
-}
-
-// ── Apply notes by matching header text ──────────────────────────────────
-function applyNotes_(ws, noteMap) {
-    var lastCol = ws.getLastColumn();
-    if (lastCol < 1) return 0;
-    var headers = ws.getRange(2, 1, 1, lastCol).getValues()[0];
-    var count = 0;
-    headers.forEach(function(h, i) {
-        var key = String(h).trim().toUpperCase();
-        if (noteMap[key]) {
-            ws.getRange(2, i + 1).setNote(noteMap[key]);
-            Logger.log('  [' + ws.getName() + '] col ' + (i + 1) + ' (' + h + ') -> note set');
-            count++;
-        }
-    });
-    return count;
-}
-
-// ── broadcastFixNotes ─────────────────────────────────────────────────────
-function broadcastFixNotes() {
-    var ss  = SpreadsheetApp.getActiveSpreadsheet();
-    var cfg = ss.getSheetByName('Config');
-    if (!cfg) {
-        safeAlert_('Config tab tidak ditemukan.\nPastikan script dijalankan dari QA Dashboard.');
-        return;
-    }
-
-    var modules = getModulesFromConfig_(cfg);
-    if (modules.length === 0) {
-        safeAlert_('Tidak ada modul aktif ditemukan di Config.\nCek kolom Active (Y/N) dan Spreadsheet ID.');
-        return;
-    }
-
-    var done = 0, skipped = 0, failed = 0;
-
-    modules.forEach(function(mod) {
-        var cleanId = mod.id.replace(/[^A-Za-z0-9_\-]/g, '');
-        if (cleanId.length < 20) {
-            Logger.log('SKIP ' + mod.name + ': ID tidak valid [' + mod.id + ']');
-            skipped++;
-            return;
-        }
-        Logger.log('Trying: ' + mod.name + ' | ID=' + cleanId);
-
-        try {
-            var modSS     = SpreadsheetApp.openById(cleanId);
-            var tcMaster  = modSS.getSheetByName('TC_Master');
-            var apiMaster = modSS.getSheetByName('API_Master');
-
-            if (!tcMaster && !apiMaster) {
-                Logger.log('SKIP ' + mod.name + ': TC_Master dan API_Master tidak ditemukan');
-                skipped++;
-                return;
-            }
-
-            var total = 0;
-            if (tcMaster)  total += applyNotes_(tcMaster,  TC_MASTER_NOTES);
-            if (apiMaster) total += applyNotes_(apiMaster, API_MASTER_NOTES);
-
-            SpreadsheetApp.flush();
-            Logger.log('OK: ' + mod.name + ' (' + total + ' notes updated)');
-            done++;
-        } catch (e) {
-            Logger.log('ERROR ' + mod.name + ' [ID=' + cleanId + ']: ' + e.message);
-            failed++;
-        }
-    });
-
-    safeAlert_(
-        'broadcastFixNotes selesai\n\n' +
-        'Berhasil : ' + done    + ' modul\n' +
-        'Dilewati : ' + skipped + ' modul\n' +
-        'Gagal    : ' + failed  + ' modul\n\n' +
-        'Lihat Apps Script Logs untuk detail.'
-    );
-}
-
-// ── fixNotesSingleSheet ───────────────────────────────────────────────────
-function fixNotesSingleSheet() {
-    var ss        = SpreadsheetApp.getActiveSpreadsheet();
-    var tcMaster  = ss.getSheetByName('TC_Master');
-    var apiMaster = ss.getSheetByName('API_Master');
-
-    if (!tcMaster && !apiMaster) {
-        safeAlert_('TC_Master dan API_Master tidak ditemukan di spreadsheet ini.');
-        return;
-    }
-
-    var total = 0;
-    if (tcMaster)  total += applyNotes_(tcMaster,  TC_MASTER_NOTES);
-    if (apiMaster) total += applyNotes_(apiMaster, API_MASTER_NOTES);
-
-    safeAlert_(
-        'Done -- ' + total + ' notes diupdate di:\n' +
-        (tcMaster  ? '  - TC_Master\n'  : '') +
-        (apiMaster ? '  - API_Master\n' : '') +
-        '\nSheet: ' + ss.getName()
-    );
-}
-
-// ── broadcastFixAppendix ──────────────────────────────────────────────────
-/**
- * Menambahkan section "0. HIERARKI QA" ke tab Appendix semua modul aktif.
- * Idempotent -- jika section sudah ada, modul dilewati.
- */
+// ── Main ──────────────────────────────────────────────────────────────────
 function broadcastFixAppendix() {
-    var ss  = SpreadsheetApp.getActiveSpreadsheet();
-    var cfg = ss.getSheetByName('Config');
-    if (!cfg) {
-        safeAlert_('Config tab tidak ditemukan.\nJalankan dari QA Dashboard.');
-        return;
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var cfg = ss.getSheetByName('Config');
+  if (!cfg) {
+    Logger.log('ERROR: Config tab tidak ditemukan.');
+    return;
+  }
+
+  var allData   = cfg.getDataRange().getValues();
+  var headerRow = allData[2] || []; // row 3 = headers (index 2)
+  var idColIdx  = getIdColIndex_(headerRow);
+
+  Logger.log('Config: Spreadsheet ID detected at col index ' + idColIdx +
+             ' (col ' + String.fromCharCode(65 + idColIdx) + ')');
+
+  var done = 0, skipped = 0, failed = 0;
+  var log  = [];
+
+  for (var i = 3; i < allData.length; i++) {
+    var row    = allData[i];
+    var active = String(row[0]).trim().toUpperCase();
+    var id     = String(row[idColIdx]).trim();
+
+    // Also try adjacent col if id looks wrong
+    if (!id || id === '' || id.length < 10) {
+      if (idColIdx + 1 < row.length) id = String(row[idColIdx + 1]).trim();
     }
 
-    var modules = getModulesFromConfig_(cfg);
-    if (modules.length === 0) {
-        safeAlert_('Tidak ada modul aktif ditemukan di Config.\nCek kolom Active (Y/N) dan Spreadsheet ID.');
-        return;
+    var name = String(row[3]).trim() || String(row[1]).trim() || ('row ' + (i+1));
+
+    if (active !== 'Y') { skipped++; continue; }
+    if (!id || id === 'PASTE_SPREADSHEET_ID_HERE' || id.length < 10) {
+      Logger.log('SKIP ' + name + ': Spreadsheet ID tidak valid ("' + id + '")');
+      skipped++;
+      continue;
     }
 
-    var done = 0, skipped = 0, failed = 0;
+    try {
+      var modSS = SpreadsheetApp.openById(id);
+      var ws    = modSS.getSheetByName('Appendix');
 
-    modules.forEach(function(mod) {
-        var name    = mod.name;
-        var cleanId = mod.id.replace(/[^A-Za-z0-9_\-]/g, '');
-        if (cleanId.length < 20) {
-            Logger.log('SKIP ' + name + ': ID tidak valid');
-            skipped++;
-            return;
-        }
+      if (!ws) {
+        Logger.log('SKIP ' + name + ': tab Appendix tidak ditemukan');
+        skipped++;
+        continue;
+      }
 
-        try {
-            var modSS = SpreadsheetApp.openById(cleanId);
-            var ws    = modSS.getSheetByName('Appendix');
-            if (!ws) {
-                Logger.log('SKIP ' + name + ': tab Appendix tidak ditemukan');
-                skipped++;
-                return;
-            }
+      // Idempotent check
+      var lastRow = ws.getLastRow();
+      var colAVals = lastRow > 0
+        ? ws.getRange(1, 1, lastRow, 1).getValues().flat().map(String)
+        : [];
 
-            // Idempotent: cek apakah section sudah ada
-            var lastRow  = ws.getLastRow();
-            var existing = lastRow > 0
-                ? ws.getRange(1, 1, lastRow, 1).getValues().map(function(r) { return String(r[0]); })
-                : [];
-            if (existing.some(function(v) { return v.trim() === APPENDIX_SECTION_TITLE; })) {
-                Logger.log('SKIP ' + name + ': section sudah ada');
-                skipped++;
-                return;
-            }
+      if (colAVals.some(function(v) { return v.trim() === SECTION_TITLE; })) {
+        Logger.log('SKIP ' + name + ': section sudah ada');
+        skipped++;
+        continue;
+      }
 
-            // Insert section at row 2 (preserve row 1 header)
-            var insertCount = 1 + APPENDIX_ROWS.length + 1; // header + rows + spacer
-            ws.insertRowsBefore(2, insertCount);
+      // Insert rows at position 2
+      var insertCount = 1 + HIER_ROWS.length + 1;
+      ws.insertRowsBefore(2, insertCount);
 
-            var r = 2;
+      var r = 2;
+      sectionHeader_(ws, r, SECTION_TITLE);
+      r++;
 
-            // Section header
-            ws.getRange(r, 1, 1, 4).merge();
-            ws.getRange(r, 1)
-                .setValue(APPENDIX_SECTION_TITLE)
-                .setBackground('#1565C0').setFontColor('#FFFFFF')
-                .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
-                .setHorizontalAlignment('center').setVerticalAlignment('middle')
-                .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
-            ws.setRowHeight(r, 24);
-            r++;
+      HIER_ROWS.forEach(function(rd) {
+        contentRow_(ws, r, rd[0], rd[1]);
+        r++;
+      });
+      ws.setRowHeight(r, 8); // spacer
+      r++;
 
-            // Content rows
-            var rowHeights = [85, 105, 105]; // Definisi, Pola A, Pola B
-            APPENDIX_ROWS.forEach(function(rowData, idx) {
-                ws.getRange(r, 1)
-                    .setValue(rowData[0])
-                    .setBackground('#E3F2FD').setFontColor('#0D47A1')
-                    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
-                    .setHorizontalAlignment('left').setVerticalAlignment('top').setWrap(true)
-                    .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
-                ws.getRange(r, 2, 1, 3).merge();
-                ws.getRange(r, 2)
-                    .setValue(rowData[1])
-                    .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(9)
-                    .setHorizontalAlignment('left').setVerticalAlignment('top').setWrap(true)
-                    .setBorder(true, true, true, true, false, false, '#BBDEFB', SpreadsheetApp.BorderStyle.SOLID);
-                ws.setRowHeight(r, rowHeights[idx] || 85);
-                r++;
-            });
+      // Update TC_Master and API_Master description rows in Appendix
+      var newLast = ws.getLastRow();
+      var colA2   = ws.getRange(1, 1, newLast, 1).getValues().flat();
+      colA2.forEach(function(cellVal, idx) {
+        var v = String(cellVal).trim();
+        if (v === 'TC_Master')  ws.getRange(idx+1, 2).setValue(TC_MASTER_DESC);
+        if (v === 'API_Master') ws.getRange(idx+1, 2).setValue(API_MASTER_DESC);
+      });
 
-            // Spacer row (minimal)
-            ws.setRowHeight(r, 6);
+      SpreadsheetApp.flush();
+      Logger.log('OK: ' + name);
+      log.push('OK  ' + name);
+      done++;
 
-            SpreadsheetApp.flush();
-            Logger.log('OK: ' + name + ' -- section ditambahkan');
-            done++;
-
-        } catch (e) {
-            Logger.log('ERROR ' + name + ': ' + e.message);
-            failed++;
-        }
-    });
-
-    safeAlert_(
-        'broadcastFixAppendix selesai\n\n' +
-        'Berhasil : ' + done    + ' modul\n' +
-        'Dilewati : ' + skipped + ' modul (sudah ada / no Appendix)\n' +
-        'Gagal    : ' + failed  + ' modul\n\n' +
-        'Lihat Apps Script Logs untuk detail.'
-    );
-}
-
-// ── cleanupAndReapplyAppendix ────────────────────────────────────────────
-/**
- * Remove existing "0. HIERARKI QA" section dari semua modul,
- * lalu re-apply dengan format baru.
- *
- * Use this untuk update format dari versi lama ke versi baru.
- */
-function cleanupAndReapplyAppendix() {
-    var ss  = SpreadsheetApp.getActiveSpreadsheet();
-    var cfg = ss.getSheetByName('Config');
-    if (!cfg) {
-        safeAlert_('Config tab tidak ditemukan.\nJalankan dari QA Dashboard.');
-        return;
+    } catch(e) {
+      Logger.log('ERROR ' + name + ': ' + e.message);
+      log.push('ERR ' + name + ': ' + e.message);
+      failed++;
     }
+  }
 
-    var modules = getModulesFromConfig_(cfg);
-    if (modules.length === 0) {
-        safeAlert_('Tidak ada modul aktif ditemukan di Config.');
-        return;
-    }
+  var summary =
+    'broadcastFixAppendix selesai\n\n' +
+    'Berhasil : ' + done    + ' modul\n' +
+    'Dilewati : ' + skipped + ' modul\n' +
+    'Gagal    : ' + failed  + ' modul\n\n' +
+    'Lihat Apps Script Logs untuk detail.';
 
-    var done = 0, skipped = 0, failed = 0;
-
-    modules.forEach(function(mod) {
-        var name    = mod.name;
-        var cleanId = mod.id.replace(/[^A-Za-z0-9_\-]/g, '');
-        if (cleanId.length < 20) {
-            Logger.log('SKIP ' + name + ': ID tidak valid');
-            skipped++;
-            return;
-        }
-
-        try {
-            var modSS = SpreadsheetApp.openById(cleanId);
-            var ws    = modSS.getSheetByName('Appendix');
-            if (!ws) {
-                Logger.log('SKIP ' + name + ': tab Appendix tidak ditemukan');
-                skipped++;
-                return;
-            }
-
-            // Find and delete existing section
-            var lastRow  = ws.getLastRow();
-            var data     = lastRow > 0 ? ws.getRange(1, 1, lastRow, 1).getValues() : [];
-            var foundRow = -1;
-
-            for (var i = 0; i < data.length; i++) {
-                if (String(data[i][0]).trim() === APPENDIX_SECTION_TITLE) {
-                    foundRow = i + 1; // 1-indexed
-                    break;
-                }
-            }
-
-            if (foundRow > 0) {
-                // Delete section: header + content rows + spacer
-                // Old format had 4 content rows + 1 header + 1 spacer = 6 rows
-                // New format has 3 content rows + 1 header + 1 spacer = 5 rows
-                // Delete up to 7 rows to be safe (accommodate any old format)
-                var deleteCount = Math.min(7, lastRow - foundRow + 1);
-                ws.deleteRows(foundRow, deleteCount);
-                SpreadsheetApp.flush();
-                Logger.log('CLEANUP ' + name + ': removed old section at row ' + foundRow);
-            }
-
-            // Now re-insert with new format
-            // (same logic as broadcastFixAppendix, but without idempotent check)
-            var insertCount = 1 + APPENDIX_ROWS.length + 1; // header + rows + spacer
-            ws.insertRowsBefore(2, insertCount);
-
-            var r = 2;
-
-            // Section header
-            ws.getRange(r, 1, 1, 4).merge();
-            ws.getRange(r, 1)
-                .setValue(APPENDIX_SECTION_TITLE)
-                .setBackground('#1565C0').setFontColor('#FFFFFF')
-                .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
-                .setHorizontalAlignment('center').setVerticalAlignment('middle')
-                .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
-            ws.setRowHeight(r, 24);
-            r++;
-
-            // Content rows
-            var rowHeights = [85, 105, 105]; // Definisi, Pola A, Pola B
-            APPENDIX_ROWS.forEach(function(rowData, idx) {
-                ws.getRange(r, 1)
-                    .setValue(rowData[0])
-                    .setBackground('#E3F2FD').setFontColor('#0D47A1')
-                    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
-                    .setHorizontalAlignment('left').setVerticalAlignment('top').setWrap(true)
-                    .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
-                ws.getRange(r, 2, 1, 3).merge();
-                ws.getRange(r, 2)
-                    .setValue(rowData[1])
-                    .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(9)
-                    .setHorizontalAlignment('left').setVerticalAlignment('top').setWrap(true)
-                    .setBorder(true, true, true, true, false, false, '#BBDEFB', SpreadsheetApp.BorderStyle.SOLID);
-                ws.setRowHeight(r, rowHeights[idx] || 85);
-                r++;
-            });
-
-            // Spacer row (minimal)
-            ws.setRowHeight(r, 6);
-
-            SpreadsheetApp.flush();
-            Logger.log('OK: ' + name + ' -- section re-applied with new format');
-            done++;
-
-        } catch (e) {
-            Logger.log('ERROR ' + name + ': ' + e.message);
-            failed++;
-        }
-    });
-
-    safeAlert_(
-        'cleanupAndReapplyAppendix selesai\n\n' +
-        'Berhasil : ' + done    + ' modul\n' +
-        'Dilewati : ' + skipped + ' modul\n' +
-        'Gagal    : ' + failed  + ' modul\n\n' +
-        'Semua modul sekarang menggunakan format baru:\n' +
-        '- Header centered\n' +
-        '- 3 content rows (Definisi, Pola A, Pola B)\n' +
-        '- Optimized row heights\n' +
-        '- No TC_ID section (moved to "1. STRUKTUR TAB")'
-    );
-}
-
-// ── broadcastFixAll ───────────────────────────────────────────────────────
-/**
- * Shortcut: jalankan broadcastFixNotes() + broadcastFixAppendix() sekaligus.
- */
-function broadcastFixAll() {
-    broadcastFixNotes();
-    broadcastFixAppendix();
-    safeAlert_('broadcastFixAll selesai.\nCek Logs untuk detail per modul.');
+  Logger.log(summary);
+  safeAlert_(summary);
 }
