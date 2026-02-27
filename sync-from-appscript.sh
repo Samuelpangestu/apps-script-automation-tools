@@ -29,8 +29,8 @@ echo ""
 
 cd ..
 
-# Check if there are changes
-if git diff --quiet && git diff --cached --quiet; then
+# Check if there are changes (including untracked files)
+if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard qa-dashboard/src/)" ]; then
     echo "ℹ️  No changes detected. Already in sync."
     exit 0
 fi
