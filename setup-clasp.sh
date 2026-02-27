@@ -44,31 +44,41 @@ echo ""
 echo "📋 Verifying project configurations..."
 
 # Verify Dashboard
-if [ -f qa-dashboard/.clasp.json ]; then
+if [ -f projects/qa-dashboard/.clasp.json ]; then
     echo "✅ Dashboard config found"
-    cd qa-dashboard
-    clasp status 2>/dev/null || echo "⚠️  Dashboard: Run 'cd qa-dashboard && clasp status' to verify"
-    cd ..
+    cd projects/qa-dashboard
+    clasp status 2>/dev/null || echo "⚠️  Dashboard: Run 'cd projects/qa-dashboard && clasp status' to verify"
+    cd ../..
 else
     echo "❌ Dashboard .clasp.json not found"
 fi
 
 # Verify Test Management
-if [ -f qa-test-management/.clasp.json ]; then
+if [ -f projects/qa-test-management/.clasp.json ]; then
     echo "✅ Test Management config found"
-    cd qa-test-management
-    clasp status 2>/dev/null || echo "⚠️  Test Management: Run 'cd qa-test-management && clasp status' to verify"
-    cd ..
+    cd projects/qa-test-management
+    clasp status 2>/dev/null || echo "⚠️  Test Management: Run 'cd projects/qa-test-management && clasp status' to verify"
+    cd ../..
 else
     echo "❌ Test Management .clasp.json not found"
+fi
+
+# Verify MOM Rolling
+if [ -f projects/mom-rolling-pic/.clasp.json ]; then
+    echo "✅ MOM Rolling PIC config found"
+    cd projects/mom-rolling-pic
+    clasp status 2>/dev/null || echo "⚠️  MOM Rolling: Run 'cd projects/mom-rolling-pic && clasp status' to verify"
+    cd ../..
+else
+    echo "❌ MOM Rolling .clasp.json not found"
 fi
 
 echo ""
 echo "✨ Setup complete!"
 echo ""
 echo "Next steps:"
-echo "1. Edit files in qa-dashboard/src/ or qa-test-management/src/"
-echo "2. Push changes: cd qa-dashboard && clasp push"
+echo "1. Edit files in projects/qa-dashboard/src/ or projects/qa-test-management/src/"
+echo "2. Push changes: cd projects/qa-dashboard && clasp push"
 echo "3. Or commit to GitHub for auto-deploy"
 echo ""
 echo "See CLASP_WORKFLOW.md for detailed instructions"

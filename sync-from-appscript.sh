@@ -7,14 +7,14 @@ echo "🔄 Syncing from Apps Script to Git"
 echo "===================================="
 echo ""
 
-# Check if in qa-dashboard directory
-if [ ! -f "qa-dashboard/.clasp.json" ]; then
+# Check if in projects directory
+if [ ! -f "projects/qa-dashboard/.clasp.json" ]; then
     echo "❌ Error: Run this script from project root"
     exit 1
 fi
 
 echo "📥 Step 1: Pulling from Apps Script..."
-cd qa-dashboard
+cd projects/qa-dashboard
 clasp pull
 
 if [ $? -ne 0 ]; then
@@ -27,10 +27,10 @@ echo ""
 echo "✅ Pull complete!"
 echo ""
 
-cd ..
+cd ../..
 
 # Check if there are changes (including untracked files)
-if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard qa-dashboard/src/)" ]; then
+if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard projects/qa-dashboard/src/)" ]; then
     echo "ℹ️  No changes detected. Already in sync."
     exit 0
 fi
@@ -50,7 +50,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         commit_msg="Sync latest changes from Apps Script Editor"
     fi
 
-    git add qa-dashboard/src/
+    git add projects/qa-dashboard/src/
     git commit -m "$commit_msg
 
 Synced via clasp pull from Apps Script Editor.
