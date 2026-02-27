@@ -1,0 +1,28 @@
+# clasp ignore file
+
+# Documentation
+*.md
+*.txt
+README*
+
+# Config
+.clasp.json
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+
+# OS
+.DS_Store
+Thumbs.db
