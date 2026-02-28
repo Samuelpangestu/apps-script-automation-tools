@@ -15,19 +15,19 @@ Project ini menggunakan **clasp** (Command Line Apps Script Projects) untuk inte
 ## 📁 Structure
 
 ```
-qa-test-management-template/
-├── qa-dashboard/
-│   ├── src/
-│   │   ├── Dashboard.js           # Main dashboard code
-│   │   ├── BroadcastFix.js        # Broadcast fix utilities
-│   │   └── appsscript.json        # Apps Script manifest
-│   ├── .clasp.json                 # Clasp config (Dashboard)
-│   ├── .claspignore                # Files to exclude
-│   └── qa-dashboard.js             # Original (kept for reference)
-│
-├── qa-test-management/
-│   ├── src/
-│   │   ├── QATestManagement.js    # Template code
+apps-script-automation-tools/
+├── projects/
+│   ├── qa-dashboard/
+│   │   ├── src/
+│   │   │   ├── Dashboard.js           # Main dashboard code
+│   │   │   ├── BroadcastFix.js        # Broadcast fix utilities
+│   │   │   └── appsscript.json        # Apps Script manifest
+│   │   ├── .clasp.json                 # Clasp config (Dashboard)
+│   │   └── .claspignore                # Files to exclude
+│   │
+│   ├── qa-test-management/
+│   │   ├── src/
+│   │   │   ├── QATestManagement.js    # Template code
 │   │   └── appsscript.json        # Apps Script manifest
 │   ├── .clasp.json                 # Clasp config (Template)
 │   ├── .claspignore                # Files to exclude
@@ -114,7 +114,7 @@ git push origin main
 ```
 
 **Status check:**
-- Go to: https://github.com/YOUR_USERNAME/qa-test-management-template/actions
+- Go to: https://github.com/YOUR_USERNAME/apps-script-automation-tools/actions
 - Monitor deployment progress
 
 ---
@@ -174,7 +174,7 @@ Untuk enable auto-deploy, tambahkan secret `CLASPRC_JSON` di GitHub:
    ```
 
 2. **Add to GitHub Secrets:**
-   - Go to: https://github.com/YOUR_USERNAME/qa-test-management-template/settings/secrets/actions
+   - Go to: https://github.com/YOUR_USERNAME/apps-script-automation-tools/settings/secrets/actions
    - Click "New repository secret"
    - Name: `CLASPRC_JSON`
    - Value: Paste entire content dari `~/.clasprc.json`
@@ -328,7 +328,7 @@ clasp push
 
 1. Check secret is set: `CLASPRC_JSON`
 2. Verify secret value is valid JSON
-3. Check workflow logs: https://github.com/YOUR_USERNAME/qa-test-management-template/actions
+3. Check workflow logs: https://github.com/YOUR_USERNAME/apps-script-automation-tools/actions
 
 ---
 
