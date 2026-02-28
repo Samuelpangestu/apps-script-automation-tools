@@ -219,92 +219,169 @@ function createTCMaster(ss) {
       .forEach((h,i)=>hdr(ws.getRange(2,i+1),'#0D47A1').setValue(h).setWrap(true));
   ws.setRowHeight(2,38);
   [36,110,100,130,80,80,90,140,65,100,200,260,200,90].forEach((w,i)=>ws.setColumnWidth(i+1,w));
-  // Column header notes ? guides QA what to fill vs what is auto
-  ws.getRange(2,1).setNote('No. Urut. Auto-fill saat input data.');
-  ws.getRange(2,2).setNote('SubModul: Kode modul, misal 1.1 / 2.1 / 7.3. Gunakan konsisten agar coverage Dashboard akurat.');
-  ws.getRange(2,3).setNote(
-      'TC_ID -- Pola Penomoran:\n'+
+  // Column header notes
+  ws.getRange(2,1).setNote('Row number. Auto-filled when data is entered.');
+  ws.getRange(2,2).setNote(
+      'SubModule — 3rd level in QA hierarchy:\n'+
+      '  Project > Module > SubModule > Feature\n'+
       '\n'+
-      'Format  : [APP].[FEAT].[000]\n'+
+      'SubModule = smallest standalone unit (one app or one domain).\n'+
       '\n'+
-      '[APP]   = Kode aplikasi/modul, maks 3-4 huruf kapital\n'+
-      '          Contoh: WEB, MOB, ADM, USR, SHP\n'+
-      '[FEAT]  = Kode fitur/halaman, maks 3-4 huruf kapital\n'+
-      '          Contoh: LOG, DASH, PRF, CHK, RPT\n'+
-      '[000]   = Nomor urut 3 digit, mulai dari 001\n'+
+      'Layered project (e.g. SIPGN):\n'+
+      '  1.1 = Module 1, SubModule 1 (Nutritionist App)\n'+
+      '  1.2 = Module 1, SubModule 2 (Courier App)\n'+
       '\n'+
-      'Contoh lengkap:\n'+
-      '  WEB.LOG.001  = Web, Login, TC pertama\n'+
-      '  WEB.LOG.002  = Web, Login, TC kedua\n'+
-      '  MOB.DASH.001 = Mobile, Dashboard, TC pertama\n'+
-      '  ADM.USR.015  = Admin, User Mgmt, TC ke-15\n'+
+      'Flat project (e.g. INAGOV):\n'+
+      '  Direct name: Talenta, e-Office, SIMPEG\n'+
       '\n'+
-      'Aturan:\n'+
-      '- Harus UNIK -- jangan pernah reuse TC_ID yang sudah ada\n'+
-      '- Jangan ubah TC_ID jika sudah ada hasil di Execution\n'+
-      '- Urutan: Positive dulu (001), baru Negative (002), Edge Case (003)'
+      'Must be IDENTICAL in TC_Master and API_Master\n'+
+      'for Dashboard coverage to merge correctly.'
   );
-  ws.getRange(2,4).setNote('Feature: Nama fitur/halaman spesifik, misal "Login Page", "Checkout Flow".\nDigunakan untuk grouping Coverage per Feature di Summary.');
+  ws.getRange(2,3).setNote(
+      'TC_ID — Format: [SubModule].[3-digit]  e.g. 1.1.001 / PO.001\n'+
+      'Must be UNIQUE. Do not change once Execution results exist.\n'+
+      '\n'+
+      'Use initials if SubModule name is long:\n'+
+      '  Portal       → PO → PO.001\n'+
+      '  BackOffice   → BO → BO.001\n'+
+      '\n'+
+      'Initials: 2-3 uppercase letters, unique per project,\n'+
+      'consistent across TC_Master, API_Master, and Execution.'
+  );
+  ws.getRange(2,4).setNote(
+      'Feature — Specific feature or page name.\n'+
+      'Examples: Login Page, Checkout Flow, User Management\n'+
+      'Used for grouping Coverage per Feature in Summary.'
+  );
   ws.getRange(2,5).setNote(
-      'Priority & Dampak:\n'+
+      'Priority & Impact:\n'+
       '\n'+
-      'CRITICAL  -> Blocker utama. WAJIB PASS sebelum release.\n'+
-      '            Jika FAIL/BLOCKED: release DITAHAN.\n'+
-      'HIGH      -> Blocker. Harus PASS di sprint yang sama.\n'+
-      '            Jika FAIL: perlu approval PM untuk release.\n'+
-      'MEDIUM    -> Potential blocker. Fix sebelum UAT.\n'+
-      '            Jika FAIL: flagged ke tech lead.\n'+
-      'LOW       -> Non-blocker. Fix di sprint berikutnya.\n'+
-      'LOWEST    -> Nice to have. Opsional.\n'+
+      'CRITICAL  → Must PASS before release. FAIL = release BLOCKED.\n'+
+      'HIGH      → Must PASS in same sprint. FAIL = needs PM approval.\n'+
+      'MEDIUM    → Potential blocker. Fix before UAT.\n'+
+      'LOW       → Non-blocker. Fix in next sprint.\n'+
+      'LOWEST    → Nice to have. Optional.\n'+
       '\n'+
-      'Test Level otomatis:\n'+
-      'Critical/High/Medium -> Smoke Test\n'+
-      'Low/Lowest           -> Regression Test'
+      'Auto Test Level:\n'+
+      'Critical / High / Medium → Smoke Test\n'+
+      'Low / Lowest             → Regression Test'
   );
   ws.getRange(2,6).setNote('Platform: Web / Mobile / Web & Mobile');
-  ws.getRange(2,7).setNote('Test Type: Positive = happy path | Negative = error case | Edge Case = boundary condition');
-  ws.getRange(2,8).setNote('Automation Status:\nAutomated = script sudah ada\nManual = tidak akan diautomasi\nTo Do = belum dikerjakan\nCannot be Automated = teknis tidak memungkinkan');
-  ws.getRange(2,9).setNote('Version: Versi aplikasi saat TC ini dibuat, misal v1.0, v2.3');
-  ws.getRange(2,10).setNote('[INPUT WAJIB] Skenario singkat dalam 1 kalimat.\nContoh: "User berhasil login dengan kredensial valid"');
-  ws.getRange(2,11).setNote('[INPUT WAJIB] Steps dalam format Gherkin:\nGiven [kondisi awal]\nWhen [aksi]\nThen [hasil yang diharapkan]');
-  ws.getRange(2,12).setNote('[INPUT WAJIB] Hasil yang diharapkan secara spesifik.\nContoh: "Halaman dashboard tampil, user name muncul di header"');
-  ws.getRange(2,14).setNote('[AUTO - JANGAN EDIT] Test Level dihitung otomatis dari Priority:\nCritical/High/Medium = Smoke\nLow/Lowest = Regression');
-  ws.getRange(2,10).setNote(
-      'Role (RBAC): Peran pengguna yang menjalankan skenario ini.\n'+
-      '\n'+
-      'Contoh peran: Admin, User, Viewer, Operator, Supervisor, Guest, Super Admin\n'+
-      '\n'+
-      'Digunakan untuk:\n'+
-      '- Memastikan test coverage per role\n'+
-      '- Verifikasi akses kontrol (RBAC) berjalan benar\n'+
-      '- Contoh: Admin bisa create user, Viewer hanya bisa read'
+  ws.getRange(2,7).setNote(
+      'Test Type:\n'+
+      '  Positive   = happy path (valid data, expected flow)\n'+
+      '  Negative   = error case (invalid input, rejected action)\n'+
+      '  Edge Case  = boundary condition'
   );
+  ws.getRange(2,8).setNote(
+      'Automation Status:\n'+
+      '  Automated           = script exists and runs\n'+
+      '  To Do               = planned, not yet done\n'+
+      '  Manual              = decided to stay manual\n'+
+      '  Cannot be Automated = technically not possible'
+  );
+  ws.getRange(2,9).setNote('Version: App version when TC was created. e.g. v1.0, v2.3');
+  ws.getRange(2,10).setNote(
+      'Role (RBAC) — The user role executing this scenario.\n'+
+      '\n'+
+      'Examples: Admin, Super Admin, User, Viewer, Operator, Supervisor, Guest\n'+
+      '\n'+
+      'Used to:\n'+
+      '  • Verify test coverage per role\n'+
+      '  • Confirm access control (RBAC) is correct\n'+
+      '  • Ensure 403 Forbidden for unauthorized roles'
+  );
+  ws.getRange(2,11).setNote(
+      'SCENARIO NAMING STANDARD\n'+
+      '\n'+
+      'Happy Path : [Role] Successfully [Verb] [Object]\n'+
+      'Negative   : [Role] Failed to [Verb] [Object] with [Condition]\n'+
+      '\n'+
+      'Rules:\n'+
+      '  • Role, Object → Title Case  (Nutritionist, Meal Plan)\n'+
+      '  • Verb → active  (Create, Pick Up, Confirm, Submit)\n'+
+      '  • Do not use: success/succeed, do, perform, process\n'+
+      '\n'+
+      'Standard examples:\n'+
+      '  Nutritionist Successfully Creates Meal Plan\n'+
+      '  Admin Failed to Delete User with Invalid ID\n'+
+      '\n'+
+      '───────────────────────────────────────\n'+
+      'SCENARIO OUTLINE (write here in this column)\n'+
+      'Use when same steps + same outcome type, different data.\n'+
+      'Rule: all Examples = Positive only OR Negative only.\n'+
+      '\n'+
+      'Negative example:\n'+
+      'User Failed to Log In with <invalid_credential>\n'+
+      'Examples:\n'+
+      '- Invalid password\n'+
+      '- Empty password\n'+
+      '- Expired session\n'+
+      '\n'+
+      'Positive example:\n'+
+      'Admin Successfully Creates User with Role <role>\n'+
+      'Examples:\n'+
+      '- Viewer\n'+
+      '- Operator\n'+
+      '- Supervisor'
+  );
+  ws.getRange(2,12).setNote(
+      '[REQUIRED] Steps in Gherkin format:\n'+
+      '\n'+
+      '  Given : Pre-condition / initial state\n'+
+      '          e.g. Given user is on the Login page\n'+
+      '  When  : Action performed by the actor\n'+
+      '          e.g. When user submits the form\n'+
+      '  And   : Additional action if needed\n'+
+      '\n'+
+      'DO NOT write Then here — Then goes in Expected Result.\n'+
+      '\n'+
+      'For Scenario Outline, use <angle_brackets>:\n'+
+      '  When user submits login with "<invalid_credential>"'
+  );
+  ws.getRange(2,13).setNote(
+      '[REQUIRED] Expected Result in Gherkin Then format:\n'+
+      '\n'+
+      '  Then : Outcome / state change after action completes\n'+
+      '\n'+
+      'Be specific — name the UI element, message, or status.\n'+
+      '\n'+
+      'Positive example:\n'+
+      '  Then dashboard is displayed, username shown in header\n'+
+      'Negative example:\n'+
+      '  Then login is rejected with message "Incorrect password"\n'+
+      '\n'+
+      'For Scenario Outline: write the common outcome.\n'+
+      'Row detail goes in the Examples column.'
+  );
+  ws.getRange(2,14).setNote('[AUTO — DO NOT EDIT] Test Level auto-calculated from Priority:\nCritical/High/Medium = Smoke  |  Low/Lowest = Regression');
 
   const data=[
     [1,'1.1','1.1.001','Informasi Program','High','Web','Positive','Automated','v1.0',
       'Viewer','User dapat melihat halaman informasi program',
-      'Given user berada di halaman utama\nWhen klik menu Informasi Program\nThen halaman tampil',
-      'Halaman tampil, semua konten tersedia',''],
+      'Given user berada di halaman utama\nWhen klik menu Informasi Program',
+      'Then halaman tampil, semua konten tersedia','',''],
     [2,'1.1','1.1.002','Informasi Program','Medium','Web','Negative','Manual','v1.0',
       'Viewer','Halaman error saat konten tidak tersedia',
-      'Given konten belum tersedia\nWhen user buka halaman\nThen pesan error tampil',
-      'Pesan error informatif, halaman tidak crash',''],
+      'Given konten belum tersedia\nWhen user buka halaman',
+      'Then pesan error informatif tampil, halaman tidak crash',''],
     [3,'2.1','2.1.001','Perencanaan Pengiriman','Critical','Web','Positive','Automated','v1.1',
       'Admin','Admin membuat rencana pengiriman baru',
-      'Given admin di halaman Perencanaan\nWhen isi form dan klik Simpan\nThen data tersimpan',
-      'Data tersimpan dan muncul di daftar',''],
+      'Given admin di halaman Perencanaan\nWhen isi form dan klik Simpan',
+      'Then data tersimpan dan muncul di daftar',''],
     [4,'2.2','2.2.001','Pelacakan Pengiriman','High','Mobile','Positive','Automated','v1.1',
       'Kurir','Kurir melihat rute pengiriman aktif',
-      'Given kurir login di mobile\nWhen buka menu Pengiriman\nThen rute tampil di peta',
-      'Rute tampil dengan marker yang tepat',''],
+      'Given kurir login di mobile\nWhen buka menu Pengiriman',
+      'Then rute tampil di peta dengan marker yang tepat',''],
     [5,'7.3','7.3.001','Manajemen Pengguna','Critical','Web','Positive','Automated','v1.0',
       'Admin','Admin menambahkan user baru',
-      'Given admin di halaman Manajemen Pengguna\nWhen isi form dan klik Tambah\nThen user ditambahkan',
-      'User baru muncul di daftar',''],
+      'Given admin di halaman Manajemen Pengguna\nWhen isi form dan klik Tambah',
+      'Then user baru muncul di daftar',''],
     [6,'7.3','7.3.002','Manajemen Pengguna','Low','Web','Negative','Manual','v1.0',
-      'Admin','Filter dengan input tidak valid tidak crash',
-      'Given admin di halaman filter\nWhen input karakter tidak valid\nThen halaman tetap stabil',
-      'Pesan validasi tampil, tidak crash',''],
+      'Admin','Filter dengan input tidak valid tidak crash\nExamples:\n- Karakter tidak valid <>#$\n- Input kosong',
+      'Given admin di halaman filter\nWhen user submits filter with "<invalid_input>"',
+      'Then validation message appears, page does not crash',
+      ''],
   ];
   data.forEach((row,i)=>{
     const r=DS+i, bg=i%2===0?'#F8F9FA':'#FFFFFF';
@@ -316,10 +393,10 @@ function createTCMaster(ss) {
       if(c===7) autoColor(cell,val);
       if(c===9) cell.setHorizontalAlignment('center').setFontWeight('bold').setFontColor('#1565C0');
       if(c===11||c===12) cell.setWrap(true);
-      if(c===13) cell.setHorizontalAlignment('center').setFontWeight('bold').setBackground('#E3F2FD');
+      if(c===13) cell.setHorizontalAlignment('center').setFontWeight('bold');
     });
     bd(cell_style(ws.getRange(r,14),bg)).setFormula(tlFormula('E'+r))
-        .setFontWeight('bold').setHorizontalAlignment('center').setBackground('#E3F2FD');
+        .setFontWeight('bold').setHorizontalAlignment('center');
     ws.setRowHeight(r,58);
   });
   for(let r=DS+data.length;r<=DS+MR;r++) ws.getRange(r,14).setFormula(tlFormula('E'+r));
@@ -346,8 +423,9 @@ function createTCMaster(ss) {
     ws.setConditionalFormatRules(rules);
   })();
   ws.getRange('J'+DS+':J'+dvEnd).setDataValidation(dv(['Admin','User','Viewer','Operator','Supervisor','Guest','Super Admin']));
-  // Also protect TestLevel col visually
-  ws.getRange('N'+DS+':N'+dvEnd).setBackground('#E3F2FD').setFontColor('#1565C0');
+  // TestLevel col protection
+  // TestLevel col N: base styling only, CF handles Smoke/Regression colors
+  ws.getRange('N'+DS+':N'+dvEnd).setHorizontalAlignment('center').setFontWeight('bold');
 
   const cf=ws.getConditionalFormatRules();
   cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Smoke')
@@ -365,7 +443,7 @@ function createTCMaster(ss) {
   ws.setConditionalFormatRules(cf);
   addPeruriFooter(ws, DS+data.length+3, COLS);
   ws.getRange(DS+data.length+2,1,1,COLS).merge()
-      .setValue('Test Level otomatis: Critical/High/Medium ? Smoke  .  Low/Lowest ? Regression. Jangan edit kolom M.')
+      .setValue('Test Level auto-calculated: Critical/High/Medium → Smoke  .  Low/Lowest → Regression. Do not edit column N.')
       .setFontColor('#78909C').setFontStyle('italic').setFontSize(8).setFontFamily('Arial')
       .setBackground('#E3F2FD').setWrap(true);
 }
@@ -567,82 +645,155 @@ function createTCExecution(ss) {
 // ===================================================================
 function createAPIMaster(ss) {
   const ws=safeSheet(ss,'API_Master');
-  ws.clear(); ws.setTabColor('#283593');
-  const COLS=14, DS=3, MR=1000;
+  ws.clear(); ws.setTabColor('#1565C0');
+  const COLS=15, DS=3, MR=1000;
   ws.getRange(1,1,1,COLS).merge();
-  hdr(ws.getRange(1,1,1,COLS),'#283593','#FFFFFF',10).setValue('API_MASTER  .  QA PERURI  .  Test Level otomatis dari Priority.');
+  hdr(ws.getRange(1,1,1,COLS),'#0D47A1','#FFFFFF',10).setValue('API_MASTER  .  QA PERURI  .  Test Level auto-calculated from Priority.');
   ws.setRowHeight(1,28);
   ['No','SubModul','TC_ID','Feature','Method','Endpoint URL','Priority','Auth','Test Type',
-    'Automated','Version','Role (RBAC)','Scenario','[AUTO] Test Level']
+    'Automated','Version','Role (RBAC)','Scenario','Expected Result','[AUTO] Test Level']
       .forEach((h,i)=>hdr(ws.getRange(2,i+1),'#0D47A1').setValue(h).setWrap(true));
   ws.setRowHeight(2,38);
-  [36,110,110,130,70,220,80,110,90,140,65,200,90,110].forEach((w,i)=>ws.setColumnWidth(i+1,w));
+  [36,110,110,130,70,220,80,110,90,140,65,200,90,220,110].forEach((w,i)=>ws.setColumnWidth(i+1,w));
   // Column notes for API_Master
-  ws.getRange(2,1).setNote('No. Urut.');
-  ws.getRange(2,2).setNote('SubModul: Kode modul. Gunakan kode yang sama dengan TC_Master untuk konsistensi.');
+  ws.getRange(2,1).setNote('Row number. Auto-filled when data is entered.');
+  ws.getRange(2,2).setNote(
+      'SubModule — must be IDENTICAL to TC_Master.\n'+
+      '  Project > Module > SubModule > Feature\n'+
+      '\n'+
+      'Layered: 1.1 / 1.2 / 2.1\n'+
+      'Flat   : Talenta / e-Office / SIMPEG\n'+
+      '\n'+
+      'Consistent naming = correct coverage merge in Dashboard.'
+  );
   ws.getRange(2,3).setNote(
-      'TC_ID API -- Pola Penomoran:\n'+
+      'TC_ID API — Numbering format:\n'+
       '\n'+
-      'Format  : API.[SVC].[FEAT].[000]\n'+
+      '  API.[SVC].[FEAT].[000]\n'+
       '\n'+
-      'API.    = Prefix wajib untuk semua API TC\n'+
-      '[SVC]   = Kode service/domain, maks 3-4 huruf kapital\n'+
-      '          Contoh: AUTH, USER, ORD, PAY, INV\n'+
-      '[FEAT]  = Kode endpoint/resource, maks 3-4 huruf kapital\n'+
-      '          Contoh: LOG, LIST, CRT, UPD, DEL\n'+
-      '[000]   = Nomor urut 3 digit, mulai dari 001\n'+
+      '  [SVC]  = service/domain code, max 4 uppercase letters\n'+
+      '           Examples: AUTH, USER, ORD, PAY, INV\n'+
+      '  [FEAT] = endpoint/resource code, max 4 uppercase letters\n'+
+      '           Examples: LOG, LIST, CRT, UPD, DEL\n'+
+      '  [000]  = 3-digit sequence starting from 001\n'+
       '\n'+
-      'Contoh lengkap:\n'+
-      '  API.AUTH.LOG.001  = Auth service, Login endpoint, TC pertama\n'+
-      '  API.USER.CRT.001  = User service, Create, TC pertama\n'+
-      '  API.USER.CRT.002  = User service, Create, TC kedua (negative)\n'+
-      '  API.PAY.CHK.005   = Payment, Checkout, TC ke-5\n'+
+      'Full examples:\n'+
+      '  API.AUTH.LOG.001 = Auth, Login, 1st TC\n'+
+      '  API.USER.CRT.001 = User, Create, 1st TC\n'+
+      '  API.USER.CRT.002 = User, Create, 2nd TC (negative)\n'+
       '\n'+
-      'Urutan: Positive (2xx) dulu -> Negative (4xx) -> Edge Case'
+      'Order: Positive (2xx) first → Negative (4xx) → Edge Case'
   );
-  ws.getRange(2,4).setNote('Feature: Nama fitur/domain API. Digunakan untuk grouping di Summary.');
-  ws.getRange(2,5).setNote('HTTP Method: GET/POST/PUT/DELETE/PATCH');
-  ws.getRange(2,6).setNote('Endpoint URL: Path saja tanpa base URL.\nContoh: /api/v1/users/{id}\nParameter dinamis gunakan {curly bracket}.');
+  ws.getRange(2,4).setNote(
+      'Feature — API feature or domain name.\n'+
+      'Examples: Authentication, User Management, Meal Plan\n'+
+      'Used for grouping Coverage per Feature in Summary.'
+  );
+  ws.getRange(2,5).setNote('HTTP Method: GET / POST / PUT / PATCH / DELETE');
+  ws.getRange(2,6).setNote(
+      'Endpoint URL — path only, no base URL.\n'+
+      'Example: /api/v1/users/{id}\n'+
+      'Dynamic params: use {curly_brackets}.'
+  );
   ws.getRange(2,7).setNote(
-      'Priority API & Dampak:\n'+
+      'Priority & Impact:\n'+
       '\n'+
-      'CRITICAL  -> Blocker. API utama tidak bisa digunakan.\n'+
-      '            FAIL = release DITAHAN.\n'+
-      'HIGH      -> Blocker. Fungsi penting terganggu.\n'+
-      '            FAIL = perlu approval PM.\n'+
-      'MEDIUM    -> Potential blocker. Flagged ke tech lead.\n'+
-      'LOW       -> Non-blocker. Fix sprint berikutnya.\n'+
-      'LOWEST    -> Opsional.\n'+
+      'CRITICAL  → Must PASS before release. FAIL = release BLOCKED.\n'+
+      'HIGH      → Must PASS in same sprint. FAIL = needs PM approval.\n'+
+      'MEDIUM    → Potential blocker. Fix before UAT.\n'+
+      'LOW       → Non-blocker. Fix in next sprint.\n'+
+      'LOWEST    → Nice to have. Optional.\n'+
       '\n'+
-      'Test Level: Critical/High/Medium -> Smoke | Low/Lowest -> Regression'
+      'Auto Test Level:\n'+
+      'Critical / High / Medium → Smoke Test\n'+
+      'Low / Lowest             → Regression Test'
   );
-  ws.getRange(2,8).setNote('Auth: Jenis autentikasi yang diperlukan.\nContoh: Bearer Token, Basic Auth, API Key, (none)');
-  ws.getRange(2,9).setNote('Test Type: Positive = happy path | Negative = error/invalid input | Edge Case = boundary');
-  ws.getRange(2,10).setNote('Automation Status: Automated/Manual/To Do/Cannot be Automated');
-  ws.getRange(2,11).setNote('Version: Versi API saat TC dibuat.');
-  ws.getRange(2,12).setNote('[INPUT WAJIB] Skenario singkat: apa yang ditest dan expected HTTP status.\nContoh: "User login berhasil -- 200"\nContoh: "Token expired ditolak -- 401"');
-  ws.getRange(2,13).setNote('[AUTO - JANGAN EDIT] Test Level otomatis dari Priority.');
+  ws.getRange(2,8).setNote(
+      'Auth — Authentication type required.\n'+
+      'Examples: Bearer Token, Basic Auth, API Key, (none)'
+  );
+  ws.getRange(2,9).setNote(
+      'Test Type:\n'+
+      '  Positive   = happy path (valid payload, expected flow)\n'+
+      '  Negative   = error case (invalid input, rejected request)\n'+
+      '  Edge Case  = boundary condition'
+  );
+  ws.getRange(2,10).setNote(
+      'Automation Status:\n'+
+      '  Automated           = script exists and runs\n'+
+      '  To Do               = planned, not yet done\n'+
+      '  Manual              = decided to stay manual\n'+
+      '  Cannot be Automated = technically not possible'
+  );
+  ws.getRange(2,11).setNote('Version: API version when TC was created. e.g. v1.0, v2.3');
   ws.getRange(2,12).setNote(
-      'Role (RBAC): Peran yang memiliki akses ke endpoint ini.\n'+
+      'Role (RBAC) — The user role accessing this endpoint.\n'+
       '\n'+
-      'Contoh: Admin, Super Admin, User, Viewer\n'+
+      'Examples: Admin, Super Admin, User, Viewer\n'+
       '\n'+
-      'Gunakan untuk verifikasi authorization:\n'+
-      '- Apakah role yang sesuai bisa akses endpoint?\n'+
-      '- Apakah role yang tidak sesuai mendapat 403 Forbidden?'
+      'Used to:\n'+
+      '  • Verify correct role can access endpoint (2xx)\n'+
+      '  • Verify wrong role gets 403 Forbidden\n'+
+      '  • Verify no token gets 401 Unauthorized'
   );
+  ws.getRange(2,13).setNote(
+      'SCENARIO NAMING STANDARD\n'+
+      '\n'+
+      'Happy Path : [Role] Successfully [Verb] [Object] -- [status]\n'+
+      'Negative   : [Role] Failed to [Verb] [Object] with [Condition] -- [status]\n'+
+      '\n'+
+      'Examples:\n'+
+      '  User Successfully Creates Meal Plan -- 201\n'+
+      '  User Failed to Authenticate with Invalid Token -- 401\n'+
+      '\n'+
+      'SCENARIO OUTLINE — same steps + same outcome type only:\n'+
+      '\n'+
+      'User Failed to Authenticate with <auth_condition> -- 401\n'+
+      'Examples:\n'+
+      '- Invalid token\n'+
+      '- Empty token\n'+
+      '- Expired token\n'+
+      '\n'+
+      'Rule: all Examples = same type and same status.\n'+
+      'Separate Outlines for 401 vs 403 — different scenarios.'
+  );
+  ws.getRange(2,14).setNote(
+      '[REQUIRED] Expected Result in Gherkin Then format:\n'+
+      '\n'+
+      '  Then : Outcome after request is sent\n'+
+      '\n'+
+      'Include: HTTP status code + key response body fields.\n'+
+      '\n'+
+      'Positive example:\n'+
+      '  Then 201 Created\n'+
+      '  body: { id, status: "active", created_at }\n'+
+      'Negative example:\n'+
+      '  Then 400 Bad Request\n'+
+      '  body: { error: "field X is required" }\n'+
+      'Auth example:\n'+
+      '  Then 401 Unauthorized\n'+
+      '  body: { message: "Token invalid or expired" }\n'+
+      '\n'+
+      'For Scenario Outline: write the common outcome.\n'+
+      'Row detail goes in the Examples column.'
+  );
+  ws.getRange(2,15).setNote('[AUTO — DO NOT EDIT] Test Level auto-calculated from Priority:\nCritical/High/Medium = Smoke  |  Low/Lowest = Regression');
 
   const METHOD_COLORS={GET:['#E8F0FE','#1A237E'],POST:['#E8F5E9','#1B5E20'],
     PUT:['#FFF8E1','#E65100'],DELETE:['#FCE4EC','#880E4F'],PATCH:['#F3E5F5','#4A148C']};
 
   const data=[
-    [1,'1.1','API.1.1.001','Informasi Program','GET','/api/v1/program/info','High','Bearer Token','Positive','Automated','v1.0','Viewer','Get informasi program -- 200',''],
-    [2,'1.1','API.1.1.002','Informasi Program','GET','/api/v1/program/info','Medium','(none)','Negative','Automated','v1.0','Viewer','Tanpa token ditolak -- 401',''],
-    [3,'2.1','API.2.1.001','Perencanaan Pengiriman','POST','/api/v1/delivery/plan','Critical','Bearer Token','Positive','Automated','v1.1','Admin','Create rencana berhasil -- 201',''],
-    [4,'2.1','API.2.1.002','Perencanaan Pengiriman','GET','/api/v1/delivery/plan','High','Bearer Token','Positive','Automated','v1.1','Admin','Ambil list rencana -- 200',''],
-    [5,'7.3','API.7.3.001','Manajemen Pengguna','POST','/api/v1/users','Critical','Bearer Token + Admin','Positive','Automated','v1.0','Super Admin','Create user berhasil -- 201',''],
-    [6,'7.3','API.7.3.002','Manajemen Pengguna','POST','/api/v1/users','High','Bearer Token + Admin','Negative','Automated','v1.0','Super Admin','Email duplikat ditolak -- 422',''],
-    [7,'7.3','API.7.3.003','Manajemen Pengguna','DELETE','/api/v1/users/{id}','Low','Bearer Token + Admin','Positive','Manual','v1.0','Super Admin','Delete user berhasil -- 200',''],
+    [1,'1.1','API.1.1.001','Informasi Program','GET','/api/v1/program/info','High','Bearer Token','Positive','Automated','v1.0','Viewer','Get informasi program -- 200','Then 200 OK\nbody: { data: [...], total: n }',''],
+    [2,'1.1','API.1.1.002','Informasi Program','GET','/api/v1/program/info','Medium','(none)','Negative','Automated','v1.0','Viewer','Tanpa token ditolak -- 401','Then 401 Unauthorized\nbody: { message: "Token required" }',''],
+    [3,'2.1','API.2.1.001','Perencanaan Pengiriman','POST','/api/v1/delivery/plan','Critical','Bearer Token','Positive','Automated','v1.1','Admin','Create rencana berhasil -- 201','Then 201 Created\nbody: { id, status: "pending", created_at }',''],
+    [4,'2.1','API.2.1.002','Perencanaan Pengiriman','GET','/api/v1/delivery/plan','High','Bearer Token','Positive','Automated','v1.1','Admin','Ambil list rencana -- 200','Then 200 OK\nbody: { data: [...], total: n, page: 1 }',''],
+    [5,'7.3','API.7.3.001','Manajemen Pengguna','POST','/api/v1/users','Critical','Bearer Token + Admin','Positive','Automated','v1.0','Super Admin','User Successfully Creates Account -- 201',
+      'Then 201 Created\nbody: { id, email, role, status: "active", created_at }',
+      ''],
+    [6,'7.3','API.7.3.002','Manajemen Pengguna','POST','/api/v1/users','High','Bearer Token + Admin','Negative','Automated','v1.0','Super Admin','User Failed to Create Account with <invalid_payload> -- 400\nExamples:\n- Missing email\n- Missing password\n- Duplicate email',
+      'Then 400 Bad Request\nbody: { error: <error_message> }',
+      ''],
+    [7,'7.3','API.7.3.003','Manajemen Pengguna','DELETE','/api/v1/users/{id}','Low','Bearer Token + Admin','Positive','Manual','v1.0','Super Admin','Delete user berhasil -- 200','Then 200 OK\nbody: { message: "User deleted successfully" }',''],
   ];
   data.forEach((row,i)=>{
     const r=DS+i, bg=i%2===0?'#F8F9FA':'#FFFFFF';
@@ -654,14 +805,19 @@ function createAPIMaster(ss) {
       if(c===9) autoColor(cell,val);
       if(c===4){ const mc=METHOD_COLORS[val]; if(mc) cell.setBackground(mc[0]).setFontColor(mc[1]).setFontWeight('bold').setHorizontalAlignment('center'); }
       if(c===11) cell.setHorizontalAlignment('center').setFontWeight('bold').setFontColor('#1565C0');
-      if(c===13) cell.setHorizontalAlignment('center').setFontWeight('bold').setBackground('#E3F2FD');
+      if(c===13) cell.setWrap(true);
+      if(c===14) cell.setHorizontalAlignment('center').setFontWeight('bold');
     });
-    bd(cell_style(ws.getRange(r,14),bg)).setFormula(tlFormula('G'+r)).setFontWeight('bold').setHorizontalAlignment('center').setBackground('#E3F2FD');
+    bd(cell_style(ws.getRange(r,15),bg)).setFormula(tlFormula('G'+r)).setFontWeight('bold').setHorizontalAlignment('center');
     ws.setRowHeight(r,44);
   });
-  for(let r=DS+data.length;r<=DS+MR;r++) ws.getRange(r,14).setFormula(tlFormula('G'+r));
+  for(let r=DS+data.length;r<=DS+MR;r++) ws.getRange(r,15).setFormula(tlFormula('G'+r));
 
   const dvEnd=DS+MR;
+  // Expected Result col N: wrap + font only, no background override
+  ws.getRange('N'+DS+':N'+dvEnd).setFontFamily('Arial').setFontSize(9).setWrap(true).setVerticalAlignment('middle');
+  // TestLevel col O: alignment/bold only, CF handles Smoke/Regression colors
+  ws.getRange('O'+DS+':O'+dvEnd).setHorizontalAlignment('center').setFontWeight('bold');
   // API_Master: no input borders
   ws.getRange('E'+DS+':E'+dvEnd).setDataValidation(dv(['GET','POST','PUT','DELETE','PATCH']));
   ws.getRange('G'+DS+':G'+dvEnd).setDataValidation(dv(['Critical','High','Medium','Low','Lowest']));
@@ -683,13 +839,11 @@ function createAPIMaster(ss) {
     ws.setConditionalFormatRules(rules);
   })();
   ws.getRange('L'+DS+':L'+dvEnd).setDataValidation(dv(['Admin','User','Viewer','Operator','Supervisor','Guest','Super Admin']));
-  ws.getRange('N'+DS+':N'+dvEnd).setBackground('#E3F2FD').setFontColor('#1565C0');
-
   const cf=ws.getConditionalFormatRules();
   cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Smoke')
-      .setBackground('#FFF8F0').setFontColor('#BF360C').setBold(true).setRanges([ws.getRange('M'+DS+':M'+dvEnd)]).build());
+      .setBackground('#FFF8F0').setFontColor('#BF360C').setBold(true).setRanges([ws.getRange('O'+DS+':O'+dvEnd)]).build());
   cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Regression')
-      .setBackground('#F1F8E9').setFontColor('#33691E').setBold(true).setRanges([ws.getRange('M'+DS+':M'+dvEnd)]).build());
+      .setBackground('#F1F8E9').setFontColor('#33691E').setBold(true).setRanges([ws.getRange('O'+DS+':O'+dvEnd)]).build());
   Object.entries(METHOD_COLORS).forEach(([m,colors])=>
       cf.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(m)
           .setBackground(colors[0]).setFontColor(colors[1]).setBold(true)
@@ -787,13 +941,13 @@ function createAPIExecution(ss) {
       .setBackground('#E8EAF6').setFontColor('#3949AB').setFontStyle('italic').setFontSize(8).setFontFamily('Arial');
   ws.setRowHeight(8,14);
 
-  // Sync API_Master: C=TC_ID B=SubModul D=Feature G=Priority E=Method F=URL M=TestLevel
+  // Sync API_Master: C=TC_ID B=SubModul D=Feature G=Priority E=Method F=URL N=ExpResult O=TestLevel
   ws.getRange(DS,1).setFormula('=ARRAYFORMULA(IF(API_Master!C3:C'+(MR+2)+'<>"",API_Master!C3:C'+(MR+2)+',""))');
   ws.getRange(DS,2).setFormula('=ARRAYFORMULA(IF(API_Master!B3:B'+(MR+2)+'<>"",API_Master!B3:B'+(MR+2)+',""))');
   ws.getRange(DS,3).setFormula('=ARRAYFORMULA(IF(API_Master!D3:D'+(MR+2)+'<>"",API_Master!D3:D'+(MR+2)+',""))');
   ws.getRange(DS,4).setFormula('=ARRAYFORMULA(IF(API_Master!G3:G'+(MR+2)+'<>"",API_Master!G3:G'+(MR+2)+',""))');
   ws.getRange(DS,5).setFormula('=ARRAYFORMULA(IF(API_Master!C3:C'+(MR+2)+'<>"",API_Master!E3:E'+(MR+2)+'&"  "&API_Master!F3:F'+(MR+2)+',""))');
-  ws.getRange(DS,6).setFormula('=ARRAYFORMULA(IF(API_Master!N3:N'+(MR+2)+'<>"",API_Master!N3:N'+(MR+2)+',""))');
+  ws.getRange(DS,6).setFormula('=ARRAYFORMULA(IF(API_Master!O3:O'+(MR+2)+'<>"",API_Master!O3:O'+(MR+2)+',""))');
   ws.getRange(DS,1,MR,6).setBackground('#E8EAF6').setFontColor('#37474F')
       .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle').setWrap(true);
 
@@ -930,7 +1084,7 @@ function createSummary(ss) {
 
   // Left plan fields
   const leftFields=[
-    ['Project / Sprint:',null],['Period:',null],['QA Lead:',null],['PIC QA:',null],
+    ['Project / Sprint:',null],['Period:',null],['QA Team Lead:',null],['PIC QA:',null],
     ['Environment:',['Dev','Staging / UAT','Production']],
     ['Issue Tracker (URL):',null],
     ['Test Status:',['Not Started','In Progress','Completed','On Hold'],true],
@@ -1242,18 +1396,18 @@ function createSummary(ss) {
     ['Verified',    'Verified', null],
     ['Critical',    null, 'Critical'],
     ['High',        null, 'High'],
-    ['Medium (Blocker)', null, 'Medium'],
+    ['Medium', null, 'Medium'],
   ];
 
   const bugColors = {
     'Total Bugs':'#E3F2FD','Open':'#FFCDD2','In Progress':'#E3F2FD',
     'Fixed':'#FFF9C4','Verified':'#C8E6C9','Critical':'#FFCDD2',
-    'High':'#FFE0B2','Medium (Blocker)':'#E3F2FD'
+    'High':'#FFE0B2','Medium':'#E3F2FD'
   };
   const bugFgColors = {
     'Total Bugs':'#0D47A1','Open':'#B71C1C','In Progress':'#1565C0',
     'Fixed':'#E65100','Verified':'#2E7D32','Critical':'#B71C1C',
-    'High':'#E65100','Medium (Blocker)':'#1565C0'
+    'High':'#E65100','Medium':'#1565C0'
   };
 
   // Helpers for bug formula
@@ -1719,10 +1873,50 @@ function createAppendix(ss) {
     ws.setRowHeight(r,48); r++;
   }
 
+  sec('0. HIERARKI QA -- PROJECT / MODULE / SUBMODULE','#0D47A1');
+  row2('Definisi',
+      'Project   = Inisiatif / client / program kerja. Contoh: SIPGN, INAGOV\n'+
+      'Module    = Pengelompokan domain fungsional dalam project.\n'+
+      '            Kosongkan ("-") jika project tidak punya layer domain (project flat).\n'+
+      'SubModule = Unit terkecil yang berdiri sendiri -- 1 aplikasi atau 1 domain.\n'+
+      '            Ini adalah ANCHOR utama untuk TC_ID, Coverage, dan Dashboard.\n'+
+      'Feature   = Fitur besar dalam SubModule. Dibedakan di kolom Feature, bukan TC_ID.'
+  );
+  row2('Pola A -- Project Berlayer (SIPGN)',
+      'Project  : SIPGN\n'+
+      '  Module 1  : Manajemen Gizi\n'+
+      '    SubModule 1.1 : Aplikasi Nutritionist\n'+
+      '      Feature: Meal Plan, Menu Management\n'+
+      '    SubModule 1.2 : Aplikasi Courier\n'+
+      '      Feature: Pick Up, Delivery, Return\n'+
+      '    SubModule 1.3 : Aplikasi Beneficiary\n'+
+      '  Module 2  : Manajemen Distribusi\n'+
+      '    SubModule 2.1 : ...'
+  );
+  row2('Pola B -- Project Flat (INAGOV)',
+      'Project   : INAGOV\n'+
+      '  Module  : - (kosong)\n'+
+      '    SubModule : Talenta\n'+
+      '      Feature: Rekrutmen, Penggajian\n'+
+      '    SubModule : e-Office\n'+
+      '    SubModule : SIMPEG\n'+
+      '\n'+
+      'Pada pola flat, SubModule setara dengan Module di pola berlayer.\n'+
+      'Kolom Module di Summary dan Config dikosongkan.'
+  );
+  row2('TC_ID per SubModule',
+      'Format  : [SubModule].[3-digit]\n'+
+      'Pola A  : 1.1.001 (SubModule 1.1, TC ke-1)\n'+
+      '          1.2.001 (SubModule 1.2, TC ke-1)\n'+
+      'Pola B  : Talenta.001 atau tetap numerik 1.001\n'+
+      '\n'+
+      'API prefix wajib: API.1.1.001 / API.1.2.001'
+  );
+
   sec('1. STRUKTUR TAB','#0D47A1');
   row2('TC_Master',     'Master list test case Web / Mobile.\nKolom [INPUT]: SubModul, TC_ID, Feature, Priority, Platform, Test Type, Automation, Version, Role (RBAC), Scenario, Steps, Expected Result.\nKolom [AUTO]: Test Level (kolom N) -- jangan diedit.\nFormat TC_ID: [SubModul].[3-digit]  contoh: 1.1.001  2.3.015\nRole = peran RBAC yang menjalankan skenario, contoh: Admin, User, Viewer.');
   row2('TC_Execution',  'Kolom identitas sync otomatis dari TC_Master. Isi kolom staging dengan PASSED / FAILED / BLOCKED / TODO.\nTambah kolom ke kanan untuk setiap run. LATEST STATUS di kolom Z otomatis.\nKolom AA = link screenshot / evidence.\nIN PROGRESS otomatis jika ada PASSED dan TODO di skenario yang sama.');
-  row2('API_Master',    'Master list test case API. Method (E) dan Endpoint URL (F) terpisah.\nKolom [INPUT]: SubModul, TC_ID, Feature, Method, Endpoint, Priority, Auth, Test Type, Automation, Version, Role (RBAC), Scenario.\nKolom [AUTO]: Test Level (kolom N) -- jangan diedit.\nFormat TC_ID: API.[SubModul].[3-digit]  contoh: API.1.1.001\nRole = peran RBAC yang diuji aksesnya, contoh: Admin, Super Admin, Viewer.');
+  row2('API_Master',    'Master list test case API. Method (E) dan Endpoint URL (F) terpisah.\nKolom [INPUT]: SubModul, TC_ID, Feature, Method, Endpoint, Priority, Auth, Test Type, Automation, Version, Role (RBAC), Scenario.\nKolom [AUTO]: Test Level (kolom N) -- jangan diedit.\n\nFormat TC_ID: API.[SVC].[FEAT].[000]\n  [SVC]  = Kode service/domain, maks 3-4 huruf kapital. Contoh: AUTH, USER, ORD, PAY, INV\n  [FEAT] = Kode endpoint/fitur, maks 3-4 huruf kapital. Contoh: LOG, LIST, CRT, UPD, DEL\n  [000]  = Nomor urut 3 digit, mulai 001\n\nContoh: API.AUTH.LOG.001 (Auth, Login, TC-1)  API.USER.CRT.002 (User, Create, TC-2)  API.PAY.CHK.005 (Payment, Checkout, TC-5)\n\nAturan:\n- Harus UNIK -- jangan pernah reuse TC_ID yang sudah ada\n- Jangan ubah TC_ID jika sudah ada hasil di Execution\n- Urutan: Positive dulu (001), baru Negative (002), Edge Case (003)\n\nRole = peran RBAC yang diuji aksesnya, contoh: Admin, Super Admin, User, Viewer.');
   row2('API_Execution', 'Sama seperti TC_Execution namun untuk API. Sync otomatis dari API_Master.\nKolom AA = link screenshot / evidence.');
   row2('Summary',       'Isi bagian Test Plan sebelum memulai eksekusi (Project, Modul, PIC, Jira, status).\nRingkasan otomatis: coverage SubModul & Feature, run history dengan IN PROGRESS.\nPerf Test Status otomatis dari tab PerfTest.');
   row2('PerfTest',      'Rekam hasil performance test. Isi threshold di baris 11 sesuai SLA.\nKolom STATUS otomatis PASS/FAIL per skenario. OVERALL RESULT terhubung ke tab Summary.\nMetrik yang dicek: RPS, Error Rate, P90, P95, P99, VU, CPU, Memory.');
