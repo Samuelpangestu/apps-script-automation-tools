@@ -1,8 +1,8 @@
 ---
-description: Show help for QA Test Management project commands and workflow
+description: Show help for Apps Script Automation Tools project commands and workflow
 ---
 
-Provide comprehensive help for the QA Test Management project:
+Provide comprehensive help for the Apps Script Automation Tools project:
 
 ## 📚 Available Commands
 
@@ -17,28 +17,32 @@ Show user all available Claude commands for this project:
 ## 🏗️ Project Structure
 
 ```
-qa-test-management-template/
-├── qa-dashboard/          # Portfolio Dashboard
-│   └── src/               # Active development files
-│       ├── Dashboard.js
-│       └── BroadcastFix.js
-├── qa-test-management/    # QA Template
-│   └── src/               # Active development files
-│       └── QATestManagement.js
-└── .github/workflows/     # Auto-deploy on push
+apps-script-automation-tools/
+├── projects/
+│   ├── qa-dashboard/          # Portfolio Dashboard
+│   │   └── src/               # Active development files
+│   │       ├── Dashboard.js
+│   │       └── BroadcastFix.js
+│   ├── qa-test-management/    # QA Template
+│   │   └── src/               # Active development files
+│   │       └── QATestManagement.js
+│   └── mom-rolling-pic/       # MOM Rolling & PIC Reminder
+│       └── src/               # Active development files
+│           └── Code.js
+└── .github/workflows/         # Auto-deploy on push
 ```
 
 ## 🚀 Quick Workflows
 
 **Local Development:**
 ```bash
-cd qa-dashboard
+cd projects/qa-dashboard
 clasp push --watch
 ```
 
 **Git-based Deploy:**
 ```bash
-git add qa-dashboard/src/
+git add projects/qa-dashboard/src/
 git commit -m "Update logic"
 git push origin main  # Auto-deploys!
 ```

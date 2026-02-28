@@ -1,20 +1,29 @@
-# 📊 Google Apps Script Automation Portfolio
+# 🛠️ Apps Script Automation Tools
 
-**Professional automation solutions for QA Testing & Team Management using Google Workspace**
+**Production-ready automation tools built with Google Apps Script and Google Sheets**
 
-> A collection of production-ready Google Apps Script projects for test management, team collaboration, and workflow automation.
+> A collection of enterprise-grade automation solutions for test management, team collaboration, and workflow optimization - all powered by Google Workspace integration.
 
 ---
 
-## 🎯 **Portfolio Overview**
+## 🎯 **Overview**
 
-This repository showcases enterprise-grade automation solutions built with Google Apps Script, demonstrating expertise in:
+This repository contains a suite of automation tools built with **Google Apps Script** and **Google Sheets** as the core dependencies. Each tool is designed to solve real-world workflow challenges through intelligent automation.
 
-- ✅ **Test Management Automation** - Comprehensive QA workflow management
-- ✅ **Data Aggregation & Reporting** - Multi-source dashboards with real-time KPIs
-- ✅ **Team Workflow Automation** - Automated scheduling, notifications & documentation
-- ✅ **CI/CD Integration** - Modern development workflow with clasp & GitHub Actions
-- ✅ **Google Workspace Integration** - Sheets, Docs, Drive, Gmail, Calendar
+**Core Technologies:**
+- 🔧 **Google Apps Script** - Server-side JavaScript automation platform
+- 📊 **Google Sheets** - Data storage, UI, and computational engine
+- 🔄 **Apps Script APIs** - SpreadsheetApp, DocumentApp, DriveApp, MailApp, UrlFetchApp
+- 🚀 **clasp** - Modern development workflow with version control
+- ⚙️ **GitHub Actions** - Automated CI/CD deployment pipeline
+
+**Capabilities Demonstrated:**
+- ✅ **Automated Workflows** - Reduce manual tasks with smart automation
+- ✅ **Data Integration** - Aggregate and process data from multiple sources
+- ✅ **Real-time Dashboards** - Live KPIs and metrics visualization
+- ✅ **Notification Systems** - Email, Google Chat, and webhook integrations
+- ✅ **Document Generation** - Automated template creation and management
+- ✅ **Scheduling & Triggers** - Time-based and event-driven automation
 
 ---
 
