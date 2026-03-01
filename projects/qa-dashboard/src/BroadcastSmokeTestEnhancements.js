@@ -24,23 +24,35 @@ function broadcastSmokeTestEnhancements() {
     return;
   }
 
-  // Get sheet IDs from column E and convert to URLs
-  const sheetIds = cfgSheet.getRange('E2:E50').getValues().flat()
-    .filter(id => id && id.toString().trim() !== '')
-    .map(id => id.toString().trim());
+  // Get all data from Config sheet (columns A and E)
+  const configData = cfgSheet.getRange('A2:E50').getValues();
 
-  if (sheetIds.length === 0) {
-    SpreadsheetApp.getUi().alert('Info', 'Tidak ada Sheet ID di Config sheet kolom E.\n\nPastikan kolom E berisi Sheet ID (contoh: 1ABC...xyz)', SpreadsheetApp.getUi().ButtonSet.OK);
+  // Filter valid rows: must have Sheet ID in column E (index 4)
+  // AND Sheet ID must look like a valid Google Sheets ID (long alphanumeric string)
+  const validRows = configData
+    .map((row, idx) => ({
+      name: row[0] ? row[0].toString().trim() : `Module ${idx + 1}`,
+      sheetId: row[4] ? row[4].toString().trim() : '',
+      originalIndex: idx + 2 // For logging (row number in sheet)
+    }))
+    .filter(item => {
+      // Must have sheet ID
+      if (!item.sheetId) return false;
+      // Sheet ID should be at least 30 chars (typical Google Sheet ID length)
+      if (item.sheetId.length < 30) return false;
+      // Should not contain spaces or special instruction text
+      if (item.sheetId.includes(' ') || item.sheetId.includes('[ID]')) return false;
+      return true;
+    });
+
+  if (validRows.length === 0) {
+    SpreadsheetApp.getUi().alert('Info', 'Tidak ada valid Sheet ID di Config sheet kolom E.\n\nPastikan:\n- Kolom E berisi Sheet ID (minimal 30 karakter)\n- Bukan placeholder text seperti "[ID]"', SpreadsheetApp.getUi().ButtonSet.OK);
     return;
   }
 
-  // Get module names from column A for better logging
-  const moduleNames = cfgSheet.getRange('A2:A50').getValues().flat()
-    .filter((name, idx) => sheetIds[idx]) // Only get names where we have sheet IDs
-    .map(name => name ? name.toString().trim() : 'Unknown');
-
-  // Convert sheet IDs to URLs
-  const moduleUrls = sheetIds.map(id => `https://docs.google.com/spreadsheets/d/${id}/edit`);
+  // Extract names and URLs
+  const moduleNames = validRows.map(r => r.name);
+  const moduleUrls = validRows.map(r => `https://docs.google.com/spreadsheets/d/${r.sheetId}/edit`);
 
   const ui = SpreadsheetApp.getUi();
   const response = ui.alert(
