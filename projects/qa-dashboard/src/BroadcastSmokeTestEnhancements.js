@@ -24,18 +24,23 @@ function broadcastSmokeTestEnhancements() {
     return;
   }
 
-  // Filter valid URLs only (must start with https://docs.google.com)
-  const moduleUrls = cfgSheet.getRange('B2:B50').getValues().flat()
-    .filter(url => {
-      if (!url) return false;
-      const urlStr = url.toString().trim();
-      return urlStr.startsWith('https://docs.google.com/spreadsheets/');
-    });
+  // Get sheet IDs from column E and convert to URLs
+  const sheetIds = cfgSheet.getRange('E2:E50').getValues().flat()
+    .filter(id => id && id.toString().trim() !== '')
+    .map(id => id.toString().trim());
 
-  if (moduleUrls.length === 0) {
-    SpreadsheetApp.getUi().alert('Info', 'Tidak ada valid Google Sheets URL di Config sheet kolom B.\n\nPastikan URL dimulai dengan:\nhttps://docs.google.com/spreadsheets/', SpreadsheetApp.getUi().ButtonSet.OK);
+  if (sheetIds.length === 0) {
+    SpreadsheetApp.getUi().alert('Info', 'Tidak ada Sheet ID di Config sheet kolom E.\n\nPastikan kolom E berisi Sheet ID (contoh: 1ABC...xyz)', SpreadsheetApp.getUi().ButtonSet.OK);
     return;
   }
+
+  // Get module names from column A for better logging
+  const moduleNames = cfgSheet.getRange('A2:A50').getValues().flat()
+    .filter((name, idx) => sheetIds[idx]) // Only get names where we have sheet IDs
+    .map(name => name ? name.toString().trim() : 'Unknown');
+
+  // Convert sheet IDs to URLs
+  const moduleUrls = sheetIds.map(id => `https://docs.google.com/spreadsheets/d/${id}/edit`);
 
   const ui = SpreadsheetApp.getUi();
   const response = ui.alert(
@@ -59,15 +64,16 @@ function broadcastSmokeTestEnhancements() {
   let errorLog = [];
 
   moduleUrls.forEach((url, index) => {
+    const moduleName = moduleNames[index] || 'Unknown';
     try {
-      Logger.log(`[${index + 1}/${moduleUrls.length}] Processing: ${url}`);
+      Logger.log(`[${index + 1}/${moduleUrls.length}] Processing: ${moduleName}`);
 
       const targetSs = SpreadsheetApp.openByUrl(url.toString().trim());
       const summarySheet = targetSs.getSheetByName('Summary');
       const bugReportSheet = targetSs.getSheetByName('BugReport');
 
       if (!summarySheet) {
-        errorLog.push(`[${index + 1}] ${url}: Summary sheet not found`);
+        errorLog.push(`[${index + 1}] ${moduleName}: Summary sheet not found`);
         return;
       }
 
@@ -95,7 +101,7 @@ function broadcastSmokeTestEnhancements() {
       Logger.log(`  ✅ Success`);
 
     } catch (e) {
-      errorLog.push(`[${index + 1}] ${url}: ${e.message}`);
+      errorLog.push(`[${index + 1}] ${moduleName}: ${e.message}`);
       Logger.log(`  ❌ Error: ${e.message}`);
     }
   });
