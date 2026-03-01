@@ -362,20 +362,20 @@ function addSmokeTestStatusOverview(summarySheet) {
     // TOTAL: Count TC_Master rows where (Priority=Critical OR High OR Medium) AND Test Level=Smoke
     `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke"))`,
 
-    // PASSED: Count matching TCs where status = PASSED
-    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,${wTcIdCol},TC_Execution!$Z$9:$Z$1000,"PASSED"))`,
+    // PASSED: Use SUMPRODUCT to match TC_ID and count PASSED status
+    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*IFERROR(MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(TC_Execution!$Z$9:$Z$1000,MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0)),)="PASSED"))`,
 
     // FAILED
-    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,${wTcIdCol},TC_Execution!$Z$9:$Z$1000,"FAILED"))`,
+    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*IFERROR(MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(TC_Execution!$Z$9:$Z$1000,MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0)),)="FAILED"))`,
 
     // BLOCKED
-    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,${wTcIdCol},TC_Execution!$Z$9:$Z$1000,"BLOCKED"))`,
+    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*IFERROR(MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(TC_Execution!$Z$9:$Z$1000,MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0)),)="BLOCKED"))`,
 
     // IN PROGRESS
-    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,${wTcIdCol},TC_Execution!$Z$9:$Z$1000,"IN PROGRESS"))`,
+    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*IFERROR(MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(TC_Execution!$Z$9:$Z$1000,MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0)),)="IN PROGRESS"))`,
 
     // TODO
-    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,${wTcIdCol},TC_Execution!$Z$9:$Z$1000,"TODO"))`,
+    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*IFERROR(MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(TC_Execution!$Z$9:$Z$1000,MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0)),)="TODO"))`,
 
     // PASS RATE
     `=IFERROR(${colLetter(L + 1)}${newValuesRow}/MAX(1,${colLetter(L)}${newValuesRow}),0)`,
@@ -393,19 +393,19 @@ function addSmokeTestStatusOverview(summarySheet) {
     `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke"))`,
 
     // PASSED
-    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,${aTcIdCol},API_Execution!$Z$9:$Z$1000,"PASSED"))`,
+    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*IFERROR(MATCH(${aTcIdCol},API_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(API_Execution!$Z$9:$Z$1000,MATCH(${aTcIdCol},API_Execution!$A$9:$A$1000,0)),)="PASSED"))`,
 
     // FAILED
-    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,${aTcIdCol},API_Execution!$Z$9:$Z$1000,"FAILED"))`,
+    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*IFERROR(MATCH(${aTcIdCol},API_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(API_Execution!$Z$9:$Z$1000,MATCH(${aTcIdCol},API_Execution!$A$9:$A$1000,0)),)="FAILED"))`,
 
     // BLOCKED
-    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,${aTcIdCol},API_Execution!$Z$9:$Z$1000,"BLOCKED"))`,
+    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*IFERROR(MATCH(${aTcIdCol},API_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(API_Execution!$Z$9:$Z$1000,MATCH(${aTcIdCol},API_Execution!$A$9:$A$1000,0)),)="BLOCKED"))`,
 
     // IN PROGRESS
-    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,${aTcIdCol},API_Execution!$Z$9:$Z$1000,"IN PROGRESS"))`,
+    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*IFERROR(MATCH(${aTcIdCol},API_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(API_Execution!$Z$9:$Z$1000,MATCH(${aTcIdCol},API_Execution!$A$9:$A$1000,0)),)="IN PROGRESS"))`,
 
     // TODO
-    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,${aTcIdCol},API_Execution!$Z$9:$Z$1000,"TODO"))`,
+    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*IFERROR(MATCH(${aTcIdCol},API_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(API_Execution!$Z$9:$Z$1000,MATCH(${aTcIdCol},API_Execution!$A$9:$A$1000,0)),)="TODO"))`,
 
     // PASS RATE
     `=IFERROR(${colLetter(R_ + 1)}${newValuesRow}/MAX(1,${colLetter(R_)}${newValuesRow}),0)`,
@@ -600,9 +600,9 @@ function applyPassRateCF(sheet, row, col) {
 function addBugStatusDefinitionsToAppendix(appendixSheet) {
   const data = appendixSheet.getDataRange().getValues();
 
-  // Check if "BUG STATUS DEFINITIONS" section already exists
+  // Check if "BUG STATUS DEFINITIONS" section already exists (check column B)
   for (let i = 0; i < data.length; i++) {
-    const cellValue = data[i][0] ? data[i][0].toString() : '';
+    const cellValue = data[i][1] ? data[i][1].toString() : '';  // Check column B (index 1)
     if (cellValue.includes('BUG STATUS')) {
       Logger.log('  ℹ️ Bug Status Definitions already exist in Appendix, skipping');
       return;
@@ -615,8 +615,8 @@ function addBugStatusDefinitionsToAppendix(appendixSheet) {
   // Add some spacing
   lastRow += 2;
 
-  // Section header
-  appendixSheet.getRange(lastRow, 1, 1, 4).merge()
+  // Section header (starting from column B)
+  appendixSheet.getRange(lastRow, 2, 1, 3).merge()
     .setValue('3. BUG STATUS DEFINITIONS')
     .setBackground('#0D47A1').setFontColor('#FFFFFF')
     .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
@@ -636,8 +636,8 @@ function addBugStatusDefinitionsToAppendix(appendixSheet) {
   ];
 
   statusDefs.forEach((def) => {
-    // Column A: Status name
-    appendixSheet.getRange(lastRow, 1)
+    // Column B: Status name
+    appendixSheet.getRange(lastRow, 2)
       .setValue(def.status)
       .setBackground('#ECEFF1')
       .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
@@ -645,8 +645,8 @@ function addBugStatusDefinitionsToAppendix(appendixSheet) {
       .setWrap(true)
       .setBorder(true, true, true, true, false, false, '#1976D2', SpreadsheetApp.BorderStyle.SOLID);
 
-    // Column B-D: Description (merged)
-    appendixSheet.getRange(lastRow, 2, 1, 3).merge()
+    // Column C-D: Description (merged)
+    appendixSheet.getRange(lastRow, 3, 1, 2).merge()
       .setValue(def.description)
       .setBackground('#FFFFFF')
       .setFontFamily('Arial').setFontSize(9)
