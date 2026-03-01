@@ -194,8 +194,18 @@ function addDescriptionColumnToBugReport(bugSheet) {
 // HELPER: Add Smoke Test STATUS OVERVIEW
 // =================================================================
 function addSmokeTestStatusOverview(summarySheet) {
-  // Find the current STATUS OVERVIEW section (look for "A. STATUS OVERVIEW")
   const data = summarySheet.getDataRange().getValues();
+
+  // Check if A2 Smoke Test section already exists
+  for (let i = 0; i < data.length; i++) {
+    const cellValue = data[i][0] ? data[i][0].toString() : '';
+    if (cellValue.includes('A2.  STATUS OVERVIEW') && cellValue.includes('Smoke Test')) {
+      Logger.log('  ℹ️ Smoke Test STATUS OVERVIEW already exists, skipping');
+      return;
+    }
+  }
+
+  // Find the current STATUS OVERVIEW section (look for "A. STATUS OVERVIEW")
   let statusOverviewRow = -1;
 
   for (let i = 0; i < data.length; i++) {
@@ -420,13 +430,23 @@ function addSmokeTestStatusOverview(summarySheet) {
 // HELPER: Add Smoke Test row to Bug Summary
 // =================================================================
 function addSmokeTestBugSummary(summarySheet) {
-  // Find Bug Summary section
   const data = summarySheet.getDataRange().getValues();
+
+  // Check if Smoke Test row already exists
+  for (let i = 0; i < data.length; i++) {
+    const cellValue = data[i][0] ? data[i][0].toString() : '';
+    if (cellValue.includes('Smoke') && cellValue.includes('Med-Crit')) {
+      Logger.log('  ℹ️ Smoke Test Blockers row already exists in Bug Summary, skipping');
+      return;
+    }
+  }
+
+  // Find Bug Summary section (look for "D. BUG SUMMARY" not "E. BUG SUMMARY")
   let bugSummaryRow = -1;
 
   for (let i = 0; i < data.length; i++) {
     const cellValue = data[i][0] ? data[i][0].toString() : '';
-    if (cellValue.includes('E.  BUG SUMMARY')) {
+    if (cellValue.includes('BUG SUMMARY') && (cellValue.includes('D.') || cellValue.includes('E.'))) {
       bugSummaryRow = i + 1;
       break;
     }
