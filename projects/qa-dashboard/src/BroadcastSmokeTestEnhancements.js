@@ -1,0 +1,510 @@
+/**
+ * BROADCAST: Smoke Test Enhancements
+ *
+ * Adds:
+ * 1. STATUS OVERVIEW - Smoke Test (Medium-Critical) section in Summary
+ * 2. Bug Summary row for Smoke Test blockers
+ * 3. Description column in BugReport sheet
+ * 4. Updates Dashboard to pull Smoke Test metrics
+ *
+ * Safe: Non-destructive. Adds columns/sections without touching existing data.
+ */
+
+function broadcastSmokeTestEnhancements() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const cfgSheet = ss.getSheetByName('_Config');
+
+  if (!cfgSheet) {
+    SpreadsheetApp.getUi().alert('Error', 'Sheet "_Config" tidak ditemukan!', SpreadsheetApp.getUi().ButtonSet.OK);
+    return;
+  }
+
+  const moduleUrls = cfgSheet.getRange('B2:B50').getValues().flat().filter(url => url && url.toString().trim() !== '');
+
+  if (moduleUrls.length === 0) {
+    SpreadsheetApp.getUi().alert('Info', 'Tidak ada module URL yang terdaftar di _Config sheet.', SpreadsheetApp.getUi().ButtonSet.OK);
+    return;
+  }
+
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert(
+    'Broadcast Smoke Test Enhancements',
+    `Akan menambahkan:\n\n` +
+    `1. STATUS OVERVIEW - Smoke Test (Medium-Critical)\n` +
+    `2. Bug Summary - Smoke Test Blockers row\n` +
+    `3. Description column di BugReport\n` +
+    `4. Update Dashboard untuk metrics Smoke Test\n\n` +
+    `Target: ${moduleUrls.length} modules\n\n` +
+    `Lanjutkan?`,
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    Logger.log('User cancelled broadcast.');
+    return;
+  }
+
+  let successCount = 0;
+  let errorLog = [];
+
+  moduleUrls.forEach((url, index) => {
+    try {
+      Logger.log(`[${index + 1}/${moduleUrls.length}] Processing: ${url}`);
+
+      const targetSs = SpreadsheetApp.openByUrl(url.toString().trim());
+      const summarySheet = targetSs.getSheetByName('Summary');
+      const bugReportSheet = targetSs.getSheetByName('BugReport');
+
+      if (!summarySheet) {
+        errorLog.push(`[${index + 1}] ${url}: Summary sheet not found`);
+        return;
+      }
+
+      // =================================================================
+      // PART 1: Add Description column to BugReport
+      // =================================================================
+      if (bugReportSheet) {
+        addDescriptionColumnToBugReport(bugReportSheet);
+      } else {
+        Logger.log(`  ⚠️ BugReport sheet not found, skipping`);
+      }
+
+      // =================================================================
+      // PART 2: Add Smoke Test STATUS OVERVIEW section
+      // =================================================================
+      addSmokeTestStatusOverview(summarySheet);
+
+      // =================================================================
+      // PART 3: Add Smoke Test row to Bug Summary
+      // =================================================================
+      addSmokeTestBugSummary(summarySheet);
+
+      SpreadsheetApp.flush();
+      successCount++;
+      Logger.log(`  ✅ Success`);
+
+    } catch (e) {
+      errorLog.push(`[${index + 1}] ${url}: ${e.message}`);
+      Logger.log(`  ❌ Error: ${e.message}`);
+    }
+  });
+
+  // Final report
+  let msg = `✅ Broadcast Selesai!\n\n`;
+  msg += `Berhasil: ${successCount} / ${moduleUrls.length}\n`;
+
+  if (errorLog.length > 0) {
+    msg += `\nError:\n` + errorLog.join('\n');
+  }
+
+  msg += `\n\n📝 Perubahan:\n`;
+  msg += `1. Added STATUS OVERVIEW - Smoke Test\n`;
+  msg += `2. Added Bug Summary - Smoke Test Blockers\n`;
+  msg += `3. Added Description column in BugReport\n`;
+  msg += `4. All formulas auto-update from TC_Master/API_Master\n`;
+
+  ui.alert('Broadcast Complete', msg, ui.ButtonSet.OK);
+  Logger.log(msg);
+}
+
+// =================================================================
+// HELPER: Add Description column to BugReport
+// =================================================================
+function addDescriptionColumnToBugReport(bugSheet) {
+  // Check if Description already exists (look for column 8 header)
+  const headerRow = bugSheet.getRange(4, 1, 1, 25).getValues()[0];
+  const descIndex = headerRow.indexOf('Description');
+
+  if (descIndex !== -1) {
+    Logger.log('  ℹ️ Description column already exists at column ' + (descIndex + 1));
+    return;
+  }
+
+  // Insert Description column after "Environment" (col 8)
+  // New column order: ... Title, Environment, Description, Steps, Expected ...
+  bugSheet.insertColumnAfter(8);
+
+  // Update header row 4
+  const newCol = 9; // After Environment
+  bugSheet.getRange(4, newCol).setValue('Description')
+    .setBackground('#0D47A1').setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
+
+  bugSheet.getRange(4, newCol).setNote(
+    'Description — Summary deskripsi bug (mirip Jira Summary).\n\n' +
+    'Contoh:\n' +
+    '- "Login button tidak responsif setelah input password"\n' +
+    '- "API endpoint /users mengembalikan 500 error saat filter by role"\n' +
+    '- "Dashboard chart tidak ter-render di mobile viewport"\n\n' +
+    'Tulis deskripsi singkat & jelas (1-2 kalimat).'
+  );
+
+  // Set column width
+  bugSheet.setColumnWidth(newCol, 200);
+
+  // Apply formatting to data rows (row 5 onwards)
+  const DS = 5, MR = 200;
+  bugSheet.getRange(DS, newCol, MR, 1)
+    .setWrap(true)
+    .setFontFamily('Arial').setFontSize(9)
+    .setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
+
+  // Apply alternating colors
+  for (let r = DS; r < DS + MR; r++) {
+    const bg = (r - DS) % 2 === 0 ? '#F8FBFF' : '#FFFFFF';
+    bugSheet.getRange(r, newCol).setBackground(bg);
+  }
+
+  Logger.log('  ✅ Added Description column at position 9');
+}
+
+// =================================================================
+// HELPER: Add Smoke Test STATUS OVERVIEW
+// =================================================================
+function addSmokeTestStatusOverview(summarySheet) {
+  // Find the current STATUS OVERVIEW section (look for "A. STATUS OVERVIEW")
+  const data = summarySheet.getDataRange().getValues();
+  let statusOverviewRow = -1;
+
+  for (let i = 0; i < data.length; i++) {
+    const cellValue = data[i][0] ? data[i][0].toString() : '';
+    if (cellValue.includes('A.  STATUS OVERVIEW')) {
+      statusOverviewRow = i + 1; // Convert to 1-indexed
+      break;
+    }
+  }
+
+  if (statusOverviewRow === -1) {
+    Logger.log('  ⚠️ STATUS OVERVIEW section not found, skipping');
+    return;
+  }
+
+  // Insert 4 new rows after the existing STATUS OVERVIEW section
+  // Existing structure:
+  // Row N: Header "A. STATUS OVERVIEW"
+  // Row N+1: KPI Labels (TOTAL, PASSED, FAILED...)
+  // Row N+2: KPI Values
+  // Row N+3: Legend/note
+  //
+  // We'll insert after Row N+3
+
+  const insertAfterRow = statusOverviewRow + 3;
+  summarySheet.insertRowsAfter(insertAfterRow, 4);
+
+  const newHeaderRow = insertAfterRow + 1;
+  const newLabelsRow = newHeaderRow + 1;
+  const newValuesRow = newLabelsRow + 1;
+  const newNoteRow = newValuesRow + 1;
+
+  const L = 1, LW = 10, R_ = 12, RW = 10;
+
+  // Row height for spacing
+  summarySheet.setRowHeight(insertAfterRow, 8);
+
+  // =================================================================
+  // New section header
+  // =================================================================
+  summarySheet.getRange(newHeaderRow, L, 1, LW).merge();
+  summarySheet.getRange(newHeaderRow, L)
+    .setValue('A2.  STATUS OVERVIEW  -  Smoke Test (Medium - Critical)')
+    .setBackground('#1565C0').setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  summarySheet.getRange(newHeaderRow, R_, 1, RW).merge();
+  summarySheet.getRange(newHeaderRow, R_)
+    .setValue('A2.  STATUS OVERVIEW  -  Smoke Test (Medium - Critical)')
+    .setBackground('#283593').setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  summarySheet.setRowHeight(newHeaderRow, 22);
+
+  // =================================================================
+  // KPI Labels row
+  // =================================================================
+  const kpiLabels = ['TOTAL', 'PASSED', 'FAILED', 'BLOCKED', 'IN PROG', 'TODO', 'PASS RATE', 'AUTO RATE', 'EXEC RATE'];
+  const kpiBgs = ['#37474F', '#2E7D32', '#B71C1C', '#E65100', '#1565C0', '#546E7A', '#0D47A1', '#1976D2', '#4A148C'];
+
+  for (let i = 0; i < 9; i++) {
+    const cell = summarySheet.getRange(newLabelsRow, L + i);
+    cell.setValue(kpiLabels[i])
+      .setBackground(kpiBgs[i]).setFontColor('#FFFFFF')
+      .setFontWeight('bold').setFontSize(i < 6 ? 8 : 7.5)
+      .setFontFamily('Arial')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setWrap(true);
+
+    const cellR = summarySheet.getRange(newLabelsRow, R_ + i);
+    cellR.setValue(kpiLabels[i])
+      .setBackground(kpiBgs[i]).setFontColor('#FFFFFF')
+      .setFontWeight('bold').setFontSize(i < 6 ? 8 : 7.5)
+      .setFontFamily('Arial')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setWrap(true);
+  }
+
+  summarySheet.setRowHeight(newLabelsRow, 22);
+
+  // =================================================================
+  // KPI Values row with formulas
+  // =================================================================
+  // Filters: TC_Master col E = Priority (Critical/High/Medium), col F = Test Level (Smoke)
+  // For Web/Mobile: Count from TC_Master where Priority IN (Critical, High, Medium) AND Test Level = "Smoke"
+  // Then check execution status in TC_Execution!Z
+
+  const wPrioCol = 'TC_Master!E3:E1000';
+  const wLevelCol = 'TC_Master!F3:F1000';
+  const wTcIdCol = 'TC_Master!C3:C1000';
+  const wExecZ = 'TC_Execution!A9:A1000'; // TC_ID in execution
+  const wExecStatus = 'TC_Execution!Z9:Z1000'; // Status column
+
+  // API: Priority col G, Test Level col M
+  const aPrioCol = 'API_Master!G3:G1000';
+  const aLevelCol = 'API_Master!M3:M1000'; // Assuming Test Level is col M (adjust if needed)
+  const aTcIdCol = 'API_Master!C3:C1000';
+  const aExecZ = 'API_Execution!A9:A1000';
+  const aExecStatus = 'API_Execution!Z9:Z1000';
+
+  // Web/Mobile formulas
+  const wForms = [
+    // TOTAL: Count TC_Master rows where (Priority=Critical OR High OR Medium) AND Test Level=Smoke
+    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke"))`,
+
+    // PASSED: Count matching TCs where status = PASSED
+    `=SUMPRODUCT(((TC_Master!E3:E1000="Critical")+(TC_Master!E3:E1000="High")+(TC_Master!E3:E1000="Medium"))*(TC_Master!F3:F1000="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,TC_Master!C3:C1000,TC_Execution!$Z$9:$Z$1000,"PASSED"))`,
+
+    // FAILED
+    `=SUMPRODUCT(((TC_Master!E3:E1000="Critical")+(TC_Master!E3:E1000="High")+(TC_Master!E3:E1000="Medium"))*(TC_Master!F3:F1000="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,TC_Master!C3:C1000,TC_Execution!$Z$9:$Z$1000,"FAILED"))`,
+
+    // BLOCKED
+    `=SUMPRODUCT(((TC_Master!E3:E1000="Critical")+(TC_Master!E3:E1000="High")+(TC_Master!E3:E1000="Medium"))*(TC_Master!F3:F1000="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,TC_Master!C3:C1000,TC_Execution!$Z$9:$Z$1000,"BLOCKED"))`,
+
+    // IN PROGRESS
+    `=SUMPRODUCT(((TC_Master!E3:E1000="Critical")+(TC_Master!E3:E1000="High")+(TC_Master!E3:E1000="Medium"))*(TC_Master!F3:F1000="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,TC_Master!C3:C1000,TC_Execution!$Z$9:$Z$1000,"IN PROGRESS"))`,
+
+    // TODO
+    `=SUMPRODUCT(((TC_Master!E3:E1000="Critical")+(TC_Master!E3:E1000="High")+(TC_Master!E3:E1000="Medium"))*(TC_Master!F3:F1000="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,TC_Master!C3:C1000,TC_Execution!$Z$9:$Z$1000,"TODO"))`,
+
+    // PASS RATE
+    `=IFERROR(${colLetter(L + 1)}${newValuesRow}/MAX(1,${colLetter(L)}${newValuesRow}),0)`,
+
+    // AUTO RATE (automated smoke tests)
+    `=IFERROR(SUMPRODUCT(((TC_Master!E3:E1000="Critical")+(TC_Master!E3:E1000="High")+(TC_Master!E3:E1000="Medium"))*(TC_Master!F3:F1000="Smoke")*(TC_Master!H3:H1000="Automated"))/MAX(1,${colLetter(L)}${newValuesRow}),0)`,
+
+    // EXEC RATE
+    `=IFERROR((${colLetter(L + 1)}${newValuesRow}+${colLetter(L + 2)}${newValuesRow}+${colLetter(L + 3)}${newValuesRow}+${colLetter(L + 4)}${newValuesRow})/MAX(1,${colLetter(L)}${newValuesRow}),0)`
+  ];
+
+  // API formulas
+  const aForms = [
+    // TOTAL
+    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke"))`,
+
+    // PASSED
+    `=SUMPRODUCT(((API_Master!G3:G1000="Critical")+(API_Master!G3:G1000="High")+(API_Master!G3:G1000="Medium"))*(API_Master!M3:M1000="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,API_Master!C3:C1000,API_Execution!$Z$9:$Z$1000,"PASSED"))`,
+
+    // FAILED
+    `=SUMPRODUCT(((API_Master!G3:G1000="Critical")+(API_Master!G3:G1000="High")+(API_Master!G3:G1000="Medium"))*(API_Master!M3:M1000="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,API_Master!C3:C1000,API_Execution!$Z$9:$Z$1000,"FAILED"))`,
+
+    // BLOCKED
+    `=SUMPRODUCT(((API_Master!G3:G1000="Critical")+(API_Master!G3:G1000="High")+(API_Master!G3:G1000="Medium"))*(API_Master!M3:M1000="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,API_Master!C3:C1000,API_Execution!$Z$9:$Z$1000,"BLOCKED"))`,
+
+    // IN PROGRESS
+    `=SUMPRODUCT(((API_Master!G3:G1000="Critical")+(API_Master!G3:G1000="High")+(API_Master!G3:G1000="Medium"))*(API_Master!M3:M1000="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,API_Master!C3:C1000,API_Execution!$Z$9:$Z$1000,"IN PROGRESS"))`,
+
+    // TODO
+    `=SUMPRODUCT(((API_Master!G3:G1000="Critical")+(API_Master!G3:G1000="High")+(API_Master!G3:G1000="Medium"))*(API_Master!M3:M1000="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,API_Master!C3:C1000,API_Execution!$Z$9:$Z$1000,"TODO"))`,
+
+    // PASS RATE
+    `=IFERROR(${colLetter(R_ + 1)}${newValuesRow}/MAX(1,${colLetter(R_)}${newValuesRow}),0)`,
+
+    // AUTO RATE
+    `=IFERROR(SUMPRODUCT(((API_Master!G3:G1000="Critical")+(API_Master!G3:G1000="High")+(API_Master!G3:G1000="Medium"))*(API_Master!M3:M1000="Smoke")*(API_Master!J3:J1000="Automated"))/MAX(1,${colLetter(R_)}${newValuesRow}),0)`,
+
+    // EXEC RATE
+    `=IFERROR((${colLetter(R_ + 1)}${newValuesRow}+${colLetter(R_ + 2)}${newValuesRow}+${colLetter(R_ + 3)}${newValuesRow}+${colLetter(R_ + 4)}${newValuesRow})/MAX(1,${colLetter(R_)}${newValuesRow}),0)`
+  ];
+
+  // Apply Web formulas
+  wForms.forEach((f, i) => {
+    const cell = summarySheet.getRange(newValuesRow, L + i);
+    cell.setFormula(f)
+      .setBackground('#FFFFFF')
+      .setFontWeight('bold')
+      .setFontSize(i < 6 ? 16 : 13)
+      .setFontFamily('Arial')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle');
+
+    if (i >= 6) {
+      cell.setNumberFormat('0%');
+      applyPassRateCF(summarySheet, newValuesRow, L + i);
+    }
+  });
+
+  // Apply API formulas
+  aForms.forEach((f, i) => {
+    const cell = summarySheet.getRange(newValuesRow, R_ + i);
+    cell.setFormula(f)
+      .setBackground('#FFFFFF')
+      .setFontWeight('bold')
+      .setFontSize(i < 6 ? 16 : 13)
+      .setFontFamily('Arial')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle');
+
+    if (i >= 6) {
+      cell.setNumberFormat('0%');
+      applyPassRateCF(summarySheet, newValuesRow, R_ + i);
+    }
+  });
+
+  summarySheet.setRowHeight(newValuesRow, 36);
+
+  // =================================================================
+  // Note row
+  // =================================================================
+  summarySheet.getRange(newNoteRow, L, 1, LW).merge();
+  summarySheet.getRange(newNoteRow, L)
+    .setValue('Smoke Test (Medium-Critical) = Test Level "Smoke" dengan Priority Critical/High/Medium')
+    .setBackground('#E3F2FD').setFontColor('#1565C0')
+    .setFontStyle('italic').setFontSize(7).setFontFamily('Arial')
+    .setHorizontalAlignment('left');
+
+  summarySheet.getRange(newNoteRow, R_, 1, RW).merge();
+  summarySheet.getRange(newNoteRow, R_)
+    .setValue('Smoke Test (Medium-Critical) = Test Level "Smoke" dengan Priority Critical/High/Medium')
+    .setBackground('#E8EAF6').setFontColor('#283593')
+    .setFontStyle('italic').setFontSize(7).setFontFamily('Arial')
+    .setHorizontalAlignment('left');
+
+  summarySheet.setRowHeight(newNoteRow, 14);
+
+  Logger.log('  ✅ Added Smoke Test STATUS OVERVIEW section');
+}
+
+// =================================================================
+// HELPER: Add Smoke Test row to Bug Summary
+// =================================================================
+function addSmokeTestBugSummary(summarySheet) {
+  // Find Bug Summary section
+  const data = summarySheet.getDataRange().getValues();
+  let bugSummaryRow = -1;
+
+  for (let i = 0; i < data.length; i++) {
+    const cellValue = data[i][0] ? data[i][0].toString() : '';
+    if (cellValue.includes('E.  BUG SUMMARY')) {
+      bugSummaryRow = i + 1;
+      break;
+    }
+  }
+
+  if (bugSummaryRow === -1) {
+    Logger.log('  ⚠️ BUG SUMMARY section not found, skipping');
+    return;
+  }
+
+  // Insert 1 row after the last bug metric (after "Medium" row, which is row +8)
+  const insertAfterRow = bugSummaryRow + 8;
+  summarySheet.insertRowsAfter(insertAfterRow, 1);
+
+  const newRow = insertAfterRow + 1;
+  const L = 1, LW = 10, R_ = 12, RW = 10;
+
+  // Smoke Test Blockers row
+  const label = 'Smoke (Med-Crit)';
+  const bg = '#FFF9C4'; // Yellow/amber
+  const fg = '#E65100'; // Orange
+
+  // Left (Web + Mobile)
+  summarySheet.getRange(newRow, L).setValue(label + ':')
+    .setBackground('#FFEBEE').setFontFamily('Arial')
+    .setFontSize(9).setFontWeight('bold')
+    .setHorizontalAlignment('right').setFontColor('#C62828')
+    .setVerticalAlignment('middle');
+
+  summarySheet.getRange(newRow, L + 1, 1, LW - 1).merge();
+
+  // Formula: Count bugs where Type=Web OR Mobile, Priority=Critical/High/Medium, Status=Open, and related TC is Smoke Test
+  // Since we can't easily join BugReport with TC_Master, we'll use a simpler approach:
+  // Count Open bugs with Priority Critical/High/Medium (smoke test blockers are defined as medium-critical open bugs)
+  const wFormula = `=IFERROR(COUNTIFS(BugReport!B5:B5000,"Web",BugReport!C5:C5000,"Critical",BugReport!D5:D5000,"Open")+` +
+    `COUNTIFS(BugReport!B5:B5000,"Web",BugReport!C5:C5000,"High",BugReport!D5:D5000,"Open")+` +
+    `COUNTIFS(BugReport!B5:B5000,"Web",BugReport!C5:C5000,"Medium",BugReport!D5:D5000,"Open")+` +
+    `COUNTIFS(BugReport!B5:B5000,"Mobile",BugReport!C5:C5000,"Critical",BugReport!D5:D5000,"Open")+` +
+    `COUNTIFS(BugReport!B5:B5000,"Mobile",BugReport!C5:C5000,"High",BugReport!D5:D5000,"Open")+` +
+    `COUNTIFS(BugReport!B5:B5000,"Mobile",BugReport!C5:C5000,"Medium",BugReport!D5:D5000,"Open"),0)`;
+
+  summarySheet.getRange(newRow, L + 1).setFormula(wFormula)
+    .setBackground(bg).setFontFamily('Arial')
+    .setFontSize(11).setFontWeight('bold')
+    .setFontColor(fg)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+
+  // Right (API)
+  summarySheet.getRange(newRow, R_).setValue(label + ':')
+    .setBackground('#FFEBEE').setFontFamily('Arial')
+    .setFontSize(9).setFontWeight('bold')
+    .setHorizontalAlignment('right').setFontColor('#B71C1C')
+    .setVerticalAlignment('middle');
+
+  summarySheet.getRange(newRow, R_ + 1, 1, RW - 1).merge();
+
+  const aFormula = `=IFERROR(COUNTIFS(BugReport!B5:B5000,"API",BugReport!C5:C5000,"Critical",BugReport!D5:D5000,"Open")+` +
+    `COUNTIFS(BugReport!B5:B5000,"API",BugReport!C5:C5000,"High",BugReport!D5:D5000,"Open")+` +
+    `COUNTIFS(BugReport!B5:B5000,"API",BugReport!C5:C5000,"Medium",BugReport!D5:D5000,"Open"),0)`;
+
+  summarySheet.getRange(newRow, R_ + 1).setFormula(aFormula)
+    .setBackground(bg).setFontFamily('Arial')
+    .setFontSize(11).setFontWeight('bold')
+    .setFontColor(fg)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+
+  summarySheet.setRowHeight(newRow, 24);
+
+  Logger.log('  ✅ Added Smoke Test Blockers row to Bug Summary');
+}
+
+// =================================================================
+// HELPER: Apply Pass Rate Conditional Formatting
+// =================================================================
+function applyPassRateCF(sheet, row, col) {
+  const range = sheet.getRange(row, col);
+  const rules = sheet.getConditionalFormatRules();
+
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberGreaterThanOrEqualTo(0.8)
+    .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true)
+    .setRanges([range]).build());
+
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberBetween(0.5, 0.799)
+    .setBackground('#FFF8E1').setFontColor('#E65100').setBold(true)
+    .setRanges([range]).build());
+
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberLessThan(0.5)
+    .setBackground('#FFEBEE').setFontColor('#C62828').setBold(true)
+    .setRanges([range]).build());
+
+  sheet.setConditionalFormatRules(rules);
+}
+
+// =================================================================
+// HELPER: Column letter converter
+// =================================================================
+function colLetter(col) {
+  let letter = '';
+  while (col > 0) {
+    const mod = (col - 1) % 26;
+    letter = String.fromCharCode(65 + mod) + letter;
+    col = Math.floor((col - mod) / 26);
+  }
+  return letter;
+}
