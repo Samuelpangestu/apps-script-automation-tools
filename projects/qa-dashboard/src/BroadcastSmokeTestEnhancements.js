@@ -83,6 +83,7 @@ function broadcastSmokeTestEnhancements() {
       const targetSs = SpreadsheetApp.openByUrl(url.toString().trim());
       const summarySheet = targetSs.getSheetByName('Summary');
       const bugReportSheet = targetSs.getSheetByName('BugReport');
+      const appendixSheet = targetSs.getSheetByName('Appendix');
 
       if (!summarySheet) {
         errorLog.push(`[${index + 1}] ${moduleName}: Summary sheet not found`);
@@ -108,6 +109,15 @@ function broadcastSmokeTestEnhancements() {
       // =================================================================
       addSmokeTestBugSummary(summarySheet);
 
+      // =================================================================
+      // PART 4: Add Bug Status Definitions to Appendix
+      // =================================================================
+      if (appendixSheet) {
+        addBugStatusDefinitionsToAppendix(appendixSheet);
+      } else {
+        Logger.log(`  ⚠️ Appendix sheet not found, skipping`);
+      }
+
       SpreadsheetApp.flush();
       successCount++;
       Logger.log(`  ✅ Success`);
@@ -131,7 +141,8 @@ function broadcastSmokeTestEnhancements() {
   msg += `2. Added Bug Summary - Medium-Critical Open blockers\n`;
   msg += `3. Added Description column in BugReport (col I)\n`;
   msg += `4. Added detail rows in BugReport (row 63+): Status, Update oleh, Artinya\n`;
-  msg += `5. All formulas auto-update from TC_Master/API_Master\n`;
+  msg += `5. Added Bug Status Definitions to Appendix (Open, In Progress, Fixed, Verified, Closed, Reopen)\n`;
+  msg += `6. All formulas auto-update from TC_Master/API_Master\n`;
 
   ui.alert('Broadcast Complete', msg, ui.ButtonSet.OK);
   Logger.log(msg);
@@ -230,62 +241,6 @@ function addDescriptionColumnToBugReport(bugSheet) {
   });
 
   Logger.log('  ✅ Added detail rows (Status, Update oleh, Artinya) starting at row 63');
-
-  // =================================================================
-  // Add Status Definitions (starting row 67)
-  // =================================================================
-  const row67Value = bugSheet.getRange(67, 2).getValue();
-  if (row67Value && row67Value.toString().includes('Penjelasan Status')) {
-    Logger.log('  ℹ️ Status definitions already exist at row 67');
-    return;
-  }
-
-  // Insert rows for status definitions
-  bugSheet.insertRowsAfter(65, 7);
-
-  // Row 67: Section header
-  bugSheet.getRange(67, 2, 1, 19).merge()
-    .setValue('Penjelasan Status:')
-    .setBackground('#0D47A1').setFontColor('#FFFFFF')
-    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
-    .setHorizontalAlignment('left').setVerticalAlignment('middle')
-    .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
-  bugSheet.setRowHeight(67, 22);
-
-  // Status definitions
-  const statusDefs = [
-    { status: 'Open', description: 'Bug baru ditemukan dan belum ditangani oleh developer' },
-    { status: 'In Progress', description: 'Bug sedang dalam proses perbaikan oleh developer' },
-    { status: 'Fixed', description: 'Bug sudah diperbaiki oleh developer dan siap untuk diverifikasi QA' },
-    { status: 'Verified', description: 'Bug sudah diverifikasi oleh QA dan terkonfirmasi sudah diperbaiki' },
-    { status: 'Closed', description: 'Bug sudah selesai dan ditutup (verified + deployed to production)' },
-    { status: 'Reopen', description: 'Bug yang sebelumnya Fixed/Verified ternyata masih terjadi dan dibuka kembali' }
-  ];
-
-  statusDefs.forEach((def, idx) => {
-    const row = 68 + idx;
-
-    // Column B-C: Status name
-    bugSheet.getRange(row, 2, 1, 2).merge()
-      .setValue(def.status)
-      .setBackground('#E3F2FD').setFontColor('#0D47A1')
-      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
-      .setHorizontalAlignment('center').setVerticalAlignment('middle')
-      .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
-
-    // Column D onwards: Description
-    bugSheet.getRange(row, 4, 1, 17).merge()
-      .setValue(def.description)
-      .setBackground('#FFFFFF')
-      .setFontFamily('Arial').setFontSize(9)
-      .setHorizontalAlignment('left').setVerticalAlignment('middle')
-      .setWrap(true)
-      .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
-
-    bugSheet.setRowHeight(row, 20);
-  });
-
-  Logger.log('  ✅ Added status definitions (Open, In Progress, Fixed, Verified, Closed, Reopen) starting at row 67');
 }
 
 // =================================================================
@@ -389,22 +344,18 @@ function addSmokeTestStatusOverview(summarySheet) {
   // =================================================================
   // KPI Values row with formulas
   // =================================================================
-  // Filters: TC_Master col E = Priority (Critical/High/Medium), col F = Test Level (Smoke)
-  // For Web/Mobile: Count from TC_Master where Priority IN (Critical, High, Medium) AND Test Level = "Smoke"
-  // Then check execution status in TC_Execution!Z
+  // TC_Master columns: 1=No, 2=SubModul, 3=TC_ID, 4=Feature, 5=Priority, 6=Platform, 7=Test Type, 8=Automated, 14=[AUTO] Test Level
+  // API_Master columns: 1=No, 2=SubModul, 3=TC_ID, 4=Feature, 5=Endpoint, 6=Method, 7=Priority, 13=Automated, 15=[AUTO] Test Level
 
-  const wPrioCol = 'TC_Master!E3:E1000';
-  const wLevelCol = 'TC_Master!F3:F1000';
-  const wTcIdCol = 'TC_Master!C3:C1000';
-  const wExecZ = 'TC_Execution!A9:A1000'; // TC_ID in execution
-  const wExecStatus = 'TC_Execution!Z9:Z1000'; // Status column
+  const wPrioCol = 'TC_Master!E3:E1000';      // Priority column (5)
+  const wLevelCol = 'TC_Master!N3:N1000';     // Test Level column (14)
+  const wAutoCol = 'TC_Master!H3:H1000';      // Automated column (8)
+  const wTcIdCol = 'TC_Master!C3:C1000';      // TC_ID column (3)
 
-  // API: Priority col G, Test Level col M
-  const aPrioCol = 'API_Master!G3:G1000';
-  const aLevelCol = 'API_Master!M3:M1000'; // Assuming Test Level is col M (adjust if needed)
-  const aTcIdCol = 'API_Master!C3:C1000';
-  const aExecZ = 'API_Execution!A9:A1000';
-  const aExecStatus = 'API_Execution!Z9:Z1000';
+  const aPrioCol = 'API_Master!G3:G1000';     // Priority column (7)
+  const aLevelCol = 'API_Master!O3:O1000';    // Test Level column (15)
+  const aAutoCol = 'API_Master!M3:M1000';     // Automated column (13)
+  const aTcIdCol = 'API_Master!C3:C1000';     // TC_ID column (3)
 
   // Web/Mobile formulas
   const wForms = [
@@ -412,25 +363,25 @@ function addSmokeTestStatusOverview(summarySheet) {
     `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke"))`,
 
     // PASSED: Count matching TCs where status = PASSED
-    `=SUMPRODUCT(((TC_Master!E3:E1000="Critical")+(TC_Master!E3:E1000="High")+(TC_Master!E3:E1000="Medium"))*(TC_Master!F3:F1000="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,TC_Master!C3:C1000,TC_Execution!$Z$9:$Z$1000,"PASSED"))`,
+    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,${wTcIdCol},TC_Execution!$Z$9:$Z$1000,"PASSED"))`,
 
     // FAILED
-    `=SUMPRODUCT(((TC_Master!E3:E1000="Critical")+(TC_Master!E3:E1000="High")+(TC_Master!E3:E1000="Medium"))*(TC_Master!F3:F1000="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,TC_Master!C3:C1000,TC_Execution!$Z$9:$Z$1000,"FAILED"))`,
+    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,${wTcIdCol},TC_Execution!$Z$9:$Z$1000,"FAILED"))`,
 
     // BLOCKED
-    `=SUMPRODUCT(((TC_Master!E3:E1000="Critical")+(TC_Master!E3:E1000="High")+(TC_Master!E3:E1000="Medium"))*(TC_Master!F3:F1000="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,TC_Master!C3:C1000,TC_Execution!$Z$9:$Z$1000,"BLOCKED"))`,
+    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,${wTcIdCol},TC_Execution!$Z$9:$Z$1000,"BLOCKED"))`,
 
     // IN PROGRESS
-    `=SUMPRODUCT(((TC_Master!E3:E1000="Critical")+(TC_Master!E3:E1000="High")+(TC_Master!E3:E1000="Medium"))*(TC_Master!F3:F1000="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,TC_Master!C3:C1000,TC_Execution!$Z$9:$Z$1000,"IN PROGRESS"))`,
+    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,${wTcIdCol},TC_Execution!$Z$9:$Z$1000,"IN PROGRESS"))`,
 
     // TODO
-    `=SUMPRODUCT(((TC_Master!E3:E1000="Critical")+(TC_Master!E3:E1000="High")+(TC_Master!E3:E1000="Medium"))*(TC_Master!F3:F1000="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,TC_Master!C3:C1000,TC_Execution!$Z$9:$Z$1000,"TODO"))`,
+    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*COUNTIFS(TC_Execution!$A$9:$A$1000,${wTcIdCol},TC_Execution!$Z$9:$Z$1000,"TODO"))`,
 
     // PASS RATE
     `=IFERROR(${colLetter(L + 1)}${newValuesRow}/MAX(1,${colLetter(L)}${newValuesRow}),0)`,
 
     // AUTO RATE (automated smoke tests)
-    `=IFERROR(SUMPRODUCT(((TC_Master!E3:E1000="Critical")+(TC_Master!E3:E1000="High")+(TC_Master!E3:E1000="Medium"))*(TC_Master!F3:F1000="Smoke")*(TC_Master!H3:H1000="Automated"))/MAX(1,${colLetter(L)}${newValuesRow}),0)`,
+    `=IFERROR(SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*(${wAutoCol}="Automated"))/MAX(1,${colLetter(L)}${newValuesRow}),0)`,
 
     // EXEC RATE
     `=IFERROR((${colLetter(L + 1)}${newValuesRow}+${colLetter(L + 2)}${newValuesRow}+${colLetter(L + 3)}${newValuesRow}+${colLetter(L + 4)}${newValuesRow})/MAX(1,${colLetter(L)}${newValuesRow}),0)`
@@ -442,25 +393,25 @@ function addSmokeTestStatusOverview(summarySheet) {
     `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke"))`,
 
     // PASSED
-    `=SUMPRODUCT(((API_Master!G3:G1000="Critical")+(API_Master!G3:G1000="High")+(API_Master!G3:G1000="Medium"))*(API_Master!M3:M1000="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,API_Master!C3:C1000,API_Execution!$Z$9:$Z$1000,"PASSED"))`,
+    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,${aTcIdCol},API_Execution!$Z$9:$Z$1000,"PASSED"))`,
 
     // FAILED
-    `=SUMPRODUCT(((API_Master!G3:G1000="Critical")+(API_Master!G3:G1000="High")+(API_Master!G3:G1000="Medium"))*(API_Master!M3:M1000="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,API_Master!C3:C1000,API_Execution!$Z$9:$Z$1000,"FAILED"))`,
+    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,${aTcIdCol},API_Execution!$Z$9:$Z$1000,"FAILED"))`,
 
     // BLOCKED
-    `=SUMPRODUCT(((API_Master!G3:G1000="Critical")+(API_Master!G3:G1000="High")+(API_Master!G3:G1000="Medium"))*(API_Master!M3:M1000="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,API_Master!C3:C1000,API_Execution!$Z$9:$Z$1000,"BLOCKED"))`,
+    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,${aTcIdCol},API_Execution!$Z$9:$Z$1000,"BLOCKED"))`,
 
     // IN PROGRESS
-    `=SUMPRODUCT(((API_Master!G3:G1000="Critical")+(API_Master!G3:G1000="High")+(API_Master!G3:G1000="Medium"))*(API_Master!M3:M1000="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,API_Master!C3:C1000,API_Execution!$Z$9:$Z$1000,"IN PROGRESS"))`,
+    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,${aTcIdCol},API_Execution!$Z$9:$Z$1000,"IN PROGRESS"))`,
 
     // TODO
-    `=SUMPRODUCT(((API_Master!G3:G1000="Critical")+(API_Master!G3:G1000="High")+(API_Master!G3:G1000="Medium"))*(API_Master!M3:M1000="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,API_Master!C3:C1000,API_Execution!$Z$9:$Z$1000,"TODO"))`,
+    `=SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*COUNTIFS(API_Execution!$A$9:$A$1000,${aTcIdCol},API_Execution!$Z$9:$Z$1000,"TODO"))`,
 
     // PASS RATE
     `=IFERROR(${colLetter(R_ + 1)}${newValuesRow}/MAX(1,${colLetter(R_)}${newValuesRow}),0)`,
 
     // AUTO RATE
-    `=IFERROR(SUMPRODUCT(((API_Master!G3:G1000="Critical")+(API_Master!G3:G1000="High")+(API_Master!G3:G1000="Medium"))*(API_Master!M3:M1000="Smoke")*(API_Master!J3:J1000="Automated"))/MAX(1,${colLetter(R_)}${newValuesRow}),0)`,
+    `=IFERROR(SUMPRODUCT(((${aPrioCol}="Critical")+(${aPrioCol}="High")+(${aPrioCol}="Medium"))*(${aLevelCol}="Smoke")*(${aAutoCol}="Automated"))/MAX(1,${colLetter(R_)}${newValuesRow}),0)`,
 
     // EXEC RATE
     `=IFERROR((${colLetter(R_ + 1)}${newValuesRow}+${colLetter(R_ + 2)}${newValuesRow}+${colLetter(R_ + 3)}${newValuesRow}+${colLetter(R_ + 4)}${newValuesRow})/MAX(1,${colLetter(R_)}${newValuesRow}),0)`
@@ -641,6 +592,73 @@ function applyPassRateCF(sheet, row, col) {
     .setRanges([range]).build());
 
   sheet.setConditionalFormatRules(rules);
+}
+
+// =================================================================
+// HELPER: Add Bug Status Definitions to Appendix
+// =================================================================
+function addBugStatusDefinitionsToAppendix(appendixSheet) {
+  const data = appendixSheet.getDataRange().getValues();
+
+  // Check if "BUG STATUS DEFINITIONS" section already exists
+  for (let i = 0; i < data.length; i++) {
+    const cellValue = data[i][0] ? data[i][0].toString() : '';
+    if (cellValue.includes('BUG STATUS')) {
+      Logger.log('  ℹ️ Bug Status Definitions already exist in Appendix, skipping');
+      return;
+    }
+  }
+
+  // Find the last row with content
+  let lastRow = appendixSheet.getLastRow();
+
+  // Add some spacing
+  lastRow += 2;
+
+  // Section header
+  appendixSheet.getRange(lastRow, 1, 1, 4).merge()
+    .setValue('3. BUG STATUS DEFINITIONS')
+    .setBackground('#0D47A1').setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+    .setHorizontalAlignment('left').setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, false, false, '#1976D2', SpreadsheetApp.BorderStyle.SOLID);
+  appendixSheet.setRowHeight(lastRow, 24);
+  lastRow++;
+
+  // Status definitions
+  const statusDefs = [
+    { status: 'Open', description: 'Bug baru ditemukan dan belum ditangani oleh developer.\nStatus awal setelah bug dicatat di BugReport.' },
+    { status: 'In Progress', description: 'Bug sedang dalam proses perbaikan oleh developer.\nDeveloper sudah mengambil ownership dan sedang coding fix.' },
+    { status: 'Fixed', description: 'Bug sudah diperbaiki oleh developer dan siap untuk diverifikasi QA.\nCode sudah di-merge dan deployed ke testing environment.' },
+    { status: 'Verified', description: 'Bug sudah diverifikasi oleh QA dan terkonfirmasi sudah diperbaiki.\nQA sudah retest dan hasilnya PASSED.' },
+    { status: 'Closed', description: 'Bug sudah selesai dan ditutup (Verified + deployed to production).\nBug fix sudah live di production dan tidak ada regression.' },
+    { status: 'Reopen', description: 'Bug yang sebelumnya Fixed/Verified ternyata masih terjadi dan dibuka kembali.\nPerlu investigasi ulang -- kemungkinan regression atau fix tidak complete.' }
+  ];
+
+  statusDefs.forEach((def) => {
+    // Column A: Status name
+    appendixSheet.getRange(lastRow, 1)
+      .setValue(def.status)
+      .setBackground('#ECEFF1')
+      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+      .setHorizontalAlignment('left').setVerticalAlignment('top')
+      .setWrap(true)
+      .setBorder(true, true, true, true, false, false, '#1976D2', SpreadsheetApp.BorderStyle.SOLID);
+
+    // Column B-D: Description (merged)
+    appendixSheet.getRange(lastRow, 2, 1, 3).merge()
+      .setValue(def.description)
+      .setBackground('#FFFFFF')
+      .setFontFamily('Arial').setFontSize(9)
+      .setHorizontalAlignment('left').setVerticalAlignment('top')
+      .setWrap(true)
+      .setBorder(true, true, true, true, false, false, '#1976D2', SpreadsheetApp.BorderStyle.SOLID);
+
+    appendixSheet.setRowHeight(lastRow, 48);
+    lastRow++;
+  });
+
+  Logger.log('  ✅ Added Bug Status Definitions to Appendix');
 }
 
 // =================================================================

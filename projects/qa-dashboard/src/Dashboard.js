@@ -122,6 +122,9 @@ function pullModuleData(mod) {
   //        G13=PassRate H13=AutoRate I13=ExecRate
   //   API: L13=Total M13=Passed N13=Failed O13=Blocked P13=InProg Q13=TODO
   //        R13=PassRate S13=AutoRate T13=ExecRate
+  // SMOKE TEST STATUS OVERVIEW (if exists): row determined by finding "A2. STATUS OVERVIEW - Smoke Test"
+  //   Web: cols A-I (Total, Passed, Failed, Blocked, InProg, Todo, PassRate, AutoRate, ExecRate)
+  //   API: cols L-T (same structure)
   const SUMM_KPI_ROW = 13;
 
   let picQA = mod.team || '';
@@ -131,6 +134,12 @@ function pullModuleData(mod) {
   let aTotal=0, aPassed=0, aFailed=0, aBlocked=0, aInProg=0, aTodo=0;
   let aPassRate=0, aAutoRate=0, aExecRate=0;
   let perfResult = '--';
+
+  // Smoke Test KPIs
+  let smokeWTotal=0, smokeWPassed=0, smokeWFailed=0, smokeWBlocked=0;
+  let smokeWPassRate=0, smokeWExecRate=0;
+  let smokeATotal=0, smokeAPassed=0, smokeAFailed=0, smokeABlocked=0;
+  let smokeAPassRate=0, smokeAExecRate=0;
 
   try {
     if (summ) {
@@ -167,6 +176,48 @@ function pullModuleData(mod) {
       aPassRate = Number(aKpi[6]) || 0;
       aAutoRate = Number(aKpi[7]) || 0;
       aExecRate = Number(aKpi[8]) || 0;
+
+      // Smoke Test KPI (if section exists)
+      try {
+        const allData = summ.getDataRange().getValues();
+        let smokeKpiRow = -1;
+
+        // Find "A2. STATUS OVERVIEW - Smoke Test"
+        for (let i = 0; i < allData.length; i++) {
+          const cellValue = allData[i][0] ? allData[i][0].toString() : '';
+          if (cellValue.includes('A2.') && cellValue.includes('STATUS OVERVIEW') && cellValue.includes('Smoke Test')) {
+            // Values are 2 rows below header (header row + labels row + values row)
+            smokeKpiRow = i + 3; // Convert to 1-indexed (+1) then skip header (+1) and labels (+1) = +3
+            break;
+          }
+        }
+
+        if (smokeKpiRow > 0) {
+          // Web Smoke Test KPI from cols A-I
+          const smokeWKpi = summ.getRange(smokeKpiRow, 1, 1, 9).getValues()[0];
+          smokeWTotal    = Number(smokeWKpi[0]) || 0;
+          smokeWPassed   = Number(smokeWKpi[1]) || 0;
+          smokeWFailed   = Number(smokeWKpi[2]) || 0;
+          smokeWBlocked  = Number(smokeWKpi[3]) || 0;
+          smokeWPassRate = Number(smokeWKpi[6]) || 0;
+          smokeWExecRate = Number(smokeWKpi[8]) || 0;
+
+          // API Smoke Test KPI from cols L-T (12-20)
+          const smokeAKpi = summ.getRange(smokeKpiRow, 12, 1, 9).getValues()[0];
+          smokeATotal    = Number(smokeAKpi[0]) || 0;
+          smokeAPassed   = Number(smokeAKpi[1]) || 0;
+          smokeAFailed   = Number(smokeAKpi[2]) || 0;
+          smokeABlocked  = Number(smokeAKpi[3]) || 0;
+          smokeAPassRate = Number(smokeAKpi[6]) || 0;
+          smokeAExecRate = Number(smokeAKpi[8]) || 0;
+
+          Logger.log(mod.name + ' | Smoke Test KPI found at row ' + smokeKpiRow + ' | smokeWTotal=' + smokeWTotal + ' smokeWPass%=' + Math.round(smokeWPassRate*100) + '%');
+        } else {
+          Logger.log(mod.name + ' | Smoke Test STATUS OVERVIEW not found (optional section)');
+        }
+      } catch(smokeErr) {
+        Logger.log(mod.name + ' | Error reading Smoke Test KPI: ' + smokeErr.message);
+      }
 
       Logger.log(mod.name + ' | Summary KPI read OK | wTotal=' + wTotal + ' wPass%=' + Math.round(wPassRate*100) + '% | aTotal=' + aTotal + ' aPass%=' + Math.round(aPassRate*100) + '%');
     } else {
@@ -214,6 +265,9 @@ function pullModuleData(mod) {
     blockers,
     coverage,
     bugStats:    getBugStats(bugr),
+    // Smoke Test metrics
+    smokeWTotal, smokeWPassed, smokeWFailed, smokeWBlocked, smokeWPassRate, smokeWExecRate,
+    smokeATotal, smokeAPassed, smokeAFailed, smokeABlocked, smokeAPassRate, smokeAExecRate,
     error:       '',
   };
 }
@@ -426,6 +480,8 @@ function emptyModuleData(mod, errorMsg) {
     refreshed: new Date(), error: errorMsg,
     wTotal:0,wPassed:0,wFailed:0,wBlocked:0,wInProg:0,wTodo:0,wPassRate:0,wAutoRate:0,wExecRate:0,
     aTotal:0,aPassed:0,aFailed:0,aBlocked:0,aInProg:0,aTodo:0,aPassRate:0,aAutoRate:0,aExecRate:0,
+    smokeWTotal:0,smokeWPassed:0,smokeWFailed:0,smokeWBlocked:0,smokeWPassRate:0,smokeWExecRate:0,
+    smokeATotal:0,smokeAPassed:0,smokeAFailed:0,smokeABlocked:0,smokeAPassRate:0,smokeAExecRate:0,
     perfResult:'--', blockers:[], coverage:[], bugStats:{total:0,open:0,critical:0,high:0,medium:0,blocker:0} };
 }
 
@@ -529,33 +585,36 @@ function buildOverview(ss) {
         .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
   }
 
-  // Column widths
-  [130,80,80, 55,60,60,60,65, 55,60,60,60,65, 70,55,60,60,200].forEach((w,i)=>ws.setColumnWidth(i+1,w));
+  // Column widths (added Smoke Test columns)
+  [130,80,80, 55,60,60,60,65, 55,60,60,60,65, 55,65, 55,65, 70,55,60,60,200].forEach((w,i)=>ws.setColumnWidth(i+1,w));
 
   // Row 1: last refresh placeholder
-  ws.getRange(1,1,1,15).merge();
+  ws.getRange(1,1,1,22).merge();
   ws.getRange(1,1).setValue('Last refreshed: ?')
       .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic')
       .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
   ws.setRowHeight(1,16);
 
   // Row 2: main title
-  h_(2,1,1,15,'QA DASHBOARD  |  PORTFOLIO OVERVIEW','#0D47A1','#FFFFFF',13);
+  h_(2,1,1,22,'QA DASHBOARD  |  PORTFOLIO OVERVIEW','#0D47A1','#FFFFFF',13);
   ws.setRowHeight(2,30);
 
   // Row 3: group headers
   h_(3,1,1,3,'MODULE INFO','#263238');
   h_(3,4,1,5,'WEB / MOBILE','#1565C0');
   h_(3,9,1,5,'API','#283593');
-  h_(3,14,1,1,'PERF','#004D40');
-  h_(3,15,1,3,'BUGS','#B71C1C');
-  h_(3,18,1,1,'NOTES','#37474F');
+  h_(3,14,1,2,'SMOKE - WEB','#E65100');
+  h_(3,16,1,2,'SMOKE - API','#BF360C');
+  h_(3,18,1,1,'PERF','#004D40');
+  h_(3,19,1,3,'BUGS','#B71C1C');
+  h_(3,22,1,1,'NOTES','#37474F');
   ws.setRowHeight(3,20);
 
   // Row 4: column headers
   ['Modul','PIC / Team / Squad','Project / Sprint',
     'Total','Passed','Failed','Block','Pass%',
     'Total','Passed','Failed','Block','Pass%',
+    'Total','Pass%', 'Total','Pass%',
     'Perf','Bugs','Blocker','Critical','Error / Info'].forEach((h,i) => h_(4,i+1,1,1,h,'#0D47A1'));
   ws.setRowHeight(4,20);
 
@@ -613,28 +672,36 @@ function writeOverview(ss, allData) {
     cell(12, d.aBlocked);
     cell(13, d.error ? 'ERR' : d.aPassRate, '0%');
 
+    // Smoke Test - Web
+    cell(14, d.smokeWTotal || 0);
+    cell(15, d.error ? 'ERR' : (d.smokeWPassRate || 0), '0%');
+
+    // Smoke Test - API
+    cell(16, d.smokeATotal || 0);
+    cell(17, d.error ? 'ERR' : (d.smokeAPassRate || 0), '0%');
+
     // Perf
-    cell(14, d.perfResult);
+    cell(18, d.perfResult);
 
     // Bug stats
     const bs = d.bugStats || {};
-    cell(15, bs.total  || 0);
-    cell(16, bs.blocker|| 0);
-    cell(17, bs.critical||0);
+    cell(19, bs.total  || 0);
+    cell(20, bs.blocker|| 0);
+    cell(21, bs.critical||0);
     // Notes / error
-    ws.getRange(r,18).setValue(d.error || '')
+    ws.getRange(r,22).setValue(d.error || '')
         .setBackground(bg).setFontFamily('Arial').setFontSize(8).setHorizontalAlignment('left')
         .setVerticalAlignment('middle').setWrap(true)
         .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
     // Bug CF
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0)
         .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true)
-        .setRanges([ws.getRange(r,16),ws.getRange(r,17)]).build());
+        .setRanges([ws.getRange(r,20),ws.getRange(r,21)]).build());
 
     ws.setRowHeight(r, 22);
 
-    // RAG CF for Pass% columns (8 and 13)
-    [8,13].forEach(col => {
+    // RAG CF for Pass% columns (8, 13, 15-Smoke Web, 17-Smoke API)
+    [8,13,15,17].forEach(col => {
       const rng = ws.getRange(r,col);
       rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(0.8)
           .setBackground('#C8E6C9').setFontColor('#1B5E20').setBold(true).setRanges([rng]).build());
@@ -643,13 +710,13 @@ function writeOverview(ss, allData) {
       rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberLessThan(0.5)
           .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true).setRanges([rng]).build());
     });
-    // Perf CF
+    // Perf CF (column now 18 instead of 14)
     ['PASS','FAIL','--'].forEach(v => {
       const perfBg = v==='PASS'?'#C8E6C9':v==='FAIL'?'#FFCDD2':'#F5F5F5';
       const perfFg = v==='PASS'?'#1B5E20':v==='FAIL'?'#C62828':'#9E9E9E';
       rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(v)
           .setBackground(perfBg).setFontColor(perfFg).setBold(true)
-          .setRanges([ws.getRange(r,14)]).build());
+          .setRanges([ws.getRange(r,18)]).build());
     });
     // Failed > 0 highlight
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0)
