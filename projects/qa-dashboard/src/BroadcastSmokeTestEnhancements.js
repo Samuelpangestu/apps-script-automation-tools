@@ -127,67 +127,109 @@ function broadcastSmokeTestEnhancements() {
   }
 
   msg += `\n\n📝 Perubahan:\n`;
-  msg += `1. Added STATUS OVERVIEW - Smoke Test\n`;
-  msg += `2. Added Bug Summary - Smoke Test Blockers\n`;
-  msg += `3. Added Description column in BugReport\n`;
-  msg += `4. All formulas auto-update from TC_Master/API_Master\n`;
+  msg += `1. Added STATUS OVERVIEW - Smoke Test (Medium-Critical)\n`;
+  msg += `2. Added Bug Summary - Medium-Critical Open blockers\n`;
+  msg += `3. Added Description column in BugReport (col I)\n`;
+  msg += `4. Added detail rows in BugReport (row 63+): Status, Update oleh, Artinya\n`;
+  msg += `5. All formulas auto-update from TC_Master/API_Master\n`;
 
   ui.alert('Broadcast Complete', msg, ui.ButtonSet.OK);
   Logger.log(msg);
 }
 
 // =================================================================
-// HELPER: Add Description column to BugReport
+// HELPER: Add Description column and detail rows to BugReport
 // =================================================================
 function addDescriptionColumnToBugReport(bugSheet) {
-  // Check if Description already exists (look for column 8 header)
   const headerRow = bugSheet.getRange(4, 1, 1, 25).getValues()[0];
-  const descIndex = headerRow.indexOf('Description');
 
+  // Check if Description already exists
+  const descIndex = headerRow.indexOf('Description');
   if (descIndex !== -1) {
     Logger.log('  ℹ️ Description column already exists at column ' + (descIndex + 1));
+  } else {
+    // Insert Description column at position I (column 9)
+    // This pushes everything from I onwards to the right
+    // Insert BEFORE column I, so Description becomes I
+    bugSheet.insertColumnBefore(9);
+
+    // Set header for Description (now at column I/9)
+    bugSheet.getRange(4, 9).setValue('Description')
+      .setBackground('#0D47A1').setFontColor('#FFFFFF')
+      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
+
+    bugSheet.getRange(4, 9).setNote(
+      'Description — Summary deskripsi bug (mirip Jira Summary/Description field).\n\n' +
+      'Contoh:\n' +
+      '- "Login button tidak responsif setelah input password"\n' +
+      '- "API endpoint /users mengembalikan 500 error saat filter by role"\n' +
+      '- "Dashboard chart tidak ter-render di mobile viewport"\n\n' +
+      'Tulis deskripsi singkat & jelas (1-2 kalimat).'
+    );
+
+    // Set column width
+    bugSheet.setColumnWidth(9, 220);
+
+    // Apply formatting to data rows (row 5 onwards)
+    const DS = 5, MR = 200;
+    bugSheet.getRange(DS, 9, MR, 1)
+      .setWrap(true)
+      .setFontFamily('Arial').setFontSize(9)
+      .setVerticalAlignment('middle')
+      .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
+
+    // Apply alternating colors
+    for (let r = DS; r < DS + MR; r++) {
+      const bg = (r - DS) % 2 === 0 ? '#F8FBFF' : '#FFFFFF';
+      bugSheet.getRange(r, 9).setBackground(bg);
+    }
+
+    Logger.log('  ✅ Added Description column at position I (column 9)');
+  }
+
+  // =================================================================
+  // Add detail rows: Status, Update oleh, Artinya (starting row 63)
+  // =================================================================
+  // Check if detail rows already exist
+  const row63Value = bugSheet.getRange(63, 2).getValue();
+  if (row63Value && row63Value.toString().includes('Status')) {
+    Logger.log('  ℹ️ Detail rows (Status, Update oleh, Artinya) already exist at row 63');
     return;
   }
 
-  // Insert Description column after "Environment" (col 8)
-  // New column order: ... Title, Environment, Description, Steps, Expected ...
-  bugSheet.insertColumnAfter(8);
+  // Insert 3 new rows at row 63
+  bugSheet.insertRowsAfter(62, 3);
 
-  // Update header row 4
-  const newCol = 9; // After Environment
-  bugSheet.getRange(4, newCol).setValue('Description')
-    .setBackground('#0D47A1').setFontColor('#FFFFFF')
-    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
-    .setHorizontalAlignment('center').setVerticalAlignment('middle')
-    .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
+  const detailRows = [
+    { label: 'Status', note: 'Status bug saat ini (Open, In Progress, Fixed, Verified, Closed, dll)' },
+    { label: 'Update oleh', note: 'Nama developer/tester yang melakukan update terakhir' },
+    { label: 'Artinya', note: 'Penjelasan singkat tentang update/status terkini' }
+  ];
 
-  bugSheet.getRange(4, newCol).setNote(
-    'Description — Summary deskripsi bug (mirip Jira Summary).\n\n' +
-    'Contoh:\n' +
-    '- "Login button tidak responsif setelah input password"\n' +
-    '- "API endpoint /users mengembalikan 500 error saat filter by role"\n' +
-    '- "Dashboard chart tidak ter-render di mobile viewport"\n\n' +
-    'Tulis deskripsi singkat & jelas (1-2 kalimat).'
-  );
+  detailRows.forEach((detail, idx) => {
+    const row = 63 + idx;
 
-  // Set column width
-  bugSheet.setColumnWidth(newCol, 200);
+    // Column B: Label
+    bugSheet.getRange(row, 2).setValue(detail.label)
+      .setBackground('#E3F2FD').setFontColor('#0D47A1')
+      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+      .setHorizontalAlignment('right').setVerticalAlignment('middle')
+      .setNote(detail.note);
 
-  // Apply formatting to data rows (row 5 onwards)
-  const DS = 5, MR = 200;
-  bugSheet.getRange(DS, newCol, MR, 1)
-    .setWrap(true)
-    .setFontFamily('Arial').setFontSize(9)
-    .setVerticalAlignment('middle')
-    .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
+    // Column C onwards: merge for input area
+    bugSheet.getRange(row, 3, 1, 18).merge()
+      .setBackground('#FFFFFF')
+      .setFontFamily('Arial').setFontSize(9)
+      .setHorizontalAlignment('left').setVerticalAlignment('middle')
+      .setWrap(true)
+      .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
 
-  // Apply alternating colors
-  for (let r = DS; r < DS + MR; r++) {
-    const bg = (r - DS) % 2 === 0 ? '#F8FBFF' : '#FFFFFF';
-    bugSheet.getRange(r, newCol).setBackground(bg);
-  }
+    bugSheet.setRowHeight(row, 24);
+  });
 
-  Logger.log('  ✅ Added Description column at position 9');
+  Logger.log('  ✅ Added detail rows (Status, Update oleh, Artinya) starting at row 63');
 }
 
 // =================================================================
@@ -432,11 +474,11 @@ function addSmokeTestStatusOverview(summarySheet) {
 function addSmokeTestBugSummary(summarySheet) {
   const data = summarySheet.getDataRange().getValues();
 
-  // Check if Smoke Test row already exists
+  // Check if Medium-Critical Open row already exists
   for (let i = 0; i < data.length; i++) {
     const cellValue = data[i][0] ? data[i][0].toString() : '';
-    if (cellValue.includes('Smoke') && cellValue.includes('Med-Crit')) {
-      Logger.log('  ℹ️ Smoke Test Blockers row already exists in Bug Summary, skipping');
+    if (cellValue.includes('Medium-Critical Open')) {
+      Logger.log('  ℹ️ Medium-Critical Open row already exists in Bug Summary, skipping');
       return;
     }
   }
@@ -464,8 +506,8 @@ function addSmokeTestBugSummary(summarySheet) {
   const newRow = insertAfterRow + 1;
   const L = 1, LW = 10, R_ = 12, RW = 10;
 
-  // Smoke Test Blockers row
-  const label = 'Smoke (Med-Crit)';
+  // Medium-Critical Open Blockers row
+  const label = 'Medium-Critical Open';
   const bg = '#FFF9C4'; // Yellow/amber
   const fg = '#E65100'; // Orange
 
