@@ -12,17 +12,28 @@
 
 function broadcastSmokeTestEnhancements() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const cfgSheet = ss.getSheetByName('_Config');
+
+  // Try both Config and _Config
+  let cfgSheet = ss.getSheetByName('Config');
+  if (!cfgSheet) {
+    cfgSheet = ss.getSheetByName('_Config');
+  }
 
   if (!cfgSheet) {
-    SpreadsheetApp.getUi().alert('Error', 'Sheet "_Config" tidak ditemukan!', SpreadsheetApp.getUi().ButtonSet.OK);
+    SpreadsheetApp.getUi().alert('Error', 'Sheet "Config" atau "_Config" tidak ditemukan!', SpreadsheetApp.getUi().ButtonSet.OK);
     return;
   }
 
-  const moduleUrls = cfgSheet.getRange('B2:B50').getValues().flat().filter(url => url && url.toString().trim() !== '');
+  // Filter valid URLs only (must start with https://docs.google.com)
+  const moduleUrls = cfgSheet.getRange('B2:B50').getValues().flat()
+    .filter(url => {
+      if (!url) return false;
+      const urlStr = url.toString().trim();
+      return urlStr.startsWith('https://docs.google.com/spreadsheets/');
+    });
 
   if (moduleUrls.length === 0) {
-    SpreadsheetApp.getUi().alert('Info', 'Tidak ada module URL yang terdaftar di _Config sheet.', SpreadsheetApp.getUi().ButtonSet.OK);
+    SpreadsheetApp.getUi().alert('Info', 'Tidak ada valid Google Sheets URL di Config sheet kolom B.\n\nPastikan URL dimulai dengan:\nhttps://docs.google.com/spreadsheets/', SpreadsheetApp.getUi().ButtonSet.OK);
     return;
   }
 
