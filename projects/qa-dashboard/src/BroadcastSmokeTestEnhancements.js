@@ -230,6 +230,62 @@ function addDescriptionColumnToBugReport(bugSheet) {
   });
 
   Logger.log('  ✅ Added detail rows (Status, Update oleh, Artinya) starting at row 63');
+
+  // =================================================================
+  // Add Status Definitions (starting row 67)
+  // =================================================================
+  const row67Value = bugSheet.getRange(67, 2).getValue();
+  if (row67Value && row67Value.toString().includes('Penjelasan Status')) {
+    Logger.log('  ℹ️ Status definitions already exist at row 67');
+    return;
+  }
+
+  // Insert rows for status definitions
+  bugSheet.insertRowsAfter(65, 7);
+
+  // Row 67: Section header
+  bugSheet.getRange(67, 2, 1, 19).merge()
+    .setValue('Penjelasan Status:')
+    .setBackground('#0D47A1').setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+    .setHorizontalAlignment('left').setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
+  bugSheet.setRowHeight(67, 22);
+
+  // Status definitions
+  const statusDefs = [
+    { status: 'Open', description: 'Bug baru ditemukan dan belum ditangani oleh developer' },
+    { status: 'In Progress', description: 'Bug sedang dalam proses perbaikan oleh developer' },
+    { status: 'Fixed', description: 'Bug sudah diperbaiki oleh developer dan siap untuk diverifikasi QA' },
+    { status: 'Verified', description: 'Bug sudah diverifikasi oleh QA dan terkonfirmasi sudah diperbaiki' },
+    { status: 'Closed', description: 'Bug sudah selesai dan ditutup (verified + deployed to production)' },
+    { status: 'Reopen', description: 'Bug yang sebelumnya Fixed/Verified ternyata masih terjadi dan dibuka kembali' }
+  ];
+
+  statusDefs.forEach((def, idx) => {
+    const row = 68 + idx;
+
+    // Column B-C: Status name
+    bugSheet.getRange(row, 2, 1, 2).merge()
+      .setValue(def.status)
+      .setBackground('#E3F2FD').setFontColor('#0D47A1')
+      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
+
+    // Column D onwards: Description
+    bugSheet.getRange(row, 4, 1, 17).merge()
+      .setValue(def.description)
+      .setBackground('#FFFFFF')
+      .setFontFamily('Arial').setFontSize(9)
+      .setHorizontalAlignment('left').setVerticalAlignment('middle')
+      .setWrap(true)
+      .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
+
+    bugSheet.setRowHeight(row, 20);
+  });
+
+  Logger.log('  ✅ Added status definitions (Open, In Progress, Fixed, Verified, Closed, Reopen) starting at row 67');
 }
 
 // =================================================================
