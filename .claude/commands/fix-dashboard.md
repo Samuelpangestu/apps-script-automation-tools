@@ -18,7 +18,7 @@ Help debug and fix issues with the QA Dashboard:
 7. Commit and push changes
 
 Reference files:
-- qa-dashboard/src/Dashboard.js - Main logic
+- qa-dashboard/src/MasterDashboard.js - Main logic
 - qa-dashboard/src/BroadcastFix.js - Broadcast utilities
 - qa-dashboard/qa-dashboard.md - Documentation
 

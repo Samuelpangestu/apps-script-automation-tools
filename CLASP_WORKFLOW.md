@@ -19,7 +19,7 @@ apps-script-automation-tools/
 ├── projects/
 │   ├── qa-dashboard/
 │   │   ├── src/
-│   │   │   ├── Dashboard.js           # Main dashboard code
+│   │   │   ├── MasterDashboard.js           # Main dashboard code
 │   │   │   ├── BroadcastFix.js        # Broadcast fix utilities
 │   │   │   └── appsscript.json        # Apps Script manifest
 │   │   ├── .clasp.json                 # Clasp config (Dashboard)
@@ -27,7 +27,7 @@ apps-script-automation-tools/
 │   │
 │   ├── qa-test-management/
 │   │   ├── src/
-│   │   │   ├── QATestManagement.js    # Template code
+│   │   │   ├── MasterQATCM.js    # Template code
 │   │   └── appsscript.json        # Apps Script manifest
 │   ├── .clasp.json                 # Clasp config (Template)
 │   ├── .claspignore                # Files to exclude
@@ -194,7 +194,7 @@ Auto-deploy akan trigger ketika:
 ### 1. Always Edit in `src/` Folder
 
 ```bash
-✅ CORRECT: qa-dashboard/src/Dashboard.js
+✅ CORRECT: qa-dashboard/src/MasterDashboard.js
 ❌ WRONG:   qa-dashboard/qa-dashboard.js
 ```
 
@@ -257,9 +257,9 @@ git push origin feature/new-calculation
 
 | Old File | New Location | Purpose |
 |----------|--------------|---------|
-| `qa-dashboard.js` | `qa-dashboard/src/Dashboard.js` | Active development |
+| `qa-dashboard.js` | `qa-dashboard/src/MasterDashboard.js` | Active development |
 | `broadcast-fix.js` | `qa-dashboard/src/BroadcastFix.js` | Active development |
-| `qa-test-management.js` | `qa-test-management/src/QATestManagement.js` | Active development |
+| `qa-test-management.js` | `qa-test-management/src/MasterQATCM.js` | Active development |
 
 **Note:** Original files tetap ada untuk backward compatibility, tapi **jangan edit** file tersebut!
 

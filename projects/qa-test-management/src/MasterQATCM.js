@@ -1,7 +1,13 @@
 // ===================================================================
-//  QA TEST MANAGEMENT -- Standard Template
-//  Tabs: TC_Master | TC_Execution | API_Master | API_Execution | _Dashboard | Appendix
+//  QA TEST MANAGEMENT -- Standard Template  v39
+//  Tabs: TC_Master | TC_Execution | API_Master | API_Execution | Summary | BugReport | PerfTest | Appendix
 //  Run: createQASheet()
+//
+//  v39 Changes:
+//  - Open Blocker formula: ganti 9x COUNTIFS verbose → SUMPRODUCT bersih
+//    Objective: hitung bug Open/InProgress/Reopen x Priority Critical/High/Medium
+//  - Smoke TOTAL: pisah variabel agar lebih jelas
+//  - createQASheet alert: update info
 // ===================================================================
 
 
@@ -111,7 +117,7 @@ function createQASheet() {
   } catch(e) { Logger.log('Tab reorder skipped: '+e.message); }
   SpreadsheetApp.flush();
   SpreadsheetApp.getUi().alert(
-      '[OK]  QA Test Management Template berhasil dibuat.\n\n'+
+      '[OK]  QA Test Management Template v39 berhasil dibuat.\n\n'+
       'TC_Master     -- input test case Web / Mobile\n'+
       'TC_Execution  -- hasil eksekusi per tanggal run\n'+
       'API_Master    -- input test case API\n'+
@@ -1186,6 +1192,89 @@ function createSummary(ss) {
       .setBackground('#E8EAF6').setFontColor('#283593').setFontStyle('italic').setFontSize(7).setFontFamily('Arial').setHorizontalAlignment('left');
   ws.setRowHeight(R,14); R++;
 
+  // ── SMOKE TEST SUB-ROW ────────────────────────────────────────────
+  // Smoke = Priority Critical / High / Medium (test level auto)
+  // Web/Mobile side (left), API side (right)
+  const wPrio='TC_Master!E3:E1000', aPrio='API_Master!G3:G1000';
+  const smokePrios=['Critical','High','Medium'];
+  function smokeCount(zRange, prioRange, stat) {
+    return smokePrios.map(p=>'COUNTIFS('+prioRange+',"'+p+'",'+zRange+',"'+stat+'")').join('+');
+  }
+  function smokeTot(tcRange, prioRange) {
+    return smokePrios.map(p=>'COUNTIF('+prioRange+',"'+p+'")').join('+');
+  }
+
+  // Sub-header row
+  m_(R,L,1,LW); h_(ws.getRange(R,L),'#BF360C').setValue('A1.  SMOKE TEST  -  Web / Mobile  (Critical + High + Medium)');
+  m_(R,R_,1,RW); h_(ws.getRange(R,R_),'#4A148C').setValue('A1.  SMOKE TEST  -  API  (Critical + High + Medium)');
+  ws.setRowHeight(R,18); R++;
+
+  // KPI label row
+  for(let i=0;i<9;i++){
+    h_(ws.getRange(R,L+i),kpiBgs[i]).setValue(kpiLabels[i]).setFontSize(i<6?8:7.5).setWrap(true);
+    h_(ws.getRange(R,R_+i),kpiBgs[i]).setValue(kpiLabels[i]).setFontSize(i<6?8:7.5).setWrap(true);
+  }
+  ws.setRowHeight(R,22); R++;
+
+  // Smoke KPI value row
+  // FIX: wZ=Z9:Z1000 (992 rows), wPrio=E3:E1000 (998 rows) → mismatch → #VALUE!
+  // Solution: use wPrioExec matched to Z9:Z1000 row count (E3:E994 = 992 rows)
+  // smokeTot (from TC_Master only) still uses wPrio=E3:E1000 — same-sheet, same size → OK
+  const wPrioExec='TC_Master!E3:E994';   // 992 rows → matches wZ=Z9:Z1000
+  const aPrioExec='API_Master!G3:G994';  // 992 rows → matches aZ=Z9:Z1000
+  const wSmokeTot='('+smokeTot(wTC,wPrio)+')';
+  const aSmokeTot='('+smokeTot(aTC,aPrio)+')';
+  const wSmokeForms=[
+    '='+wSmokeTot,
+    '='+smokeCount(wZ,wPrioExec,'PASSED'),
+    '='+smokeCount(wZ,wPrioExec,'FAILED'),
+    '='+smokeCount(wZ,wPrioExec,'BLOCKED'),
+    '='+smokeCount(wZ,wPrioExec,'IN PROGRESS'),
+    '='+smokeCount(wZ,wPrioExec,'TODO'),
+    // PASS RATE: passed smoke / total smoke TC
+    '=IFERROR(('+smokeCount(wZ,wPrioExec,'PASSED')+')/MAX(1,'+wSmokeTot+'),0)',
+    // AUTO RATE: fix — wrap all 3 COUNTIFS in () before dividing
+    '=IFERROR((COUNTIFS(TC_Master!H3:H994,"Automated",'+wPrioExec+',"Critical")+COUNTIFS(TC_Master!H3:H994,"Automated",'+wPrioExec+',"High")+COUNTIFS(TC_Master!H3:H994,"Automated",'+wPrioExec+',"Medium"))/MAX(1,'+wSmokeTot+'),0)',
+    // EXEC RATE: (passed+failed+blocked+inprog) / total smoke
+    '=IFERROR(('+smokeCount(wZ,wPrioExec,'PASSED')+'+'+smokeCount(wZ,wPrioExec,'FAILED')+'+'+smokeCount(wZ,wPrioExec,'BLOCKED')+'+'+smokeCount(wZ,wPrioExec,'IN PROGRESS')+')/MAX(1,'+wSmokeTot+'),0)',
+  ];
+  const aSmokeForms=[
+    '='+aSmokeTot,
+    '='+smokeCount(aZ,aPrioExec,'PASSED'),
+    '='+smokeCount(aZ,aPrioExec,'FAILED'),
+    '='+smokeCount(aZ,aPrioExec,'BLOCKED'),
+    '='+smokeCount(aZ,aPrioExec,'IN PROGRESS'),
+    '='+smokeCount(aZ,aPrioExec,'TODO'),
+    '=IFERROR(('+smokeCount(aZ,aPrioExec,'PASSED')+')/MAX(1,'+aSmokeTot+'),0)',
+    '=IFERROR((COUNTIFS(API_Master!J3:J994,"Automated",'+aPrioExec+',"Critical")+COUNTIFS(API_Master!J3:J994,"Automated",'+aPrioExec+',"High")+COUNTIFS(API_Master!J3:J994,"Automated",'+aPrioExec+',"Medium"))/MAX(1,'+aSmokeTot+'),0)',
+    '=IFERROR(('+smokeCount(aZ,aPrioExec,'PASSED')+'+'+smokeCount(aZ,aPrioExec,'FAILED')+'+'+smokeCount(aZ,aPrioExec,'BLOCKED')+'+'+smokeCount(aZ,aPrioExec,'IN PROGRESS')+')/MAX(1,'+aSmokeTot+'),0)',
+  ];
+  wSmokeForms.forEach((f,i)=>{
+    const c=bd(ws.getRange(R,L+i)).setFormula(f).setBackground('#FFF3E0')
+        .setFontWeight('bold').setFontSize(i<6?16:13).setFontFamily('Arial')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle')
+        .setFontColor('#BF360C');
+    if(i>=6){ c.setNumberFormat('0%'); passRateCF(ws.getRange(R,L+i)); }
+  });
+  aSmokeForms.forEach((f,i)=>{
+    const c=bd(ws.getRange(R,R_+i)).setFormula(f).setBackground('#F3E5F5')
+        .setFontWeight('bold').setFontSize(i<6?16:13).setFontFamily('Arial')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle')
+        .setFontColor('#4A148C');
+    if(i>=6){ c.setNumberFormat('0%'); passRateCF(ws.getRange(R,R_+i)); }
+  });
+  ws.setRowHeight(R,36); R++;
+
+  // Smoke legend
+  m_(R,L,1,LW);
+  ws.getRange(R,L).setValue('Smoke Test = TC dengan Priority Critical / High / Medium  |  Target Pass Rate >= 80% sebelum release')
+      .setBackground('#FFF8E1').setFontColor('#E65100').setFontStyle('italic').setFontSize(7).setFontFamily('Arial').setHorizontalAlignment('left');
+  m_(R,R_,1,RW);
+  ws.getRange(R,R_).setValue('Smoke Test = API dengan Priority Critical / High / Medium')
+      .setBackground('#EDE7F6').setFontColor('#4A148C').setFontStyle('italic').setFontSize(7).setFontFamily('Arial').setHorizontalAlignment('left');
+  ws.setRowHeight(R,14); R++;
+  // ── END SMOKE TEST ────────────────────────────────────────────────
+
   // =====================================================================
   // B. KOMPOSISI STATUS - Header, then chart, then small data table
   // =====================================================================
@@ -1332,59 +1421,16 @@ function createSummary(ss) {
   ws.setRowHeight(R,14); R++;
 
   // =====================================================================
-  // D. COVERAGE PER SUBMODUL
-  // =====================================================================
-  m_(R,L,1,LW); h_(ws.getRange(R,L),'#1565C0').setValue('D.  COVERAGE PER SUBMODUL  -  Web / Mobile');
-  m_(R,R_,1,RW); h_(ws.getRange(R,R_),'#283593').setValue('D.  COVERAGE PER SUBMODUL  -  API');
-  ws.setRowHeight(R,20); R++;
-
-  function buildCov(startRow,sc,master,subCol,prioCol,autoCol,execSh,hbg){
-    ['SubModul','Total','Smoke','Regression','Auto%','Pass%'].forEach((h,i)=>
-        h_(ws.getRange(startRow,sc+i),hbg).setValue(h).setFontSize(8).setWrap(true));
-    ws.setRowHeight(startRow,22);
-    const DS=startRow+1, MAX=12;
-    for(let idx=0;idx<MAX;idx++){
-      const row=DS+idx, bg=idx%2===0?(hbg==='#0D47A1'?'#F8F9FA':'#F0F4FF'):'#FFFFFF';
-      const ref=colLetter(sc)+row;
-      bd(ws.getRange(row,sc)).setFormula('=IFERROR(INDEX(UNIQUE(FILTER('+master+'!'+subCol+'3:'+subCol+'1000,'+master+'!'+subCol+'3:'+subCol+'1000<>"")),'+  (idx+1)+',1),"")').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left').setFontWeight('bold');
-      bd(ws.getRange(row,sc+1)).setFormula('=IF('+ref+'="","",COUNTIF('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+'))').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
-      bd(ws.getRange(row,sc+2)).setFormula('=IF('+ref+'="","",COUNTIFS('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+','+master+'!'+prioCol+'3:'+prioCol+'1000,"Critical")+COUNTIFS('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+','+master+'!'+prioCol+'3:'+prioCol+'1000,"High")+COUNTIFS('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+','+master+'!'+prioCol+'3:'+prioCol+'1000,"Medium"))').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
-      bd(ws.getRange(row,sc+3)).setFormula('=IF('+ref+'="","",COUNTIFS('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+','+master+'!'+prioCol+'3:'+prioCol+'1000,"Low")+COUNTIFS('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+','+master+'!'+prioCol+'3:'+prioCol+'1000,"Lowest"))').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
-      bd(ws.getRange(row,sc+4)).setFormula('=IFERROR(COUNTIFS('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+','+master+'!'+autoCol+'3:'+autoCol+'1000,"Automated")/'+colLetter(sc+1)+row+',0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setNumberFormat('0%');
-      bd(ws.getRange(row,sc+5)).setFormula('=IFERROR(COUNTIFS('+execSh+'!B9:B1000,'+ref+','+execSh+'!Z9:Z1000,"PASSED")/MAX(1,COUNTIF('+execSh+'!B9:B1000,'+ref+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setNumberFormat('0%');
-      ws.setRowHeight(row,16);
-    }
-    passRateCF(ws.getRange(DS,sc+4,MAX,1));
-    passRateCF(ws.getRange(DS,sc+5,MAX,1));
-    const totBg=hbg==='#0D47A1'?'#E3F2FD':'#E8EAF6', totRow=DS+MAX;
-    ['TOTAL','=SUM('+colLetter(sc+1)+DS+':'+colLetter(sc+1)+(totRow-1)+')',
-      '=SUM('+colLetter(sc+2)+DS+':'+colLetter(sc+2)+(totRow-1)+')',
-      '=SUM('+colLetter(sc+3)+DS+':'+colLetter(sc+3)+(totRow-1)+')',
-      '=IFERROR(COUNTIF('+master+'!'+autoCol+'3:'+autoCol+'1000,"Automated")/MAX(1,COUNTA('+master+'!'+subCol+'3:'+subCol+'1000)),0)',
-      '=IFERROR(COUNTIF('+execSh+'!Z9:Z1000,"PASSED")/MAX(1,COUNTA('+master+'!'+subCol+'3:'+subCol+'1000)),0)',
-    ].forEach((v,i)=>{
-      const c=bd(ws.getRange(totRow,sc+i)).setBackground(totBg).setFontWeight('bold')
-          .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment(i===0?'left':'center');
-      if(typeof v==='string'&&v.startsWith('=')) c.setFormula(v); else c.setValue(v);
-      if(i>=4){ c.setNumberFormat('0%'); passRateCF(ws.getRange(totRow,sc+i)); }
-    });
-    ws.setRowHeight(totRow,18);
-  }
-
-  buildCov(R,L,'TC_Master','B','E','H','TC_Execution','#0D47A1');
-  buildCov(R,R_,'API_Master','B','G','J','API_Execution','#283593');
-  R+=14;
-
-  // ?? E. BUG SUMMARY ?????????????????????????????????????????????????????
+  // D. BUG SUMMARY (above Coverage)
   const BUG_COL = 'BugReport!D5:D5000'; // Status col (col 4), DS=5
   const BUG_PRO = 'BugReport!C5:C5000'; // Priority col (col 3)
   const BUG_TYP = 'BugReport!B5:B5000'; // Type col (col 2)
 
   // Left header
-  m_(R,L,1,LW); h_(ws.getRange(R,L),'#0D47A1').setValue('E.  BUG SUMMARY  -  Web + Mobile');
+  m_(R,L,1,LW); h_(ws.getRange(R,L),'#0D47A1').setValue('D.  BUG SUMMARY  -  Web + Mobile');
   ws.setRowHeight(R,20);
   // Right header
-  m_(R,R_,1,RW); h_(ws.getRange(R,R_),'#1565C0').setValue('E.  BUG SUMMARY  -  API');
+  m_(R,R_,1,RW); h_(ws.getRange(R,R_),'#1565C0').setValue('D.  BUG SUMMARY  -  API');
   R++;
 
   // Bug KPI cards (left = Web+Mobile, right = API)
@@ -1451,7 +1497,111 @@ function createSummary(ss) {
         .setFontColor(fg).setHorizontalAlignment('center').setVerticalAlignment('middle');
     ws.setRowHeight(rr,24);
   });
-  R += bugMetrics.length + 1;
+  R += bugMetrics.length;
+
+  // ── SMOKE BLOCKER ROW ─────────────────────────────────────────────
+  // Objective: berapa bug yang masih Open/In Progress/Reopen
+  //            dengan Priority Critical/High/Medium (= blocker release)
+  // Formula: SUMPRODUCT — lebih bersih dari 9x COUNTIFS terpisah
+  // BugReport data mulai row 5, col B=Type, C=Priority, D=Status
+  const BLOCKER_FORMULA =
+      'SUMPRODUCT(' +
+      '(ISNUMBER(MATCH(BugReport!D5:D2000,{\"Open\",\"In Progress\",\"Reopen\"},0)))*' +
+      '(ISNUMBER(MATCH(BugReport!C5:C2000,{\"Critical\",\"High\",\"Medium\"},0)))' +
+      ')';
+  // Sama untuk kedua sisi (Web dan API mengacu ke BugReport yang sama)
+  const smokeOpenW = BLOCKER_FORMULA;
+  const smokeOpenA = BLOCKER_FORMULA;
+
+  // Separator label row
+  m_(R,L,1,LW);
+  ws.getRange(R,L).setValue('Open Blocker (Smoke) ↓')
+      .setBackground('#BF360C').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left')
+      .setVerticalAlignment('middle')
+      .setBorder(true,true,true,true,false,false,'#E57373',SpreadsheetApp.BorderStyle.SOLID);
+  m_(R,R_,1,RW);
+  ws.getRange(R,R_).setValue('Open Blocker (Smoke) ↓')
+      .setBackground('#4A148C').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left')
+      .setVerticalAlignment('middle')
+      .setBorder(true,true,true,true,false,false,'#CE93D8',SpreadsheetApp.BorderStyle.SOLID);
+  ws.setRowHeight(R,14); R++;
+
+  // Smoke Open count label + value
+  bd(ws.getRange(R,L)).setValue('Open Blocker:').setBackground('#FFEBEE').setFontFamily('Arial')
+      .setFontSize(9).setFontWeight('bold').setHorizontalAlignment('right')
+      .setFontColor('#C62828').setVerticalAlignment('middle');
+  m_(R,L+1,1,LW-1);
+  bd(ws.getRange(R,L+1)).setFormula('=IFERROR('+smokeOpenW+',0)')
+      .setBackground('#FFCDD2').setFontFamily('Arial').setFontSize(14).setFontWeight('bold')
+      .setFontColor('#B71C1C').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  bd(ws.getRange(R,R_)).setValue('Open Blocker:').setBackground('#FFEBEE').setFontFamily('Arial')
+      .setFontSize(9).setFontWeight('bold').setHorizontalAlignment('right')
+      .setFontColor('#B71C1C').setVerticalAlignment('middle');
+  m_(R,R_+1,1,RW-1);
+  bd(ws.getRange(R,R_+1)).setFormula('=IFERROR('+smokeOpenA+',0)')
+      .setBackground('#EDE7F6').setFontFamily('Arial').setFontSize(14).setFontWeight('bold')
+      .setFontColor('#4A148C').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R,28);
+
+  // Legend
+  const smokeNote = ws.getRange(R, L+2);
+  smokeNote.setValue('Target: 0 Open Blocker sebelum release')
+      .setBackground('#FFF3E0').setFontColor('#E65100').setFontStyle('italic')
+      .setFontSize(7).setFontFamily('Arial').setHorizontalAlignment('left')
+      .setVerticalAlignment('middle');
+  ws.getRange(R,L+2).setNote(
+      'Open Blocker (Smoke) = Bug yang masih Open dengan Priority Medium / High / Critical.\n' +
+      'Semua bug ini menghambat release.\n' +
+      'Target: 0 Open Blocker sebelum go-live.'
+  );
+  R += 2;
+  // ── END SMOKE BLOCKER ─────────────────────────────────────────────
+
+  // E. COVERAGE PER SUBMODUL (below Bug Summary)
+  // =====================================================================
+  m_(R,L,1,LW); h_(ws.getRange(R,L),'#1565C0').setValue('E.  COVERAGE PER SUBMODUL  -  Web / Mobile');
+  m_(R,R_,1,RW); h_(ws.getRange(R,R_),'#283593').setValue('E.  COVERAGE PER SUBMODUL  -  API');
+  ws.setRowHeight(R,20); R++;
+
+  function buildCov(startRow,sc,master,subCol,prioCol,autoCol,execSh,hbg){
+    ['SubModul','Total','Smoke','Regression','Auto%','Pass%'].forEach((h,i)=>
+        h_(ws.getRange(startRow,sc+i),hbg).setValue(h).setFontSize(8).setWrap(true));
+    ws.setRowHeight(startRow,22);
+    const DS=startRow+1, MAX=34;
+    for(let idx=0;idx<MAX;idx++){
+      const row=DS+idx, bg=idx%2===0?(hbg==='#0D47A1'?'#F8F9FA':'#F0F4FF'):'#FFFFFF';
+      const ref=colLetter(sc)+row;
+      bd(ws.getRange(row,sc)).setFormula('=IFERROR(INDEX(UNIQUE(FILTER('+master+'!'+subCol+'3:'+subCol+'1000,'+master+'!'+subCol+'3:'+subCol+'1000<>"")),'+  (idx+1)+',1),"")').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left').setFontWeight('bold');
+      bd(ws.getRange(row,sc+1)).setFormula('=IF('+ref+'="","",COUNTIF('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+'))').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
+      bd(ws.getRange(row,sc+2)).setFormula('=IF('+ref+'="","",COUNTIFS('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+','+master+'!'+prioCol+'3:'+prioCol+'1000,"Critical")+COUNTIFS('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+','+master+'!'+prioCol+'3:'+prioCol+'1000,"High")+COUNTIFS('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+','+master+'!'+prioCol+'3:'+prioCol+'1000,"Medium"))').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
+      bd(ws.getRange(row,sc+3)).setFormula('=IF('+ref+'="","",COUNTIFS('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+','+master+'!'+prioCol+'3:'+prioCol+'1000,"Low")+COUNTIFS('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+','+master+'!'+prioCol+'3:'+prioCol+'1000,"Lowest"))').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center');
+      bd(ws.getRange(row,sc+4)).setFormula('=IFERROR(COUNTIFS('+master+'!'+subCol+'3:'+subCol+'1000,'+ref+','+master+'!'+autoCol+'3:'+autoCol+'1000,"Automated")/'+colLetter(sc+1)+row+',0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setNumberFormat('0%');
+      bd(ws.getRange(row,sc+5)).setFormula('=IFERROR(COUNTIFS('+execSh+'!B9:B1000,'+ref+','+execSh+'!Z9:Z1000,"PASSED")/MAX(1,COUNTIF('+execSh+'!B9:B1000,'+ref+')),0)').setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setNumberFormat('0%');
+      ws.setRowHeight(row,16);
+    }
+    passRateCF(ws.getRange(DS,sc+4,MAX,1));
+    passRateCF(ws.getRange(DS,sc+5,MAX,1));
+    const totBg=hbg==='#0D47A1'?'#E3F2FD':'#E8EAF6', totRow=DS+MAX;
+    ['TOTAL','=SUM('+colLetter(sc+1)+DS+':'+colLetter(sc+1)+(totRow-1)+')',
+      '=SUM('+colLetter(sc+2)+DS+':'+colLetter(sc+2)+(totRow-1)+')',
+      '=SUM('+colLetter(sc+3)+DS+':'+colLetter(sc+3)+(totRow-1)+')',
+      '=IFERROR(COUNTIF('+master+'!'+autoCol+'3:'+autoCol+'1000,"Automated")/MAX(1,COUNTA('+master+'!'+subCol+'3:'+subCol+'1000)),0)',
+      '=IFERROR(COUNTIF('+execSh+'!Z9:Z1000,"PASSED")/MAX(1,COUNTA('+master+'!'+subCol+'3:'+subCol+'1000)),0)',
+    ].forEach((v,i)=>{
+      const c=bd(ws.getRange(totRow,sc+i)).setBackground(totBg).setFontWeight('bold')
+          .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment(i===0?'left':'center');
+      if(typeof v==='string'&&v.startsWith('=')) c.setFormula(v); else c.setValue(v);
+      if(i>=4){ c.setNumberFormat('0%'); passRateCF(ws.getRange(totRow,sc+i)); }
+    });
+    ws.setRowHeight(totRow,18);
+  }
+
+  buildCov(R,L,'TC_Master','B','E','H','TC_Execution','#0D47A1');
+  buildCov(R,R_,'API_Master','B','G','J','API_Execution','#283593');
+  R+=36;
+
 
   addPeruriFooter(ws,R+1,21);
   ws.setFrozenRows(0);
@@ -1702,16 +1852,16 @@ function createBugReport(ss) {
   //  7=Title  8=Environment  9=Steps  10=Expected  11=Actual
   //  12=Related TC_ID  13=Reported By  14=Assigned To
   //  15=Date Found  16=Date Fixed  17=Sprint  18=Jira/Link  19=Notes
-  [70,75,80,90,100,90, 220,90,160,140,160, 110,100,110, 90,90,80,130,150,160]
+  [70,75,80,90,100,90, 220,200,90,160,140,160, 110,100,110, 90,90,80,130,150,160]
       .forEach((w,i)=>ws.setColumnWidth(i+1,w));
 
   // Row 1: title
-  h_(1,1,1,19,'BUG REPORT  |  Web  ?  Mobile  ?  API','#0D47A1','#FFFFFF',12);
+  h_(1,1,1,21,'BUG REPORT  |  Web  ·  Mobile  ·  API','#0D47A1','#FFFFFF',12);
   ws.setRowHeight(1,30);
 
   // Row 2: note
-  ws.getRange(2,1,1,20).merge()
-      .setValue('Priority: Critical = showstopper ? High = blocker ? Medium = degraded (still counts as blocker) ? Low = minor  |  Status: Open ? In Progress ? Fixed ? Verified ? Closed')
+  ws.getRange(2,1,1,22).merge()
+      .setValue('Priority: Critical = showstopper · High = blocker · Medium = degraded (blocker) · Low = minor  |  Status: Open · In Progress · Fixed · Verified · Closed')
       .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic')
       .setFontFamily('Arial').setFontSize(8).setHorizontalAlignment('left');
   ws.setRowHeight(2,16);
@@ -1719,21 +1869,32 @@ function createBugReport(ss) {
   // Row 3: group headers
   h_(3,1,1,4,'IDENTIFICATION','#0D47A1');
   h_(3,5,1,2,'CLASSIFICATION','#1565C0');
-  h_(3,7,1,5,'DETAIL','#1976D2');
-  h_(3,12,1,3,'OWNERSHIP','#1565C0');
-  h_(3,15,1,2,'TIMELINE','#0D47A1');
-  h_(3,17,1,4,'REFERENCE','#0D47A1');
+  h_(3,7,1,6,'DETAIL','#1976D2');
+  h_(3,13,1,3,'OWNERSHIP','#1565C0');
+  h_(3,16,1,2,'TIMELINE','#0D47A1');
+  h_(3,18,1,4,'REFERENCE','#0D47A1');
   ws.setRowHeight(3,18);
 
   // Row 4: column headers
   ['Bug ID','Type','Priority','Status',
     'Feature','SubModul',
-    'Title / Summary','Environment','Steps to Reproduce','Expected Result','Actual Result',
+    'Title / Summary','Description',
+    'Environment','Steps to Reproduce','Expected Result','Actual Result',
     'Related TC_ID','Reported By','Assigned To',
     'Date Found','Date Fixed',
     'Sprint','Jira / Link','Notes','Screenshot / Evidence'
   ].forEach((h,i) => h_(4,i+1,1,1,h,'#0D47A1'));
   ws.setRowHeight(4,22);
+  ws.getRange(4,8).setNote(
+      'Description\n\n'+
+      'Deskripsi detail bug — sama seperti kolom Description di Jira.\n\n'+
+      'Isi dengan konteks tambahan yang tidak muat di Title, misalnya:\n'+
+      '  • Kondisi awal saat bug terjadi\n'+
+      '  • User role atau permission yang terdampak\n'+
+      '  • Data spesifik yang digunakan\n'+
+      '  • Frekuensi kemunculan (selalu / kadang / sekali)\n\n'+
+      'Boleh dikosongkan jika Title sudah cukup jelas.'
+  );
 
   // Notes
   ws.getRange(4,1).setNote(
@@ -1764,23 +1925,24 @@ function createBugReport(ss) {
   ws.getRange(DS,2,MR,1).setDataValidation(dv_(['Web','Mobile','API']));
   ws.getRange(DS,3,MR,1).setDataValidation(dv_(['Critical','High','Medium','Low']));
   ws.getRange(DS,4,MR,1).setDataValidation(dv_(['Open','In Progress','Fixed','Verified','Closed',"Won't Fix",'Reopen']));
-  ws.getRange(DS,8,MR,1).setDataValidation(dv_(['Dev','Staging / UAT','Production','All']));
+  ws.getRange(DS,9,MR,1).setDataValidation(dv_(['Dev','Staging / UAT','Production','All']));
 
   // Alternating row bg
   for (let r=DS; r<DS+MR; r++) {
     const bg = (r-DS)%2===0 ? '#F8FBFF' : '#FFFFFF';
-    ws.getRange(r,1,1,20).setBackground(bg).setFontFamily('Arial').setFontSize(9)
+    ws.getRange(r,1,1,21).setBackground(bg).setFontFamily('Arial').setFontSize(9)
         .setVerticalAlignment('middle')
         .setBorder(true,true,true,true,false,false,'#90CAF9',SpreadsheetApp.BorderStyle.SOLID);
     ws.setRowHeight(r,22);
   }
   ws.getRange(DS,7,MR,1).setWrap(true);  // Title
-  ws.getRange(DS,9,MR,1).setWrap(true);  // Steps
-  ws.getRange(DS,10,MR,1).setWrap(true); // Expected
-  ws.getRange(DS,11,MR,1).setWrap(true); // Actual
-  ws.getRange(DS,15,MR,1).setNumberFormat('yyyy-mm-dd');
+  ws.getRange(DS,8,MR,1).setWrap(true);  // Description
+  ws.getRange(DS,10,MR,1).setWrap(true); // Steps
+  ws.getRange(DS,11,MR,1).setWrap(true); // Expected
+  ws.getRange(DS,12,MR,1).setWrap(true); // Actual
   ws.getRange(DS,16,MR,1).setNumberFormat('yyyy-mm-dd');
-  ws.getRange(DS,20,MR,1).setWrap(false).setFontColor('#1A73E8'); // Screenshot link
+  ws.getRange(DS,17,MR,1).setNumberFormat('yyyy-mm-dd');
+  ws.getRange(DS,21,MR,1).setWrap(false).setFontColor('#1A73E8'); // Screenshot link
 
   // Conditional Formatting
   const rules = ws.getConditionalFormatRules();
@@ -1821,6 +1983,7 @@ function createBugReport(ss) {
   const sampleRow = [
     'BUG-WEB-001','Web','High','Open','Login','1.1',
     'Tombol Login tidak aktif setelah input password yang benar',
+    'Tombol Login disabled meski email & password valid. Terjadi sejak build v1.2.3. Hanya di browser berbasis Chromium.',
     'Staging / UAT',
     '1. Buka halaman Login\n2. Input email & password yang valid\n3. Klik tombol Login',
     'User berhasil login dan diarahkan ke Dashboard',
@@ -1832,7 +1995,7 @@ function createBugReport(ss) {
   ];
   sampleRow.forEach((v,ci) => {
     const c = ws.getRange(DS,ci+1);
-    if (ci===14||ci===15) { if(v) c.setValue(v).setNumberFormat('yyyy-mm-dd'); }
+    if (ci===15||ci===16) { if(v) c.setValue(v).setNumberFormat('yyyy-mm-dd'); }
     else c.setValue(v||'');
     c.setBackground('#F8FBFF').setFontFamily('Arial').setFontSize(9)
         .setVerticalAlignment('middle')
@@ -1840,7 +2003,7 @@ function createBugReport(ss) {
   });
   ws.setRowHeight(DS, 60); // taller for wrapped text
 
-  ws.getRange(4,20).setNote('Paste link screenshot/evidence.\nContoh: URL Google Drive, Jira attachment, atau direct image URL.\nPastikan link bisa diakses oleh reviewer.');
+  ws.getRange(4,21).setNote('Paste link screenshot/evidence.\nContoh: URL Google Drive, Jira attachment, atau direct image URL.\nPastikan link bisa diakses oleh reviewer.');
   ws.setConditionalFormatRules(rules);
   ws.setFrozenRows(4);
   Logger.log('BugReport created OK');
@@ -1853,7 +2016,7 @@ function createAppendix(ss) {
 
   ws.getRange(1,1,1,4).merge();
   hdr(ws.getRange(1,1,1,4),'#0D47A1','#FFFFFF',11)
-      .setValue('APPENDIX  .  Definisi, Konvensi & Panduan');
+      .setValue('APPENDIX  .  Definisi, Konvensi & Panduan  (v39)');
   ws.setRowHeight(1,30);
 
   let r=2;
@@ -1972,6 +2135,47 @@ function createAppendix(ss) {
     ['To Do',              'Direncanakan untuk diautomasi, belum dikerjakan.'],
     ['Cannot be Automated','Secara teknis tidak bisa diautomasi (scan QR fisik, biometrik, hardware-dependent).'],
   ].forEach(([s,d])=>row2(s,d));
+  r++;
+
+  sec('7. BUG REPORT  —  STATUS & ALUR KERJA','#B71C1C');
+  // Status flow table
+  [['Open',         '#FFCDD2','#B71C1C', 'QA',  'Bug baru ditemukan. Belum ada yang mengerjakan. Masuk antrian Dev.'],
+    ['In Progress',  '#E3F2FD','#1565C0', 'Dev', 'Dev sedang mengerjakan fix. Bug belum bisa di-retest.'],
+    ['Fixed',        '#FFF9C4','#E65100', 'Dev', 'Dev klaim sudah diperbaiki. Menunggu QA untuk verifikasi ulang.'],
+    ['Verified',     '#C8E6C9','#2E7D32', 'QA',  'QA sudah re-test dan bug confirmed fixed di environment yang disepakati.'],
+    ['Closed',       '#E8F5E9','#388E3C', 'Lead','Done. Tidak perlu action lagi. Biasanya setelah release ke prod.'],
+    ["Won\'t Fix",  '#F5F5F5','#9E9E9E', 'Lead','Diputuskan tidak diperbaiki (alasan bisnis/teknis). Harus ada komentar alasan.'],
+    ['Reopen',       '#EDE7F6','#6A1B9A', 'QA',  'QA re-test setelah Fixed, tapi bug masih muncul. Kembali ke Dev.'],
+  ].forEach(function(s) {
+    var bg=s[1], fg=s[2], who=s[3], desc=s[4];
+    ws.getRange(r,1,1,1).setValue(s[0]).setBackground(bg).setFontColor(fg)
+        .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle')
+        .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
+    ws.getRange(r,2,1,1).setValue(who).setBackground('#F5F5F5').setFontColor('#424242')
+        .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle')
+        .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
+    ws.getRange(r,3,1,2).merge().setValue(desc).setBackground('#FFFFFF').setFontFamily('Arial')
+        .setFontSize(9).setWrap(true).setHorizontalAlignment('left').setVerticalAlignment('middle')
+        .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
+    ws.setRowHeight(r,30); r++;
+  });
+  // Sub-header for Who column
+  // Flow legend
+  ws.getRange(r,1,1,4).merge()
+      .setValue('Flow:  Open  →  In Progress  →  Fixed  →  Verified  →  Closed  |  Reopen kembali ke In Progress')
+      .setBackground('#FFEBEE').setFontColor('#C62828').setFontStyle('italic')
+      .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left').setVerticalAlignment('middle')
+      .setBorder(true,true,true,true,false,false,'#EF9A9A',SpreadsheetApp.BorderStyle.SOLID);
+  ws.setRowHeight(r,16); r++;
+  // Siapa update apa
+  row2('Dev update ke',  'In Progress (saat mulai mengerjakan)\nFixed (saat selesai — Dev TIDAK boleh langsung ke Verified/Closed)');
+  row2('QA update ke',   'Verified (jika re-test lulus)\nReopen (jika bug masih ada setelah Fixed)\nClosed (setelah Verified dan sudah release ke prod)');
+  row2('Lead update ke', "Won\'t Fix (dengan komentar alasan yang jelas)\nClosed (keputusan akhir)");
+  row2('Kaitannya dengan Open Blocker',
+      'Formula Open Blocker di Summary menghitung bug Status = Open/In Progress/Reopen dengan Priority Medium/High/Critical.\n' +
+      'Target: 0 Open Blocker sebelum release ke production.');
   r++;
 
   sec('9. PERFORMANCE TEST -- METRIK','#4A148C');

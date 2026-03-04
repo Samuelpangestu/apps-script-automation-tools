@@ -68,7 +68,7 @@ QA Portfolio Dashboard is a Google Sheets-based aggregation system that consolid
 
 ### **Core Scripts**
 
-- **`Dashboard.js`** - Main aggregation and dashboard logic
+- **`MasterDashboard.js`** - Main aggregation and dashboard logic
 - **`BroadcastFix.js`** - Broadcast fixes to all sheets
 - **`BroadcastAllFixes.js`** - Master runner for all fixes
 - **`BroadcastFixesLead.js`** - Add QA Team Lead column
