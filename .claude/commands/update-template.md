@@ -5,7 +5,7 @@ description: Update QA Test Management template with new features
 Update the QA Test Management template:
 
 1. Ask user what feature or improvement they want to add
-2. Read current template from qa-test-management/src/QATestManagement.js
+2. Read current template from qa-test-management/src/MasterQATCM.js
 3. Review the structure:
    - Sheet creation functions (createQASheet)
    - TC_Master, TC_Execution sheets

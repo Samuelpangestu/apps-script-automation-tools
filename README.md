@@ -155,14 +155,14 @@ google-apps-script-portfolio/
 ├── projects/
 │   ├── qa-test-management/      # Test case management template
 │   │   ├── src/
-│   │   │   ├── QATestManagement.js
+│   │   │   ├── MasterQATCM.js
 │   │   │   └── appsscript.json
 │   │   ├── .clasp.json
 │   │   └── README.md
 │   │
 │   ├── qa-dashboard/            # Portfolio dashboard
 │   │   ├── src/
-│   │   │   ├── Dashboard.js
+│   │   │   ├── MasterDashboard.js
 │   │   │   ├── BroadcastFix.js
 │   │   │   ├── BroadcastAllFixes.js
 │   │   │   └── appsscript.json

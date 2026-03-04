@@ -102,7 +102,7 @@ QA Test Management Template is a standardized Google Sheets-based system for com
 
 1. Open Google Sheets
 2. Go to **Extensions → Apps Script**
-3. Copy code from `src/QATestManagement.js`
+3. Copy code from `src/MasterQATCM.js`
 4. Save project
 
 ### **Step 2: Generate Template**
@@ -249,7 +249,7 @@ Access from: **QA Template** menu
 
 ### **Add Custom Columns**
 
-Edit in `QATestManagement.js`:
+Edit in `MasterQATCM.js`:
 ```javascript
 var CUSTOM_COLUMNS = [
   "Environment",

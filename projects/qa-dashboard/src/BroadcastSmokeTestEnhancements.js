@@ -358,30 +358,31 @@ function addSmokeTestStatusOverview(summarySheet) {
   const aTcIdCol = 'API_Master!C3:C1000';     // TC_ID column (3)
 
   // Web/Mobile formulas
+  // Since TC_Execution has Test Level in column G, we can use SUMPRODUCT directly on Execution sheet
   const wForms = [
-    // TOTAL: Count TC_Master rows where (Priority=Critical OR High OR Medium) AND Test Level=Smoke
-    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke"))`,
+    // TOTAL: Count rows in TC_Execution where Priority=Med/High/Crit AND Test Level=Smoke
+    `=SUMPRODUCT((TC_Execution!$E$9:$E$1000="Critical")+(TC_Execution!$E$9:$E$1000="High")+(TC_Execution!$E$9:$E$1000="Medium"))*(TC_Execution!$G$9:$G$1000="Smoke")`,
 
-    // PASSED: Use SUMPRODUCT to match TC_ID and count PASSED status
-    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*IFERROR(MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(TC_Execution!$Z$9:$Z$1000,MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0)),)="PASSED"))`,
+    // PASSED
+    `=SUMPRODUCT(((TC_Execution!$E$9:$E$1000="Critical")+(TC_Execution!$E$9:$E$1000="High")+(TC_Execution!$E$9:$E$1000="Medium"))*(TC_Execution!$G$9:$G$1000="Smoke")*(TC_Execution!$Z$9:$Z$1000="PASSED"))`,
 
     // FAILED
-    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*IFERROR(MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(TC_Execution!$Z$9:$Z$1000,MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0)),)="FAILED"))`,
+    `=SUMPRODUCT(((TC_Execution!$E$9:$E$1000="Critical")+(TC_Execution!$E$9:$E$1000="High")+(TC_Execution!$E$9:$E$1000="Medium"))*(TC_Execution!$G$9:$G$1000="Smoke")*(TC_Execution!$Z$9:$Z$1000="FAILED"))`,
 
     // BLOCKED
-    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*IFERROR(MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(TC_Execution!$Z$9:$Z$1000,MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0)),)="BLOCKED"))`,
+    `=SUMPRODUCT(((TC_Execution!$E$9:$E$1000="Critical")+(TC_Execution!$E$9:$E$1000="High")+(TC_Execution!$E$9:$E$1000="Medium"))*(TC_Execution!$G$9:$G$1000="Smoke")*(TC_Execution!$Z$9:$Z$1000="BLOCKED"))`,
 
     // IN PROGRESS
-    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*IFERROR(MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(TC_Execution!$Z$9:$Z$1000,MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0)),)="IN PROGRESS"))`,
+    `=SUMPRODUCT(((TC_Execution!$E$9:$E$1000="Critical")+(TC_Execution!$E$9:$E$1000="High")+(TC_Execution!$E$9:$E$1000="Medium"))*(TC_Execution!$G$9:$G$1000="Smoke")*(TC_Execution!$Z$9:$Z$1000="IN PROGRESS"))`,
 
     // TODO
-    `=SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*IFERROR(MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0),0)>0*(IFERROR(INDEX(TC_Execution!$Z$9:$Z$1000,MATCH(${wTcIdCol},TC_Execution!$A$9:$A$1000,0)),)="TODO"))`,
+    `=SUMPRODUCT(((TC_Execution!$E$9:$E$1000="Critical")+(TC_Execution!$E$9:$E$1000="High")+(TC_Execution!$E$9:$E$1000="Medium"))*(TC_Execution!$G$9:$G$1000="Smoke")*(TC_Execution!$Z$9:$Z$1000="TODO"))`,
 
     // PASS RATE
     `=IFERROR(${colLetter(L + 1)}${newValuesRow}/MAX(1,${colLetter(L)}${newValuesRow}),0)`,
 
     // AUTO RATE (automated smoke tests)
-    `=IFERROR(SUMPRODUCT(((${wPrioCol}="Critical")+(${wPrioCol}="High")+(${wPrioCol}="Medium"))*(${wLevelCol}="Smoke")*(${wAutoCol}="Automated"))/MAX(1,${colLetter(L)}${newValuesRow}),0)`,
+    `=IFERROR(SUMPRODUCT(((TC_Execution!$E$9:$E$1000="Critical")+(TC_Execution!$E$9:$E$1000="High")+(TC_Execution!$E$9:$E$1000="Medium"))*(TC_Execution!$G$9:$G$1000="Smoke")*(TC_Execution!$J$9:$J$1000="Automated"))/MAX(1,${colLetter(L)}${newValuesRow}),0)`,
 
     // EXEC RATE
     `=IFERROR((${colLetter(L + 1)}${newValuesRow}+${colLetter(L + 2)}${newValuesRow}+${colLetter(L + 3)}${newValuesRow}+${colLetter(L + 4)}${newValuesRow})/MAX(1,${colLetter(L)}${newValuesRow}),0)`

@@ -21,11 +21,11 @@ apps-script-automation-tools/
 ├── projects/
 │   ├── qa-dashboard/          # Portfolio Dashboard
 │   │   └── src/               # Active development files
-│   │       ├── Dashboard.js
+│   │       ├── MasterDashboard.js
 │   │       └── BroadcastFix.js
 │   ├── qa-test-management/    # QA Template
 │   │   └── src/               # Active development files
-│   │       └── QATestManagement.js
+│   │       └── MasterQATCM.js
 │   └── mom-rolling-pic/       # MOM Rolling & PIC Reminder
 │       └── src/               # Active development files
 │           └── Code.js
