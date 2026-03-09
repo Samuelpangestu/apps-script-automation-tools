@@ -1480,6 +1480,7 @@ function _buildChatMessageForModule_(moduleData, ss) {
   const totalCritical = moduleData.critical;
   const totalHigh = moduleData.high;
   const totalMedium = moduleData.medium;
+  const totalProdBugs = moduleData.prodBugs || 0;
 
   // Determine severity
   let alertIcon, alertLabel, alertMessage;
@@ -1530,6 +1531,17 @@ function _buildChatMessageForModule_(moduleData, ss) {
       text: summaryParts.join('  |  ')
     }
   });
+
+  // PROD BUGS alert (separate widget for visibility)
+  if (totalProdBugs > 0) {
+    widgets.push({
+      decoratedText: {
+        topLabel: '🚨 PRODUCTION BUGS',
+        text: `<b>${totalProdBugs} bug${totalProdBugs > 1 ? 's' : ''} di Production environment!</b> — ⚠️ URGENT: Butuh immediate action!`,
+        wrapText: true
+      }
+    });
+  }
 
   // PIC info
   widgets.push({
@@ -1661,6 +1673,7 @@ function _buildEmailBodyForModule_(moduleData, ss) {
   const totalCritical = moduleData.critical;
   const totalHigh = moduleData.high;
   const totalMedium = moduleData.medium;
+  const totalProdBugs = moduleData.prodBugs || 0;
 
   let statusColor, statusIcon, statusMessage;
   if (totalBlocker <= 3) {
@@ -1675,6 +1688,16 @@ function _buildEmailBodyForModule_(moduleData, ss) {
     statusColor = '#F44336';
     statusIcon = '🚨';
     statusMessage = totalBlocker + ' blocker terdeteksi! — Perlu tindakan segera.';
+  }
+
+  // Prod bugs warning (prepend to status message if exists)
+  let prodBugsWarning = '';
+  if (totalProdBugs > 0) {
+    prodBugsWarning = `
+    <div style="background: #FFEBEE; border-left: 4px solid #D32F2F; padding: 15px; margin-bottom: 15px; border-radius: 4px;">
+      <p style="margin: 0; font-weight: bold; color: #D32F2F; font-size: 16px;">🚨 PRODUCTION BUGS ALERT</p>
+      <p style="margin: 5px 0 0; color: #C62828;">${totalProdBugs} bug${totalProdBugs > 1 ? 's' : ''} di Production environment! — ⚠️ URGENT: Butuh immediate action!</p>
+    </div>`;
   }
 
   let html = `
@@ -1715,6 +1738,8 @@ function _buildEmailBodyForModule_(moduleData, ss) {
       <h2>${moduleData.project} &gt; ${moduleData.module}${moduleData.submodule ? ' &gt; ' + moduleData.submodule : ''}</h2>
       <p><strong>PIC QA:</strong> ${moduleData.team || '—'}</p>
     </div>
+
+    ${prodBugsWarning}
 
     <div class="summary">
       <p style="font-weight: bold; font-size: 16px; margin-bottom: 10px;">${statusMessage}</p>
@@ -1792,6 +1817,7 @@ function _getBlockerData_(mods) {
           critical: 0,
           high: 0,
           medium: 0,
+          prodBugs: 0,
           bugs: []
         });
         return;
@@ -1809,6 +1835,7 @@ function _getBlockerData_(mods) {
           critical: 0,
           high: 0,
           medium: 0,
+          prodBugs: 0,
           bugs: []
         });
         return;
@@ -1817,7 +1844,7 @@ function _getBlockerData_(mods) {
       const rows = bugSh.getRange(BUG_START_, 1, last - BUG_START_ + 1, BUG_COLS_).getValues();
       const BLOCKER_STATUS = ['open', 'in progress', 'reopen', 'fixed', 'verified'];
       const bugs = [];
-      let critical = 0, high = 0, medium = 0;
+      let critical = 0, high = 0, medium = 0, prodBugs = 0;
 
       rows.forEach(r => {
         const status = String(r[BC_.STATUS - 1]).trim().toLowerCase();
@@ -1825,6 +1852,12 @@ function _getBlockerData_(mods) {
         const title = String(r[BC_.TITLE - 1]).trim();
         const bugId = String(r[BC_.BUG_ID - 1]).trim();
         const link = String(r[BC_.LINK - 1]).trim();
+        const environment = String(r[BC_.ENVIRONMENT - 1]).trim();
+
+        // Count PROD BUGS (bugs in Production environment, not closed)
+        if (BLOCKER_STATUS.includes(status) && environment === 'Production') {
+          prodBugs++;
+        }
 
         if (!BLOCKER_STATUS.includes(status)) return;
         if (!['Critical', 'High', 'Medium'].includes(priority)) return;
@@ -1839,7 +1872,8 @@ function _getBlockerData_(mods) {
           priority,
           status: String(r[BC_.STATUS - 1]).trim(),
           title: title || '(no title)',
-          link
+          link,
+          environment
         });
       });
 
@@ -1858,6 +1892,7 @@ function _getBlockerData_(mods) {
         critical,
         high,
         medium,
+        prodBugs,
         bugs
       });
 
@@ -1873,6 +1908,7 @@ function _getBlockerData_(mods) {
         critical: 0,
         high: 0,
         medium: 0,
+        prodBugs: 0,
         bugs: [],
         error: e.message
       });
