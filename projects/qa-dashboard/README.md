@@ -91,6 +91,33 @@ QA Portfolio Dashboard is a Google Sheets-based aggregation system that consolid
 - Apps Script enabled
 - clasp installed (for development)
 
+### **Development & Deployment**
+
+#### **Environments**
+
+This project has two environments:
+
+- **Testing**: Development and testing (default)
+  - Script ID: `1LJ83OATTAp7ChDWGkrSTg0b9KmMhOABISBrAJrB54JksjQ7mi5oNB7C3`
+
+- **Production**: Live dashboard used by QA team
+  - Script ID: `1lHO8yKyqKs1_n5GV1m-SJMACLS95Jc7yy6dM_ItyT-l_-GdmkGQk3OIO`
+
+See [../../ENVIRONMENTS.md](../../ENVIRONMENTS.md) for full details.
+
+#### **Deployment Commands**
+
+```bash
+# Deploy to testing only
+./deploy-testing.sh
+
+# Deploy to production only (will ask for confirmation)
+./deploy-production.sh
+
+# Deploy to both testing and production
+./deploy-all.sh
+```
+
 ### **Configuration**
 
 1. **Create Dashboard Sheet**
@@ -105,8 +132,8 @@ QA Portfolio Dashboard is a Google Sheets-based aggregation system that consolid
 
 3. **Set Up Triggers**
    - Run from menu: Dashboard → Setup Auto-Refresh
-   - Default: Every 1 hour
-   - Customizable in trigger settings
+   - Default: Every 10 minutes
+   - Customizable in Config tab (Q4-R4)
 
 ---
 

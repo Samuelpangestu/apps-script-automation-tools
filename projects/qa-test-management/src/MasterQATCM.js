@@ -1090,7 +1090,11 @@ function createSummary(ss) {
 
   // Left plan fields
   const leftFields=[
-    ['Project / Sprint:',null],['Period:',null],['QA Team Lead:',null],['PIC QA:',null],
+    ['Project:',null],
+    ['Modul:',null],
+    ['Submodul:',null,false,false,true], // tambah note
+    ['QA Lead:',null],
+    ['PIC QA:',null],
     ['Environment:',['Dev','Staging / UAT','Production']],
     ['Issue Tracker (URL):',null],
     ['Test Status:',['Not Started','In Progress','Completed','On Hold'],true],
@@ -1104,7 +1108,7 @@ function createSummary(ss) {
     ['Perf Test Result:',null,false,true],
     ['Notes:',null],
   ];
-  leftFields.forEach(([labelText, dvList, isStatus, isAutoPerf],i)=>{
+  leftFields.forEach(([labelText, dvList, isStatus, isAutoPerf, addNote],i)=>{
     const row=R+i;
     lbl(row,L,labelText,'#E3F2FD');
     if(isAutoPerf){
@@ -1114,6 +1118,9 @@ function createSummary(ss) {
       stCF(ws.getRange(row,L+1));
     } else {
       inp(row,L+1,LW-1,dvList,isStatus);
+      if(addNote){
+        ws.getRange(row,L+1,1,LW-1).setNote('Pisahkan dengan koma jika lebih dari 1 submodul.\nContoh: 1.1,1.2,1.3');
+      }
     }
     ws.setRowHeight(row,24);
   });

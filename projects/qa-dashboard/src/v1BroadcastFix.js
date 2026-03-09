@@ -12,7 +12,7 @@
  *   A. Dashboard Headers   — rebuild Overview + buat tab Smoke jika belum ada
  *   B. Smoke Section       — insert A1. SMOKE TEST di Summary
  *   C. Smoke Formulas      — fix #VALUE! & range mismatch di formula Smoke
- *   D. Smoke Blocker Row   — tambah baris "Open Blocker (Smoke)" di Bug Summary
+ *   D. Smoke Blocker Row   — tambah baris "BUG BLOCKER" di Bug Summary
  *   E. Description Column  — insert kolom Description di BugReport col 8
  *   F. Medium Wording      — ganti "Medium (Blocker)" → "Medium" di Summary
  *   G. Coverage Rows       — expand COVERAGE PER SUBMODUL ke 34 baris
@@ -37,6 +37,10 @@ function masterBroadcastAll() {
 
     const STEPS = [
         ['Dashboard Headers',   () => fixDashboardHeaders_()],
+        ['Summary Fields',      () => runBroadcast_(fixSummaryFields_,     'Summary Fields')],
+        ['QA Lead Label',       () => runBroadcast_(fixQALeadLabel_,       'QA Lead Label')],
+        ['Submodul Note',       () => runBroadcast_(fixSubmodulNote_,      'Submodul Note')],
+        ['PIC QA Dropdown',     () => runBroadcast_(fixPICQADropdown_,     'PIC QA Dropdown')],
         ['Smoke Section',       () => runBroadcast_(addSmokeSection_,      'Smoke Section')],
         ['Smoke Formulas',      () => runBroadcast_(fixSmokeForms_,        'Smoke Formulas')],
         ['Smoke Blocker Row',   () => runBroadcast_(addSmokeBlockerRow_,   'Smoke Blocker')],
@@ -66,8 +70,63 @@ function masterBroadcastAll() {
     safeAlert_(msg);
 }
 
+/**
+ * 🚀 ALL-IN-ONE MIGRATION for QATM modules
+ *
+ * Jalankan fungsi ini SEKALI untuk migrate semua QATM modules ke struktur baru.
+ * Script ini AMAN dan IDEMPOTENT (bisa dijalankan berkali-kali tanpa error).
+ *
+ * Yang dilakukan (hanya fixes yang relevan untuk migration hari ini):
+ * 1. fixSummaryFields - Restructure Summary fields (Project, Modul, Submodul, QA Lead, PIC QA)
+ * 2. fixQALeadLabel - Update "QA Team Lead:" → "QA Lead:"
+ * 3. fixSubmodulNote - Update Submodul note example → "1.1,1.2,1.3"
+ * 4. fixPICQADropdown - Remove dropdown validation dari PIC QA (jadi free text)
+ *
+ * Skip fixes yang tidak relevan hari ini (Smoke, Blocker, Coverage, dll).
+ */
+function migrateQATMModulesToNewStructure() {
+    Logger.log('═══════════════════════════════════════════════════════════');
+    Logger.log('🚀 QATM MODULES MIGRATION START: ' + new Date());
+    Logger.log('═══════════════════════════════════════════════════════════');
+
+    const MIGRATION_STEPS = [
+        ['Summary Fields',      () => runBroadcast_(fixSummaryFields_,     'Summary Fields')],
+        ['QA Lead Label',       () => runBroadcast_(fixQALeadLabel_,       'QA Lead Label')],
+        ['Submodul Note',       () => runBroadcast_(fixSubmodulNote_,      'Submodul Note')],
+        ['PIC QA Dropdown',     () => runBroadcast_(fixPICQADropdown_,     'PIC QA Dropdown')],
+    ];
+
+    const lines = [];
+    MIGRATION_STEPS.forEach(([name, fn]) => {
+        try {
+            Logger.log('\n📝 Running: ' + name);
+            const result = fn();
+            const ok = !result.includes('ERR') || result.includes('Err:0');
+            Logger.log((ok?'✅ ':'❌ ') + name + ': ' + result);
+            lines.push((ok?'✅':'❌') + ' ' + name + ': ' + result);
+        } catch(e) {
+            Logger.log('❌ ' + name + ': ' + e.message);
+            lines.push('❌ ' + name + ': ' + e.message);
+        }
+    });
+
+    Logger.log('\n═══════════════════════════════════════════════════════════');
+    Logger.log('🎉 QATM MODULES MIGRATION COMPLETE: ' + new Date());
+    Logger.log('═══════════════════════════════════════════════════════════');
+
+    const msg = '🚀 QATM MODULES MIGRATION COMPLETE\n\n' + lines.join('\n') +
+                '\n\n📝 Next Steps:\n1. Verify Summary tab di semua QATM\n2. Jalankan migrateDashboardToNewStructure() di Dashboard\n3. Run refreshDashboard() untuk sync data';
+
+    Logger.log('\n' + msg);
+    safeAlert_(msg);
+}
+
 // Individual callers
 function broadcastDashboardHeaders()   { safeAlert_(fixDashboardHeaders_()); }
+function broadcastSummaryFields()      { safeAlert_('Summary Fields: '     + runBroadcast_(fixSummaryFields_,     'Summary Fields')); }
+function broadcastQALeadLabel()        { safeAlert_('QA Lead Label: '      + runBroadcast_(fixQALeadLabel_,       'QA Lead Label')); }
+function broadcastSubmodulNote()       { safeAlert_('Submodul Note: '      + runBroadcast_(fixSubmodulNote_,      'Submodul Note')); }
+function broadcastPICQADropdown()      { safeAlert_('PIC QA Dropdown: '    + runBroadcast_(fixPICQADropdown_,     'PIC QA Dropdown')); }
 function broadcastSmokeSection()       { safeAlert_('Smoke Section: '      + runBroadcast_(addSmokeSection_,      'Smoke Section')); }
 function broadcastSmokeFormulas()      { safeAlert_('Smoke Formulas: '     + runBroadcast_(fixSmokeForms_,        'Smoke Formulas')); }
 function broadcastSmokeBlockerRow()    { safeAlert_('Smoke Blocker Row: '  + runBroadcast_(addSmokeBlockerRow_,   'Smoke Blocker')); }
@@ -113,10 +172,18 @@ function getActiveIds_() {
     const data = cfg.getDataRange().getValues();
     const ids  = [];
     for (let i = 3; i < data.length; i++) {
-        const active = String(data[i][0]).trim().toUpperCase();
+        const active = data[i][0];  // col A = Active (TRUE/FALSE or Y/N for backward compat)
         const id     = String(data[i][6]).trim();  // col G = Spreadsheet ID
-        if (active === 'Y' && id && id.length > 20 && id !== 'PASTE_SPREADSHEET_ID_HERE') ids.push(id);
+
+        // Support both TRUE/FALSE (new) and Y/N (old)
+        const isActive = (active === true || String(active).trim().toUpperCase() === 'Y');
+
+        if (isActive && id && id.length > 20 && id !== 'PASTE_SPREADSHEET_ID_HERE') {
+            ids.push(id);
+            Logger.log('[getActiveIds_] Found active module: ' + id);
+        }
     }
+    Logger.log('[getActiveIds_] Total active modules: ' + ids.length);
     return ids;
 }
 
@@ -388,29 +455,77 @@ function fixSmokeForms_(spreadsheetId) {
 
 
 // ═══════════════════════════════════════════════════════════════════════
+// HELPER — Remove duplicate BUG BLOCKER rows
+// ═══════════════════════════════════════════════════════════════════════
+
+function removeDuplicateBugBlocker_(spreadsheetId) {
+    const src  = SpreadsheetApp.openById(spreadsheetId);
+    const summ = src.getSheetByName('Summary');
+    if (!summ) return 'skipped (no Summary)';
+
+    const finder = summ.createTextFinder('BUG BLOCKER').matchEntireCell(false).findAll();
+    if (finder.length <= 1) return 'skipped (no duplicates)';
+
+    // Keep the last one (row 18 - "Open Blocker (Smoke)" location), delete the first one (row 16 - newly created)
+    // Find which row is closer to "A1. SMOKE TEST" - that's the duplicate to remove
+    const smokeRow = summ.createTextFinder('A1. SMOKE TEST').matchEntireCell(false).findNext();
+    if (!smokeRow) return 'skipped (A1. SMOKE TEST not found)';
+
+    const smokeRowNum = smokeRow.getRow();
+    let rowToDelete = null;
+
+    finder.forEach(cell => {
+        const rowNum = cell.getRow();
+        // Delete the one that's closer to SMOKE TEST header (the newly inserted one)
+        if (Math.abs(rowNum - smokeRowNum) < 5) {
+            rowToDelete = rowNum;
+        }
+    });
+
+    if (rowToDelete) {
+        summ.deleteRows(rowToDelete, 2);  // Delete 2 rows (label + data)
+        return 'deleted duplicate at row ' + rowToDelete;
+    }
+
+    return 'skipped (could not identify duplicate)';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // FIX D — SMOKE BLOCKER ROW di Bug Summary
-// Tambah baris "Open Blocker (Smoke)" setelah baris Medium.
+// Rename "Open Blocker (Smoke)" → "BUG BLOCKER" atau buat baru jika belum ada.
 // ═══════════════════════════════════════════════════════════════════════
 
 function addSmokeBlockerRow_(spreadsheetId) {
     const src  = SpreadsheetApp.openById(spreadsheetId);
     const summ = src.getSheetByName('Summary');
     if (!summ) return 'skipped (no Summary)';
-    if (summ.createTextFinder('Open Blocker').matchEntireCell(false).findNext())
+
+    const L=1, LW=10, R_=12, RW=10;
+
+    // Check if "Open Blocker (Smoke)" exists - rename it
+    const oldBlockerCell = summ.createTextFinder('Open Blocker').matchEntireCell(false).findNext();
+    if (oldBlockerCell) {
+        const row = oldBlockerCell.getRow();
+        summ.getRange(row,L,1,LW).setValue('BUG BLOCKER');
+        summ.getRange(row,R_,1,RW).setValue('BUG BLOCKER');
+        return 'renamed "Open Blocker (Smoke)" → "BUG BLOCKER"';
+    }
+
+    // Check if "BUG BLOCKER" already exists
+    if (summ.createTextFinder('BUG BLOCKER').matchEntireCell(false).findNext())
         return 'skipped (already exists)';
 
+    // If neither exists, create new row
     const medCell = summ.createTextFinder('Medium').matchEntireCell(false).findNext();
     if (!medCell) return 'skipped (Medium row not found)';
     const insertRow = medCell.getRow() + 1;
     summ.insertRowsAfter(insertRow-1, 2);
 
-    const L=1, LW=10, R_=12, RW=10;
-
     // Separator row
-    summ.getRange(insertRow,L,1,LW).merge().setValue('Open Blocker (Smoke) ↓')
+    summ.getRange(insertRow,L,1,LW).merge().setValue('BUG BLOCKER')
         .setBackground('#FFEBEE').setFontColor('#C62828').setFontWeight('bold').setFontSize(8).setFontFamily('Arial')
         .setHorizontalAlignment('left').setVerticalAlignment('middle');
-    summ.getRange(insertRow,R_,1,RW).merge().setValue('Open Blocker (Smoke) ↓')
+    summ.getRange(insertRow,R_,1,RW).merge().setValue('BUG BLOCKER')
         .setBackground('#EDE7F6').setFontColor('#4A148C').setFontWeight('bold').setFontSize(8).setFontFamily('Arial')
         .setHorizontalAlignment('left').setVerticalAlignment('middle');
     summ.setRowHeight(insertRow,16);
@@ -593,8 +708,8 @@ function fixApiExpectedResult_(spreadsheetId) {
 // ═══════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════
-// FIX J — FIX OPEN BLOCKER FORMULA
-// Objective: menghitung jumlah bug Open/In Progress/Reopen
+// FIX J — FIX BUG BLOCKER FORMULA
+// Objective: menghitung jumlah bug Open/In Progress/Reopen/Fixed/Verified
 //            dengan priority Critical/High/Medium di BugReport.
 //
 //  Lama (9× COUNTIFS verbose):
@@ -602,7 +717,7 @@ function fixApiExpectedResult_(spreadsheetId) {
 //
 //  Baru (1× SUMPRODUCT bersih):
 //    =SUMPRODUCT(
-//      (ISNUMBER(MATCH(BugReport!D5:D2000,{"Open","In Progress","Reopen"},0)))*
+//      (ISNUMBER(MATCH(BugReport!D5:D2000,{"Open","In Progress","Reopen","Fixed","Verified"},0)))*
 //      (ISNUMBER(MATCH(BugReport!C5:C2000,{"Critical","High","Medium"},0)))
 //    )
 //
@@ -617,13 +732,13 @@ function fixSimplifyFormulas_(spreadsheetId) {
     // Formula bersih — BugReport data mulai row 5, limit 2000 untuk performa
     const FORMULA =
         '=SUMPRODUCT(' +
-        '(ISNUMBER(MATCH(BugReport!D5:D2000,{"Open","In Progress","Reopen"},0)))*' +
+        '(ISNUMBER(MATCH(BugReport!D5:D2000,{"Open","In Progress","Reopen","Fixed","Verified"},0)))*' +
         '(ISNUMBER(MATCH(BugReport!C5:C2000,{"Critical","High","Medium"},0)))' +
         ')';
 
-    // Cari baris "Open Blocker (Smoke) ↓" — label separator
-    const blockerCell = summ.createTextFinder('Open Blocker').matchEntireCell(false).findNext();
-    if (!blockerCell) return 'skipped (Open Blocker row not found — jalankan Smoke Blocker dulu)';
+    // Cari baris "BUG BLOCKER" — label separator
+    const blockerCell = summ.createTextFinder('BUG BLOCKER').matchEntireCell(false).findNext();
+    if (!blockerCell) return 'skipped (BUG BLOCKER row not found — jalankan Smoke Blocker dulu)';
 
     const dataRow = blockerCell.getRow() + 1;
     let fixed = 0;
@@ -655,6 +770,62 @@ function fixSimplifyFormulas_(spreadsheetId) {
     return fixed === 0
         ? 'skipped (already correct)'
         : fixed + ' formula replaced at row ' + dataRow;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// FIX K — BUG BLOCKER COMPLETE FIX (Gabungan Remove Duplicate + Rename + Update Formula)
+// 1. Hapus duplikat BUG BLOCKER jika ada
+// 2. Rename "Open Blocker (Smoke)" → "BUG BLOCKER"
+// 3. Update formula untuk include Fixed & Verified
+// ═══════════════════════════════════════════════════════════════════════
+
+function fixBugBlockerComplete_(spreadsheetId) {
+    const results = [];
+
+    // Step 1: Remove duplicates
+    const step1 = removeDuplicateBugBlocker_(spreadsheetId);
+    results.push('1. Remove duplicate: ' + step1);
+
+    // Step 2: Rename or create BUG BLOCKER row
+    const step2 = addSmokeBlockerRow_(spreadsheetId);
+    results.push('2. Rename/Create: ' + step2);
+
+    // Step 3: Update formula
+    const step3 = fixSimplifyFormulas_(spreadsheetId);
+    results.push('3. Update formula: ' + step3);
+
+    return results.join(' | ');
+}
+
+// Broadcast function untuk menjalankan ke semua modul (PUBLIC - tanpa underscore)
+function broadcastBugBlockerFix() {
+    const ids = getActiveIds_();
+    let ok = 0;
+    const errList = [];
+
+    ids.forEach(id => {
+        try {
+            const result = fixBugBlockerComplete_(id);
+            Logger.log('✅ ' + id + ': ' + result);
+            ok++;
+        } catch (e) {
+            const msg = id + ': ' + e.message;
+            Logger.log('❌ ' + msg);
+            errList.push(msg);
+        }
+    });
+
+    const summary = ok + '/' + ids.length + ' modules fixed';
+    if (errList.length > 0) {
+        Browser.msgBox('BUG BLOCKER Fix Complete', summary + '\n\nErrors:\n' + errList.join('\n'), Browser.Buttons.OK);
+    } else {
+        Browser.msgBox('BUG BLOCKER Fix Complete', summary + '\n\nAll modules updated successfully!', Browser.Buttons.OK);
+    }
+}
+
+// Alias dengan underscore untuk backward compatibility
+function runBroadcastBugBlockerFix_() {
+    broadcastBugBlockerFix();
 }
 
 
@@ -832,8 +1003,8 @@ function buildAppendix_(ss) {
     r++; gap_();
     apxRow_('Aturan Update Status',
         'DEV: In Progress (mulai) → Fixed (selesai, deploy)\nQA: Verified (OK) → Reopen (masih bug) → Closed (final)\nJangan skip step.');
-    apxRow_('Open Blocker (Smoke)',
-        'Bug Open/In Progress/Reopen dengan priority Critical/High/Medium.\nTarget: Open Blocker = 0 sebelum release ke production.');
+    apxRow_('BUG BLOCKER',
+        'Bug Open/In Progress/Reopen/Fixed/Verified dengan priority Critical/High/Medium.\nTarget: BUG BLOCKER = 0 sebelum release ke production.');
     gap_();
 
     // 9. Performance Test
@@ -863,3 +1034,204 @@ function buildAppendix_(ss) {
         .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('center').setVerticalAlignment('middle');
     ws.setFrozenRows(0);
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// FIX K — UPDATE SUMMARY FIELDS (Project, Modul, Submodul restructure)
+// Ubah "Project / Sprint" → "Project", tambah "Modul" dan "Submodul"
+// Shift QA Lead & PIC QA down 1 row
+// ═══════════════════════════════════════════════════════════════════════
+
+function fixSummaryFields_(spreadsheetId) {
+    const src  = SpreadsheetApp.openById(spreadsheetId);
+    const summ = src.getSheetByName('Summary');
+    if (!summ) return 'skipped (no Summary)';
+
+    try {
+        // Cek apakah sudah di-update (cek label di A3 - seharusnya "Modul:" kalau sudah update)
+        const a3Label = String(summ.getRange(3, 1).getValue()).trim();
+        Logger.log('[fixSummaryFields] A3 label: "' + a3Label + '"');
+
+        if (a3Label === 'Modul:') {
+            Logger.log('[fixSummaryFields] Already updated, skipping');
+            return 'skipped (already updated)';
+        }
+
+        // Backup values yang akan di-shift
+        const oldA2 = String(summ.getRange(2, 1).getValue()).trim();  // Label: Project/Sprint atau Period
+        const oldB2 = summ.getRange(2, 2).getValue();  // Project/Sprint value
+        const oldA3 = String(summ.getRange(3, 1).getValue()).trim();  // Label: bisa Period atau QA Lead
+        const oldB3 = summ.getRange(3, 2).getValue();  // Period value atau env
+        const oldA4 = String(summ.getRange(4, 1).getValue()).trim();  // Label
+        const oldB4 = summ.getRange(4, 2).getValue();  // QA Lead value
+        const oldA5 = String(summ.getRange(5, 1).getValue()).trim();  // Label
+        const oldB5 = summ.getRange(5, 2).getValue();  // PIC QA value
+
+        Logger.log('[fixSummaryFields] Old structure: A2="'+oldA2+'" A3="'+oldA3+'" A4="'+oldA4+'" A5="'+oldA5+'"');
+
+        // Update labels (col A)
+        summ.getRange(2, 1).setValue('Project:');
+        summ.getRange(3, 1).setValue('Modul:');
+        summ.getRange(4, 1).setValue('Submodul:');
+        summ.getRange(5, 1).setValue('QA Lead:');
+        summ.getRange(6, 1).setValue('PIC QA:');
+
+        // Update values (col B)
+        // B2 = Project (keep old value jika ada)
+        if (oldB2) summ.getRange(2, 2).setValue(oldB2);
+
+        // B3 = Modul (kosongkan, akan diisi manual atau dari config)
+        summ.getRange(3, 2).setValue('');
+
+        // B4 = Submodul (ambil dari old B3 jika labelnya "Period")
+        const submodVal = (oldA3.toLowerCase().includes('period') || oldA3.toLowerCase().includes('sprint')) ? oldB3 : '';
+        summ.getRange(4, 2).setValue(submodVal || '');
+
+        // Add note untuk Submodul
+        summ.getRange(4, 2).setNote('Pisahkan dengan koma jika lebih dari 1 submodul.\nContoh: 1.1,1.2,1.3');
+
+        // B5 = QA Lead (shift dari old B4 jika labelnya QA)
+        const qaLeadVal = (oldA4.toLowerCase().includes('qa') || oldA4.toLowerCase().includes('lead')) ? oldB4 : '';
+        summ.getRange(5, 2).setValue(qaLeadVal || '');
+
+        // B6 = PIC QA (shift dari old B5 jika labelnya PIC)
+        const picVal = (oldA5.toLowerCase().includes('pic') || oldA5.toLowerCase().includes('qa')) ? oldB5 : '';
+        summ.getRange(6, 2).setValue(picVal || '');
+
+        Logger.log('[fixSummaryFields] Updated successfully');
+        return 'updated (fields restructured)';
+
+    } catch(e) {
+        Logger.log('[fixSummaryFields] Error: ' + e.message);
+        return 'error: ' + e.message;
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// FIX L — UPDATE QA TEAM LEAD LABEL
+// Ubah "QA Team Lead:" → "QA Lead:" di Summary
+// ═══════════════════════════════════════════════════════════════════════
+
+function fixQALeadLabel_(spreadsheetId) {
+    const src  = SpreadsheetApp.openById(spreadsheetId);
+    const summ = src.getSheetByName('Summary');
+    if (!summ) return 'skipped (no Summary)';
+
+    try {
+        // Cari label "QA Team Lead:" di kolom A (biasanya di row 4 atau 5)
+        const searchRange = summ.getRange('A1:A20');
+        const finder = searchRange.createTextFinder('QA Team Lead:').matchEntireCell(true);
+        const found = finder.findNext();
+
+        if (!found) {
+            // Cek apakah sudah "QA Lead:" (sudah di-update)
+            const finderNew = searchRange.createTextFinder('QA Lead:').matchEntireCell(true);
+            if (finderNew.findNext()) {
+                return 'skipped (already QA Lead:)';
+            }
+            return 'skipped (label not found)';
+        }
+
+        // Update label
+        const row = found.getRow();
+        summ.getRange(row, 1).setValue('QA Lead:');
+        Logger.log('[fixQALeadLabel] Updated row ' + row + ' from "QA Team Lead:" to "QA Lead:"');
+
+        return 'updated (QA Team Lead → QA Lead)';
+
+    } catch(e) {
+        Logger.log('[fixQALeadLabel] Error: ' + e.message);
+        return 'error: ' + e.message;
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// FIX M — UPDATE SUBMODUL NOTE
+// Update note di Submodul: "Login, Dashboard, Profile" → "1.1,1.2,1.3"
+// ═══════════════════════════════════════════════════════════════════════
+
+function fixSubmodulNote_(spreadsheetId) {
+    const src  = SpreadsheetApp.openById(spreadsheetId);
+    const summ = src.getSheetByName('Summary');
+    if (!summ) return 'skipped (no Summary)';
+
+    try {
+        // Cari label "Submodul:" di kolom A
+        const searchRange = summ.getRange('A1:A20');
+        const finder = searchRange.createTextFinder('Submodul:').matchEntireCell(true);
+        const found = finder.findNext();
+
+        if (!found) return 'skipped (Submodul label not found)';
+
+        const row = found.getRow();
+        const valueCell = summ.getRange(row, 2);  // Col B
+
+        // Cek note yang ada
+        const currentNote = valueCell.getNote();
+
+        // Jika note sudah benar, skip
+        if (currentNote && currentNote.includes('1.1,1.2,1.3')) {
+            return 'skipped (note already updated)';
+        }
+
+        // Update note
+        valueCell.setNote('Pisahkan dengan koma jika lebih dari 1 submodul.\nContoh: 1.1,1.2,1.3');
+        Logger.log('[fixSubmodulNote] Updated note at row ' + row);
+
+        return 'updated (note → 1.1,1.2,1.3)';
+
+    } catch(e) {
+        Logger.log('[fixSubmodulNote] Error: ' + e.message);
+        return 'error: ' + e.message;
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// FIX N — REMOVE PIC QA DROPDOWN
+// Hapus data validation (dropdown) di PIC QA, jadikan free text
+// ═══════════════════════════════════════════════════════════════════════
+
+function fixPICQADropdown_(spreadsheetId) {
+    const src  = SpreadsheetApp.openById(spreadsheetId);
+    const summ = src.getSheetByName('Summary');
+    if (!summ) return 'skipped (no Summary)';
+
+    try {
+        // Cari label "PIC QA:" atau "PIC / Team:" di kolom A
+        const searchRange = summ.getRange('A1:A20');
+        let finder = searchRange.createTextFinder('PIC QA:').matchEntireCell(true);
+        let found = finder.findNext();
+
+        if (!found) {
+            // Try alternatif label
+            finder = searchRange.createTextFinder('PIC / Team:').matchEntireCell(true);
+            found = finder.findNext();
+        }
+
+        if (!found) return 'skipped (PIC QA label not found)';
+
+        const row = found.getRow();
+        const valueCell = summ.getRange(row, 2);  // Col B
+
+        // Cek apakah ada data validation
+        const validation = valueCell.getDataValidation();
+        if (!validation) {
+            return 'skipped (already free text)';
+        }
+
+        // Hapus data validation
+        valueCell.setDataValidation(null);
+        Logger.log('[fixPICQADropdown] Removed dropdown at row ' + row);
+
+        return 'updated (dropdown removed)';
+
+    } catch(e) {
+        Logger.log('[fixPICQADropdown] Error: ' + e.message);
+        return 'error: ' + e.message;
+    }
+}
+
+
