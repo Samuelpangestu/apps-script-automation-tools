@@ -1566,6 +1566,62 @@ function createSummary(ss) {
   R += 2;
   // ── END SMOKE BLOCKER ─────────────────────────────────────────────
 
+  // ── PROD BUGS ROW ─────────────────────────────────────────────────
+  // Objective: berapa bug yang ada di Production environment
+  // Status: Open/In Progress/Reopen/Fixed/Verified (belum Closed)
+  // BugReport col I = Environment (row 5 onwards)
+  const PROD_BUGS_FORMULA =
+      'SUMPRODUCT(' +
+      '(ISNUMBER(MATCH(BugReport!D5:D2000,{\"Open\",\"In Progress\",\"Reopen\",\"Fixed\",\"Verified\"},0)))*' +
+      '(BugReport!I5:I2000=\"Production\")' +
+      ')';
+
+  // Separator label row
+  m_(R,L,1,LW);
+  ws.getRange(R,L).setValue('Bugs in Production ↓')
+      .setBackground('#D32F2F').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left')
+      .setVerticalAlignment('middle')
+      .setBorder(true,true,true,true,false,false,'#EF5350',SpreadsheetApp.BorderStyle.SOLID);
+  m_(R,R_,1,RW);
+  ws.getRange(R,R_).setValue('Bugs in Production ↓')
+      .setBackground('#D32F2F').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left')
+      .setVerticalAlignment('middle')
+      .setBorder(true,true,true,true,false,false,'#EF5350',SpreadsheetApp.BorderStyle.SOLID);
+  ws.setRowHeight(R,14); R++;
+
+  // Prod Bugs count label + value
+  bd(ws.getRange(R,L)).setValue('PROD BUGS:').setBackground('#FFEBEE').setFontFamily('Arial')
+      .setFontSize(9).setFontWeight('bold').setHorizontalAlignment('right')
+      .setFontColor('#C62828').setVerticalAlignment('middle');
+  m_(R,L+1,1,LW-1);
+  bd(ws.getRange(R,L+1)).setFormula('=IFERROR('+PROD_BUGS_FORMULA+',0)')
+      .setBackground('#FFCDD2').setFontFamily('Arial').setFontSize(14).setFontWeight('bold')
+      .setFontColor('#B71C1C').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  bd(ws.getRange(R,R_)).setValue('PROD BUGS:').setBackground('#FFEBEE').setFontFamily('Arial')
+      .setFontSize(9).setFontWeight('bold').setHorizontalAlignment('right')
+      .setFontColor('#B71C1C').setVerticalAlignment('middle');
+  m_(R,R_+1,1,RW-1);
+  bd(ws.getRange(R,R_+1)).setFormula('=IFERROR('+PROD_BUGS_FORMULA+',0)')
+      .setBackground('#FFCDD2').setFontFamily('Arial').setFontSize(14).setFontWeight('bold')
+      .setFontColor('#B71C1C').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R,28);
+
+  // Legend
+  const prodNote = ws.getRange(R, L+2);
+  prodNote.setValue('Target: 0 bugs di Production')
+      .setBackground('#FFF3E0').setFontColor('#E65100').setFontStyle('italic')
+      .setFontSize(7).setFontFamily('Arial').setHorizontalAlignment('left')
+      .setVerticalAlignment('middle');
+  ws.getRange(R,L+2).setNote(
+      'PROD BUGS = Bug yang Environment-nya Production dan belum Closed.\n' +
+      'Status: Open, In Progress, Reopen, Fixed, Verified.\n' +
+      'Target: 0 bugs di Production environment.'
+  );
+  R += 2;
+  // ── END PROD BUGS ─────────────────────────────────────────────────
+
   // E. COVERAGE PER SUBMODUL (below Bug Summary)
   // =====================================================================
   m_(R,L,1,LW); h_(ws.getRange(R,L),'#1565C0').setValue('E.  COVERAGE PER SUBMODUL  -  Web / Mobile');

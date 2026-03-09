@@ -807,28 +807,40 @@ function getPerfResult_(perfSheet) {
 }
 
 function getBugStats_(bugSheet, summarySheet) {
-  const empty={total:0,open:0,inprog:0,fixed:0,verified:0,critical:0,high:0,medium:0,low:0,blocker:0};
+  const empty={total:0,open:0,inprog:0,fixed:0,verified:0,critical:0,high:0,medium:0,low:0,blocker:0,prodBugs:0};
   if (!bugSheet) return empty;
   try {
     const rows=bugSheet.getDataRange().getValues().slice(4).filter(r=>r[0]&&r[0]!=='');
     const cnt=(fn)=>rows.filter(fn).length;
 
-    // Get blocker count from Summary sheet cell A17 (BUG BLOCKER row)
+    // Get blocker count from Summary sheet (more accurate - uses formula)
     let blockerCount = cnt(r=>['Open','In Progress','Reopen','Fixed','Verified'].includes(r[3])&&['Critical','High','Medium'].includes(r[2]));
+    let prodBugsCount = cnt(r=>['Open','In Progress','Reopen','Fixed','Verified'].includes(r[3])&&r[8]==='Production');
 
-    // Try to read from Summary sheet A17 if available (more accurate - uses formula)
+    // Try to read from Summary sheet if available
     if (summarySheet) {
       try {
-        const blockerCell = summarySheet.createTextFinder('BUG BLOCKER').matchEntireCell(false).findNext();
+        // Read BUG BLOCKER
+        const blockerCell = summarySheet.createTextFinder('Open Blocker:').matchEntireCell(false).findNext();
         if (blockerCell) {
           const blockerRow = blockerCell.getRow();
-          const blockerValue = summarySheet.getRange(blockerRow + 1, 1).getValue();  // Next row, col A
+          const blockerValue = summarySheet.getRange(blockerRow, 2).getValue();  // Same row, col B
           if (typeof blockerValue === 'number' && blockerValue >= 0) {
             blockerCount = blockerValue;
           }
         }
+
+        // Read PROD BUGS
+        const prodCell = summarySheet.createTextFinder('PROD BUGS:').matchEntireCell(false).findNext();
+        if (prodCell) {
+          const prodRow = prodCell.getRow();
+          const prodValue = summarySheet.getRange(prodRow, 2).getValue();  // Same row, col B
+          if (typeof prodValue === 'number' && prodValue >= 0) {
+            prodBugsCount = prodValue;
+          }
+        }
       } catch(e) {
-        Logger.log('Failed to read BUG BLOCKER from Summary: ' + e.message);
+        Logger.log('Failed to read bug metrics from Summary: ' + e.message);
       }
     }
 
@@ -843,6 +855,7 @@ function getBugStats_(bugSheet, summarySheet) {
       medium:  cnt(r=>r[2]==='Medium'),
       low:     cnt(r=>r[2]==='Low'),
       blocker: blockerCount,
+      prodBugs: prodBugsCount,
     };
   } catch(e) { return empty; }
 }
@@ -1240,7 +1253,7 @@ function buildOverview(ss) {
   ws.setTabColor('#0D47A1');
   ws.clear();
   initOverviewHeaders_(ws);
-  ws.getRange(5,1,1,25).merge()
+  ws.getRange(5,1,1,26).merge()
       .setValue('▶ Run refreshDashboard() untuk mengisi data')
       .setBackground('#FFF8E1').setFontColor('#E65100').setFontStyle('italic')
       .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
@@ -1248,7 +1261,7 @@ function buildOverview(ss) {
 }
 
 function initOverviewHeaders_(ws) {
-  const lastCol = Math.max(ws.getLastColumn()||1, 25);
+  const lastCol = Math.max(ws.getLastColumn()||1, 26);
   try { ws.getRange(1,1,4,lastCol).breakApart(); } catch(e) {}
   ws.getRange(1,1,4,lastCol).clearContent().clearFormat();
 
@@ -1260,49 +1273,53 @@ function initOverviewHeaders_(ws) {
         .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
   }
 
-  // Col widths — 25 cols (COMPACT VERSION)
-  // NEW LAYOUT: Project, Modul, Submodul, PIC QA | BUGS (3) | WEB (5) | SMOKE WEB (3) | API (5) | SMOKE API (3) | PERF | NOTES
-  [80,80,90,80, 48,52,56, 48,52,48,48,60, 56,60,52, 48,52,48,48,60, 56,60,52, 60, 140]
+  // Col widths — 26 cols (COMPACT VERSION)
+  // NEW LAYOUT: Project, Modul, Submodul, PIC QA | BUGS (4) | WEB (5) | SMOKE WEB (3) | API (5) | SMOKE API (3) | PERF | NOTES
+  [80,80,90,80, 48,52,56,52, 48,52,48,48,60, 56,60,52, 48,52,48,48,60, 56,60,52, 60, 140]
       .forEach((w,i)=>ws.setColumnWidth(i+1,w));
 
   // Row 1 — last refresh
-  ws.getRange(1,1,1,25).merge().setValue('Last refreshed: —')
+  ws.getRange(1,1,1,26).merge().setValue('Last refreshed: —')
       .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic')
       .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
   ws.setRowHeight(1,16);
 
   // Row 2 — title
-  h_(2,1,1,25,'QA DASHBOARD  |  PORTFOLIO OVERVIEW','#0D47A1','#FFFFFF',13);
+  h_(2,1,1,26,'QA DASHBOARD  |  PORTFOLIO OVERVIEW','#0D47A1','#FFFFFF',13);
   ws.setRowHeight(2,30);
 
   // Row 3 — group headers
-  // NEW: Bugs moved after MODULE INFO
+  // NEW: Bugs moved after MODULE INFO, added Prod Bugs
   h_(3,1, 1,4, 'MODULE INFO',    '#263238');
-  h_(3,5, 1,3, 'BUGS',           '#B71C1C');
-  h_(3,8, 1,5, 'WEB / MOBILE',   '#1565C0');
-  h_(3,13,1,3, '🔥 SMOKE WEB',   '#BF360C');
-  h_(3,16,1,5, 'API',             '#283593');
-  h_(3,21,1,3, '🔥 SMOKE API',   '#4A148C');
-  h_(3,24,1,1, 'PERF',            '#004D40');
-  h_(3,25,1,1, 'NOTES',           '#37474F');
+  h_(3,5, 1,4, 'BUGS',           '#B71C1C');
+  h_(3,9, 1,5, 'WEB / MOBILE',   '#1565C0');
+  h_(3,14,1,3, '🔥 SMOKE WEB',   '#BF360C');
+  h_(3,17,1,5, 'API',             '#283593');
+  h_(3,22,1,3, '🔥 SMOKE API',   '#4A148C');
+  h_(3,25,1,1, 'PERF',            '#004D40');
+  h_(3,26,1,1, 'NOTES',           '#37474F');
   ws.setRowHeight(3,22);
 
   // Row 4 — column headers
-  // NEW: Bugs moved after PIC QA
+  // NEW: Added Prod Bugs column
   ['Project','Modul','Submodul','PIC QA',
-    'Bugs','Blocker','Critical',
+    'Bugs','Blocker','Critical','Prod',
     'Total','Pass','Fail','Block','Pass%',
     'Total','Pass%','Exec%',
     'Total','Pass','Fail','Block','Pass%',
     'Total','Pass%','Exec%',
     'Perf','Notes'
   ].forEach((lbl,i)=>h_(4,i+1,1,1,lbl,'#1565C0'));
-  ws.getRange(4,13).setNote('Smoke Web: TC Priority Critical+High+Medium');
-  ws.getRange(4,14).setNote('Smoke Web Pass Rate (target ≥80%)');
-  ws.getRange(4,15).setNote('Smoke Web Exec Rate (% TC sudah ada hasil)');
-  ws.getRange(4,21).setNote('Smoke API: TC Priority Critical+High+Medium');
-  ws.getRange(4,22).setNote('Smoke API Pass Rate (target ≥80%)');
-  ws.getRange(4,23).setNote('Smoke API Exec Rate');
+  ws.getRange(4,5).setNote('Total bugs (all status kecuali Closed)');
+  ws.getRange(4,6).setNote('Bug Blocker (Priority Critical/High/Medium, Status Open/In Progress/Reopen)');
+  ws.getRange(4,7).setNote('Bugs dengan Priority Critical');
+  ws.getRange(4,8).setNote('Bugs di Production environment (belum Closed)');
+  ws.getRange(4,14).setNote('Smoke Web: TC Priority Critical+High+Medium');
+  ws.getRange(4,15).setNote('Smoke Web Pass Rate (target ≥80%)');
+  ws.getRange(4,16).setNote('Smoke Web Exec Rate (% TC sudah ada hasil)');
+  ws.getRange(4,22).setNote('Smoke API: TC Priority Critical+High+Medium');
+  ws.getRange(4,23).setNote('Smoke API Pass Rate (target ≥80%)');
+  ws.getRange(4,24).setNote('Smoke API Exec Rate');
   ws.setRowHeight(4,26);
   ws.setFrozenRows(4);
 }
@@ -1314,7 +1331,7 @@ function writeOverview(ss, allData) {
   initOverviewHeaders_(ws);  // safe rebuild — breakApart dulu
 
   const lastRow = Math.max(ws.getLastRow(),5);
-  if (lastRow>=5) ws.getRange(5,1,lastRow-4,25).clearContent().clearFormat();
+  if (lastRow>=5) ws.getRange(5,1,lastRow-4,26).clearContent().clearFormat();
 
   const rules = [];
 
@@ -1332,7 +1349,7 @@ function writeOverview(ss, allData) {
       return c;
     }
 
-    // NEW LAYOUT: Project, Modul, Submodul, PIC QA | BUGS (3) | WEB (5) | SMOKE WEB (3) | API (5) | SMOKE API (3) | PERF | NOTES
+    // NEW LAYOUT: Project, Modul, Submodul, PIC QA | BUGS (4) | WEB (5) | SMOKE WEB (3) | API (5) | SMOKE API (3) | PERF | NOTES
     cell(1,d.project||d.sprint||'');
     cell(2,d.module||'');
     ws.getRange(r,3).setValue(d.submodule||d.name).setBackground(bg).setFontFamily('Arial').setFontSize(9)
@@ -1340,86 +1357,86 @@ function writeOverview(ss, allData) {
         .setBorder(true,true,true,true,false,false,'#E0E0E0',SpreadsheetApp.BorderStyle.SOLID);
     cell(4,d.team||'');
 
-    // Bugs (moved here - col 5-7)
-    cell(5,bs.total||0); cell(6,bs.blocker||0); cell(7,bs.critical||0);
+    // Bugs (col 5-8) - added prodBugs
+    cell(5,bs.total||0); cell(6,bs.blocker||0); cell(7,bs.critical||0); cell(8,bs.prodBugs||0);
 
-    // Web (col 8-12)
-    cell(8,d.wTotal); cell(9,d.wPassed); cell(10,d.wFailed); cell(11,d.wBlocked);
-    cell(12,d.error?'ERR':d.wPassRate,'0%');
+    // Web (col 9-13)
+    cell(9,d.wTotal); cell(10,d.wPassed); cell(11,d.wFailed); cell(12,d.wBlocked);
+    cell(13,d.error?'ERR':d.wPassRate,'0%');
 
-    // Smoke Web (col 13-15)
-    cell(13,hasSmoke?d.wSmokeTotal:'--');
-    cell(14,hasSmoke?d.wSmokePassRate:'--',hasSmoke?'0%':null);
-    cell(15,hasSmoke?d.wSmokeExecRate:'--',hasSmoke?'0%':null);
+    // Smoke Web (col 14-16)
+    cell(14,hasSmoke?d.wSmokeTotal:'--');
+    cell(15,hasSmoke?d.wSmokePassRate:'--',hasSmoke?'0%':null);
+    cell(16,hasSmoke?d.wSmokeExecRate:'--',hasSmoke?'0%':null);
 
-    // API (col 16-20)
-    cell(16,d.aTotal); cell(17,d.aPassed); cell(18,d.aFailed); cell(19,d.aBlocked);
-    cell(20,d.error?'ERR':d.aPassRate,'0%');
+    // API (col 17-21)
+    cell(17,d.aTotal); cell(18,d.aPassed); cell(19,d.aFailed); cell(20,d.aBlocked);
+    cell(21,d.error?'ERR':d.aPassRate,'0%');
 
-    // Smoke API (col 21-23)
-    cell(21,hasSmoke?d.aSmokeTotal:'--');
-    cell(22,hasSmoke?d.aSmokePassRate:'--',hasSmoke?'0%':null);
-    cell(23,hasSmoke?d.aSmokeExecRate:'--',hasSmoke?'0%':null);
+    // Smoke API (col 22-24)
+    cell(22,hasSmoke?d.aSmokeTotal:'--');
+    cell(23,hasSmoke?d.aSmokePassRate:'--',hasSmoke?'0%':null);
+    cell(24,hasSmoke?d.aSmokeExecRate:'--',hasSmoke?'0%':null);
 
-    // Perf (col 24)
-    cell(24,d.perfResult);
+    // Perf (col 25)
+    cell(25,d.perfResult);
 
-    // Notes (col 25)
-    ws.getRange(r,25).setValue(d.error||'').setBackground(bg).setFontFamily('Arial').setFontSize(8)
+    // Notes (col 26)
+    ws.getRange(r,26).setValue(d.error||'').setBackground(bg).setFontFamily('Arial').setFontSize(8)
         .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true)
         .setBorder(true,true,true,true,false,false,'#E0E0E0',SpreadsheetApp.BorderStyle.SOLID);
     ws.setRowHeight(r,22);
 
     // RAG Pass%
-    [12,20].forEach(col=>rules.push(...ragRules_(ws.getRange(r,col),0.8,0.5)));
+    [13,21].forEach(col=>rules.push(...ragRules_(ws.getRange(r,col),0.8,0.5)));
     // RAG Smoke Pass%
-    [14,22].forEach(col=>rules.push(...ragRules_(ws.getRange(r,col),0.8,0.5)));
+    [15,23].forEach(col=>rules.push(...ragRules_(ws.getRange(r,col),0.8,0.5)));
     // RAG Smoke Exec%
-    [15,23].forEach(col=>rules.push(...ragRules_(ws.getRange(r,col),0.7,0.4)));
+    [16,24].forEach(col=>rules.push(...ragRules_(ws.getRange(r,col),0.7,0.4)));
     // Failed > 0
-    [10,18].forEach(col=>rules.push(SpreadsheetApp.newConditionalFormatRule()
+    [11,19].forEach(col=>rules.push(SpreadsheetApp.newConditionalFormatRule()
         .whenNumberGreaterThan(0).setBackground('#FFCDD2').setFontColor('#C62828').setBold(true)
         .setRanges([ws.getRange(r,col)]).build()));
     // Blocked > 0
-    [11,19].forEach(col=>rules.push(SpreadsheetApp.newConditionalFormatRule()
+    [12,20].forEach(col=>rules.push(SpreadsheetApp.newConditionalFormatRule()
         .whenNumberGreaterThan(0).setBackground('#FFE0B2').setFontColor('#E65100').setBold(true)
         .setRanges([ws.getRange(r,col)]).build()));
-    // Blocker/Critical > 0
+    // Blocker/Critical/ProdBugs > 0
     rules.push(SpreadsheetApp.newConditionalFormatRule()
         .whenNumberGreaterThan(0).setBackground('#FFCDD2').setFontColor('#B71C1C').setBold(true)
-        .setRanges([ws.getRange(r,6),ws.getRange(r,7)]).build());
+        .setRanges([ws.getRange(r,6),ws.getRange(r,7),ws.getRange(r,8)]).build());
     // Perf
     [['PASS','#C8E6C9','#1B5E20'],['FAIL','#FFCDD2','#C62828'],['--','#F5F5F5','#9E9E9E']]
         .forEach(([v,bg2,fg])=>rules.push(SpreadsheetApp.newConditionalFormatRule()
             .whenTextEqualTo(v).setBackground(bg2).setFontColor(fg).setBold(true)
-            .setRanges([ws.getRange(r,24)]).build()));
+            .setRanges([ws.getRange(r,25)]).build()));
   });
 
-  // TOTAL row - updated for new layout
+  // TOTAL row - updated for new layout with prodBugs
   if (allData.length > 0) {
     const tr = 5+allData.length;
     ws.getRange(tr,1,1,4).merge().setValue('TOTAL / AVERAGE')
         .setBackground('#E3F2FD').setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
         .setHorizontalAlignment('left').setVerticalAlignment('middle');
-    // Bugs totals (col 5-7)
-    [[5,'total'],[6,'blocker'],[7,'critical']].forEach(([col,key])=>
+    // Bugs totals (col 5-8) - added prodBugs
+    [[5,'total'],[6,'blocker'],[7,'critical'],[8,'prodBugs']].forEach(([col,key])=>
         ws.getRange(tr,col).setValue(allData.reduce((a,d)=>a+((d.bugStats||{})[key]||0),0))
             .setBackground('#DDEEFF').setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center'));
-    // Web totals (col 8-11)
-    [[8,'wTotal'],[9,'wPassed'],[10,'wFailed'],[11,'wBlocked']].forEach(([col,key])=>{
+    // Web totals (col 9-12)
+    [[9,'wTotal'],[10,'wPassed'],[11,'wFailed'],[12,'wBlocked']].forEach(([col,key])=>{
       ws.getRange(tr,col).setValue(allData.reduce((a,d)=>a+(d[key]||0),0))
           .setBackground('#DDEEFF').setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
     });
-    // API totals (col 16-19)
-    [[16,'aTotal'],[17,'aPassed'],[18,'aFailed'],[19,'aBlocked']].forEach(([col,key])=>{
+    // API totals (col 17-20)
+    [[17,'aTotal'],[18,'aPassed'],[19,'aFailed'],[20,'aBlocked']].forEach(([col,key])=>{
       ws.getRange(tr,col).setValue(allData.reduce((a,d)=>a+(d[key]||0),0))
           .setBackground('#DDEEFF').setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
     });
     // Averages for Pass%, Smoke Pass%
     const avg=(key)=>allData.reduce((a,d)=>a+(d[key]||0),0)/allData.length;
-    [[12,'wPassRate'],[20,'aPassRate'],[14,'wSmokePassRate'],[22,'aSmokePassRate']].forEach(([col,key])=>
+    [[13,'wPassRate'],[21,'aPassRate'],[15,'wSmokePassRate'],[23,'aSmokePassRate']].forEach(([col,key])=>
         ws.getRange(tr,col).setValue(avg(key)).setNumberFormat('0%')
-            .setBackground(col>=13&&col<=15||col>=21&&col<=23?'#FFF3E0':'#DDEEFF')
+            .setBackground(col>=14&&col<=16||col>=22&&col<=24?'#FFF3E0':'#DDEEFF')
             .setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center'));
     ws.setRowHeight(tr,22);
   }
@@ -1437,8 +1454,8 @@ function buildOverviewCharts_(ws, allData) {
   tryChart_(()=>ws.insertChart(ws.newChart()
       .setChartType(Charts.ChartType.BAR)
       .addRange(ws.getRange(4,2,n+1,1))    // Modul
-      .addRange(ws.getRange(4,12,n+1,1))   // Web Pass%
-      .addRange(ws.getRange(4,20,n+1,1))   // API Pass%
+      .addRange(ws.getRange(4,13,n+1,1))   // Web Pass%
+      .addRange(ws.getRange(4,21,n+1,1))   // API Pass%
       .setPosition(cRow,1,0,0)
       .setOption('title','Pass Rate — Web vs API (per Modul)')
       .setOption('hAxis',{title:'Pass Rate',format:'#%',minValue:0,maxValue:1})
