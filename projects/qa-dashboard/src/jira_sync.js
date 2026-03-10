@@ -37,10 +37,11 @@ const JIRA_MODUL_FIELD_ = {
   'bgn-peruri':    'cf[10289]',  // customfield_10289
 };
 
+// JQL fetch SEMUA bug (termasuk Closed) untuk detect perubahan status
+// Cleanup logic akan hapus bug yang Closed/Won't Fix dari sheet
 const JIRA_JQL_ =
   'project = "{P}" AND issuetype = Bug ' +
   'AND "{F}" = "{M}" ' +
-  'AND status NOT IN (Closed, "Won\'t Fix") ' +
   'ORDER BY priority ASC, updated DESC';
 // Custom fields for Environment/Steps/Expected/Actual (per instance)
 const JIRA_CUSTOM_FIELDS_ = {
@@ -571,13 +572,40 @@ function _syncMod_(mod, cred, inclStatus) {
   if (!issues) return 'failed (fetch error)';
   const idx = _bugIdx_(bugSh);
   const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
-  let ins=0, upd=0;
+  let ins=0, upd=0, del=0;
   const instUrl = JIRA_INSTANCES_[mod.inst];
+
+  // Track which Jira issues we're syncing (active bugs)
+  const jiraKeys = new Set();
+
   issues.forEach(iss => {
-    if (idx[iss.key]!==undefined) { _upd_(bugSh,idx[iss.key],iss,inclStatus,now,instUrl,mod.inst); upd++; }
-    else                          { _ins_(bugSh,iss,instUrl,now,mod,mod.inst); ins++; }
+    const statusName = iss.fields.status && iss.fields.status.name;
+    const isClosedStatus = statusName === 'Closed' || statusName === "Won't Fix";
+
+    jiraKeys.add(iss.key);
+
+    // If bug is Closed/Won't Fix, mark for deletion (will be cleaned up below)
+    if (isClosedStatus) {
+      // Skip sync for closed bugs - will be deleted in cleanup phase
+      return;
+    }
+
+    // Sync active bugs (not Closed/Won't Fix)
+    if (idx[iss.key]!==undefined) {
+      _upd_(bugSh,idx[iss.key],iss,inclStatus,now,instUrl,mod.inst);
+      upd++;
+    } else {
+      _ins_(bugSh,iss,instUrl,now,mod,mod.inst);
+      ins++;
+    }
   });
-  return ins+' inserted, '+upd+' updated';
+
+  // Cleanup phase: Remove bugs from sheet that are Closed/Won't Fix in Jira
+  del = _cleanupClosedBugs_(bugSh, issues);
+
+  let msg = ins+' inserted, '+upd+' updated';
+  if (del > 0) msg += ', '+del+' deleted (Closed/Won\'t Fix)';
+  return msg;
 }
 
 function _fetch_(instKey, projKey, modulName, cred) {
@@ -773,6 +801,54 @@ function _ins_(sh,iss,instUrl,now,mod,instKey){
 
   sh.getRange(nr,BC_.JIRA_KEY).setFontColor('#1565C0').setFontWeight('bold');
   sh.getRange(nr,BC_.LINK).setFontColor('#1A73E8');
+}
+
+/**
+ * Cleanup function: Remove bugs from sheet that are Closed/Won't Fix in Jira
+ * @param {Sheet} bugSh - BugReport sheet
+ * @param {Array} jiraIssues - Array of issues from Jira (includes all statuses)
+ * @return {number} Number of rows deleted
+ */
+function _cleanupClosedBugs_(bugSh, jiraIssues) {
+  const last = bugSh.getLastRow();
+  if (last < BUG_START_) return 0;
+
+  // Build map of Jira key -> status
+  const jiraStatusMap = {};
+  jiraIssues.forEach(iss => {
+    const key = iss.key;
+    const statusName = iss.fields.status && iss.fields.status.name;
+    jiraStatusMap[key] = statusName;
+  });
+
+  // Get all rows from sheet
+  const data = bugSh.getRange(BUG_START_, 1, last - BUG_START_ + 1, BUG_COLS_).getValues();
+  const rowsToDelete = [];
+
+  // Find rows where Jira status is Closed/Won't Fix
+  data.forEach((row, idx) => {
+    const jiraKey = String(row[BC_.JIRA_KEY - 1]).trim();
+
+    if (!jiraKey) return; // Skip rows without Jira key (manual bugs)
+
+    const jiraStatus = jiraStatusMap[jiraKey];
+
+    // If bug exists in Jira and status is Closed/Won't Fix, mark for deletion
+    if (jiraStatus === 'Closed' || jiraStatus === "Won't Fix") {
+      rowsToDelete.push(BUG_START_ + idx);
+    }
+  });
+
+  // Delete rows in reverse order (from bottom to top) to maintain row numbers
+  if (rowsToDelete.length > 0) {
+    Logger.log('🗑️  Deleting ' + rowsToDelete.length + ' Closed/Won\'t Fix bugs from sheet');
+    rowsToDelete.reverse().forEach(rowNum => {
+      bugSh.deleteRow(rowNum);
+      Logger.log('  Deleted row ' + rowNum);
+    });
+  }
+
+  return rowsToDelete.length;
 }
 
 
