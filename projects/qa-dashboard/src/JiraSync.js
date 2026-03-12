@@ -43,21 +43,23 @@ const JIRA_JQL_ =
   'project = "{P}" AND issuetype = Bug ' +
   'AND "{F}" = "{M}" ' +
   'ORDER BY priority ASC, updated DESC';
-// Custom fields for Environment/Steps/Expected/Actual (per instance)
+// Custom fields for Feature/Environment/Steps/Expected/Actual (per instance)
 const JIRA_CUSTOM_FIELDS_ = {
-  'digitalperuri': ',customfield_10095,customfield_10560,customfield_10561,customfield_10562',  // Environment, Step To Reproduce, Expectation Result, Actual Result
-  'bgn-peruri': ',customfield_10291,customfield_10292,customfield_10293,customfield_10294'     // Environment, Step To Reproduce, Expectation Result, Actual Result
+  'digitalperuri': ',customfield_11090,customfield_10095,customfield_10560,customfield_10561,customfield_10562',  // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result
+  'bgn-peruri': ',customfield_10298,customfield_10291,customfield_10292,customfield_10293,customfield_10294'     // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result
 };
 
 // Custom field mappings for accessing fields by instance
 const JIRA_FIELD_MAP_ = {
   'digitalperuri': {
+    feature: 'customfield_11090',
     environment: 'customfield_10095',
     steps: 'customfield_10560',
     expected: 'customfield_10561',
     actual: 'customfield_10562'
   },
   'bgn-peruri': {
+    feature: 'customfield_10298',
     environment: 'customfield_10291',
     steps: 'customfield_10292',
     expected: 'customfield_10293',
@@ -612,10 +614,15 @@ function _fetch_(instKey, projKey, modulName, cred) {
   const base = JIRA_INSTANCES_[instKey];
   const modulField = JIRA_MODUL_FIELD_[instKey] || 'cf[10097]';  // Default to digitalperuri field
   const customFields = JIRA_CUSTOM_FIELDS_[instKey] || '';  // Custom fields per instance
+
+  // Check if modulName is numeric - if so, don't quote it in JQL
+  const isNumeric = /^\d+$/.test(modulName);
+  const modulValue = isNumeric ? modulName : '"' + modulName + '"';
+
   let jql  = JIRA_JQL_
     .replace('{P}', projKey)
     .replace('{F}', modulField)
-    .replace('{M}', modulName || '');
+    .replace('"{M}"', modulValue);  // Replace including quotes
   const auth = Utilities.base64Encode(cred.email+':'+cred.token);
   const hdrs = {'Authorization':'Basic '+auth,'Content-Type':'application/json'};
   const all = [];
@@ -729,6 +736,10 @@ function _upd_(sh,row,iss,inclStatus,now,instUrl,instKey){
   if(f.summary)   sh.getRange(row,BC_.TITLE).setValue(f.summary);
   const d=_adf_(f.description); if(d) sh.getRange(row,BC_.DESC).setValue(d);
 
+  // Sync Feature field from Jira
+  const feature = f[fieldMap.feature];
+  if(feature) sh.getRange(row,BC_.FEATURE).setValue(feature);
+
   // Use field map for custom fields with proper extraction
   const env = _dropdown_(f[fieldMap.environment]);
   if(env) sh.getRange(row,BC_.ENV).setValue(env);
@@ -767,6 +778,7 @@ function _ins_(sh,iss,instUrl,now,mod,instKey){
   row[BC_.TYPE-1]     = type;
   row[BC_.PRIORITY-1] = _prio_(f.priority&&f.priority.name)||'';
   row[BC_.STATUS-1]   = _stat_(f.status&&f.status.name)||'Open';
+  row[BC_.FEATURE-1]  = f[fieldMap.feature]||'';  // Feature from Jira
   row[BC_.SUBMODUL-1] = mod.submodule||'';
   row[BC_.TITLE-1]    = f.summary||'';
   row[BC_.DESC-1]     = _adf_(f.description);
@@ -841,10 +853,8 @@ function _cleanupClosedBugs_(bugSh, jiraIssues) {
 
   // Delete rows in reverse order (from bottom to top) to maintain row numbers
   if (rowsToDelete.length > 0) {
-    Logger.log('🗑️  Deleting ' + rowsToDelete.length + ' Closed/Won\'t Fix bugs from sheet');
     rowsToDelete.reverse().forEach(rowNum => {
       bugSh.deleteRow(rowNum);
-      Logger.log('  Deleted row ' + rowNum);
     });
   }
 
