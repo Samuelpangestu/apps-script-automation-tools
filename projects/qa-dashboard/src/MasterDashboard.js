@@ -182,6 +182,10 @@ function createDashboard() {
   buildCoverage(ss);
   buildHistory(ss);
   buildRaw(ss);
+
+  // Add comprehensive notes to Dashboard headers
+  addNotesToDashboard();
+
   ss.setActiveSheet(ss.getSheetByName('Config'));
   safeAlert_('Dashboard berhasil dibuat!\n\nLangkah selanjutnya:\n1. Isi tab Config dengan Spreadsheet ID modul\n2. Isi tab Credentials dengan Jira credentials\n3. Data Modul/Submodul/QA Lead/PIC QA akan otomatis dari QATM Summary\n4. Jalankan refreshDashboard()');
 }
@@ -1330,7 +1334,8 @@ function writeOverview(ss, allData) {
 
   initOverviewHeaders_(ws);  // safe rebuild — breakApart dulu
 
-  const lastRow = Math.max(ws.getLastRow(),5);
+  // Clear ALL data rows (not just lastRow which may have old inactive module data)
+  const lastRow = ws.getMaxRows();
   if (lastRow>=5) ws.getRange(5,1,lastRow-4,26).clearContent().clearFormat();
 
   const rules = [];
@@ -1357,24 +1362,24 @@ function writeOverview(ss, allData) {
         .setBorder(true,true,true,true,false,false,'#E0E0E0',SpreadsheetApp.BorderStyle.SOLID);
     cell(4,d.team||'');
 
-    // Bugs (col 5-8) - added prodBugs
-    cell(5,bs.total||0); cell(6,bs.blocker||0); cell(7,bs.critical||0); cell(8,bs.prodBugs||0);
+    // Bugs (col 5-8) - added prodBugs, all should be count format
+    cell(5,bs.total||0,'0'); cell(6,bs.blocker||0,'0'); cell(7,bs.critical||0,'0'); cell(8,bs.prodBugs||0,'0');
 
     // Web (col 9-13)
-    cell(9,d.wTotal); cell(10,d.wPassed); cell(11,d.wFailed); cell(12,d.wBlocked);
+    cell(9,d.wTotal,'0'); cell(10,d.wPassed,'0'); cell(11,d.wFailed,'0'); cell(12,d.wBlocked,'0'); // Fixed: all should be count format
     cell(13,d.error?'ERR':d.wPassRate,'0%');
 
     // Smoke Web (col 14-16)
-    cell(14,hasSmoke?d.wSmokeTotal:'--');
+    cell(14,hasSmoke?d.wSmokeTotal:'--','0'); // Fixed: should be count, not percentage
     cell(15,hasSmoke?d.wSmokePassRate:'--',hasSmoke?'0%':null);
     cell(16,hasSmoke?d.wSmokeExecRate:'--',hasSmoke?'0%':null);
 
     // API (col 17-21)
-    cell(17,d.aTotal); cell(18,d.aPassed); cell(19,d.aFailed); cell(20,d.aBlocked);
+    cell(17,d.aTotal,'0'); cell(18,d.aPassed,'0'); cell(19,d.aFailed,'0'); cell(20,d.aBlocked,'0'); // Fixed: all should be count format
     cell(21,d.error?'ERR':d.aPassRate,'0%');
 
     // Smoke API (col 22-24)
-    cell(22,hasSmoke?d.aSmokeTotal:'--');
+    cell(22,hasSmoke?d.aSmokeTotal:'--','0'); // Fixed: should be count, not percentage
     cell(23,hasSmoke?d.aSmokePassRate:'--',hasSmoke?'0%':null);
     cell(24,hasSmoke?d.aSmokeExecRate:'--',hasSmoke?'0%':null);
 
@@ -1418,23 +1423,29 @@ function writeOverview(ss, allData) {
     ws.getRange(tr,1,1,4).merge().setValue('TOTAL / AVERAGE')
         .setBackground('#E3F2FD').setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
         .setHorizontalAlignment('left').setVerticalAlignment('middle');
-    // Bugs totals (col 5-8) - added prodBugs
+    // Bugs totals (col 5-8) - added prodBugs, add number format
     [[5,'total'],[6,'blocker'],[7,'critical'],[8,'prodBugs']].forEach(([col,key])=>
-        ws.getRange(tr,col).setValue(allData.reduce((a,d)=>a+((d.bugStats||{})[key]||0),0))
+        ws.getRange(tr,col).setValue(allData.reduce((a,d)=>a+((d.bugStats||{})[key]||0),0)).setNumberFormat('0')
             .setBackground('#DDEEFF').setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center'));
-    // Web totals (col 9-12)
+    // Web totals (col 9-12) - Fixed: add number format
     [[9,'wTotal'],[10,'wPassed'],[11,'wFailed'],[12,'wBlocked']].forEach(([col,key])=>{
-      ws.getRange(tr,col).setValue(allData.reduce((a,d)=>a+(d[key]||0),0))
+      ws.getRange(tr,col).setValue(allData.reduce((a,d)=>a+(d[key]||0),0)).setNumberFormat('0')
           .setBackground('#DDEEFF').setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
     });
-    // API totals (col 17-20)
+    // Smoke Web Total (col 14) - Fixed: should be count sum, not average
+    ws.getRange(tr,14).setValue(allData.reduce((a,d)=>a+(d.wSmokeTotal||0),0)).setNumberFormat('0')
+        .setBackground('#FFF3E0').setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
+    // API totals (col 17-20) - Fixed: add number format
     [[17,'aTotal'],[18,'aPassed'],[19,'aFailed'],[20,'aBlocked']].forEach(([col,key])=>{
-      ws.getRange(tr,col).setValue(allData.reduce((a,d)=>a+(d[key]||0),0))
+      ws.getRange(tr,col).setValue(allData.reduce((a,d)=>a+(d[key]||0),0)).setNumberFormat('0')
           .setBackground('#DDEEFF').setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
     });
-    // Averages for Pass%, Smoke Pass%
+    // Smoke API Total (col 22) - Fixed: should be count sum, not average
+    ws.getRange(tr,22).setValue(allData.reduce((a,d)=>a+(d.aSmokeTotal||0),0)).setNumberFormat('0')
+        .setBackground('#FFF3E0').setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
+    // Averages for Pass%, Smoke Pass%, Smoke Exec%
     const avg=(key)=>allData.reduce((a,d)=>a+(d[key]||0),0)/allData.length;
-    [[13,'wPassRate'],[21,'aPassRate'],[15,'wSmokePassRate'],[23,'aSmokePassRate']].forEach(([col,key])=>
+    [[13,'wPassRate'],[21,'aPassRate'],[15,'wSmokePassRate'],[16,'wSmokeExecRate'],[23,'aSmokePassRate'],[24,'aSmokeExecRate']].forEach(([col,key])=>
         ws.getRange(tr,col).setValue(avg(key)).setNumberFormat('0%')
             .setBackground(col>=14&&col<=16||col>=22&&col<=24?'#FFF3E0':'#DDEEFF')
             .setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center'));
@@ -1466,8 +1477,8 @@ function buildOverviewCharts_(ws, allData) {
   tryChart_(()=>ws.insertChart(ws.newChart()
       .setChartType(Charts.ChartType.BAR)
       .addRange(ws.getRange(4,2,n+1,1))    // Modul
-      .addRange(ws.getRange(4,14,n+1,1))   // Smoke Web Pass%
-      .addRange(ws.getRange(4,22,n+1,1))   // Smoke API Pass%
+      .addRange(ws.getRange(4,15,n+1,1))   // Smoke Web Pass% (col 15, not 14!)
+      .addRange(ws.getRange(4,23,n+1,1))   // Smoke API Pass% (col 23, not 22!)
       .setPosition(cRow,9,0,0)
       .setOption('title','🔥 Smoke Pass Rate — Web vs API (per Modul)')
       .setOption('hAxis',{title:'Pass Rate',format:'#%',minValue:0,maxValue:1})
@@ -1571,7 +1582,8 @@ function writeSmoke(ss, allData) {
 
   initSmokeHeaders_(ws);
 
-  const lastRow=Math.max(ws.getLastRow(),5);
+  // Clear ALL data rows to remove inactive modules
+  const lastRow=ws.getMaxRows();
   if (lastRow>=5) ws.getRange(5,1,lastRow-4,13).clearContent().clearFormat();
 
   const rules=[];
@@ -1761,7 +1773,8 @@ function buildBlockers(ss) {
 
 function writeBlockers(ss, allData) {
   const ws=ss.getSheetByName('Blockers'); if(!ws)return;
-  const lastRow=Math.max(ws.getLastRow(),3);
+  // Clear ALL data rows to remove inactive modules
+  const lastRow=ws.getMaxRows();
   if(lastRow>=3)ws.getRange(3,1,lastRow-2,8).clearContent().clearFormat();
   const all=[];
   allData.forEach(d=>d.blockers.forEach(b=>all.push({...b,refreshed:d.refreshed})));
@@ -1824,7 +1837,8 @@ function buildCoverage(ss) {
 
 function writeCoverage(ss, allData) {
   const ws=ss.getSheetByName('Coverage'); if(!ws)return;
-  const lastRow=Math.max(ws.getLastRow(),3);
+  // Clear ALL data rows to remove inactive modules
+  const lastRow=ws.getMaxRows();
   if(lastRow>=3)ws.getRange(3,1,lastRow-2,8).clearContent().clearFormat();
   let r=3; const rules=[];
   allData.forEach(d=>{
