@@ -16,7 +16,7 @@
  *   Config   — daftar modul (Active, Project, Module, SubModule, PIC, QA Lead, SpreadsheetID)
  *   Overview — KPI portfolio: WEB | SMOKE WEB | API | SMOKE API | BUGS (25 col)
  *   Smoke    — dedicated Smoke Test view + 5 charts per modul
- *   Blockers — TC Critical/High yang FAILED/BLOCKED
+ *   Failure Scenario — TC Priority Critical/High/Medium yang FAILED/BLOCKED
  *   Coverage — coverage per SubModul
  *   History  — trend data tiap refresh (termasuk Smoke trend)
  *   _Raw     — cache internal (jangan edit manual)
@@ -48,15 +48,19 @@ function onOpen() {
   ui.createMenu('🎯 QA Dashboard')
     .addSubMenu(ui.createMenu('📊 Dashboard')
       .addItem('Create Dashboard (First Time)', 'createDashboard')
-      .addItem('Refresh Data from Modules', 'refreshDashboard')
       .addSeparator()
-      .addItem('Setup Auto-Refresh Trigger (10 min)', 'setupTrigger'))
+      .addItem('▶️ Manual Sync + Refresh', 'manualSyncAndRefresh')
+      .addItem('🚀 Setup Auto-Refresh Trigger', 'setupAutoRefreshTrigger')
+      .addSeparator()
+      .addItem('⚙️ Refresh Data Only (No Jira Sync)', 'refreshDashboard'))
     .addSubMenu(ui.createMenu('🔔 Notifications')
-      .addItem('Setup Notifications (Chat & Email)', 'setupNotifications')
-      .addItem('Test Notification Now', 'sendBlockerNotification')
+      .addItem('⚙️ Setup Notifications', 'setupDailyBlockerNotification')
+      .addItem('✅ Test Notification Now', 'sendBlockerNotification')
       .addSeparator()
-      .addItem('Setup Daily Notification Trigger', 'setupDailyBlockerNotification')
-      .addItem('Remove Notification Trigger', 'removeDailyBlockerNotification'))
+      .addItem('❌ Remove Notification Trigger', 'removeDailyBlockerNotification')
+      .addSeparator()
+      .addItem('📱 WhatsApp: Get Groups', 'menuTestGetGroups')
+      .addItem('📱 WhatsApp: Send Test', 'menuTestSendToGroup'))
     .addSubMenu(ui.createMenu('🔄 Jira Sync')
       .addItem('Sync All Modules from Jira', 'syncAllJira')
       .addItem('Show Jira JQL for Module', 'showJiraJQL'))
@@ -77,7 +81,7 @@ function showQuickStartGuide() {
 
       <h3 style="color: #0D47A1;">📋 Step 1: Create Dashboard</h3>
       <p>Menu: <b>🎯 QA Dashboard > 📊 Dashboard > Create Dashboard (First Time)</b></p>
-      <p>This creates all tabs: Config, Overview, Smoke, Blockers, Coverage, History</p>
+      <p>This creates all tabs: Config, Overview, Smoke, Failure Scenario, Coverage, History</p>
 
       <h3 style="color: #0D47A1;">📝 Step 2: Add Modules to Config</h3>
       <p>Go to <b>Config</b> tab and fill in:</p>
@@ -88,13 +92,18 @@ function showQuickStartGuide() {
         <li><b>Column I-J (Jira Instance & Project):</b> For Jira sync</li>
       </ul>
 
-      <h3 style="color: #0D47A1;">🔄 Step 3: Refresh Data</h3>
-      <p>Menu: <b>🎯 QA Dashboard > 📊 Dashboard > Refresh Data from Modules</b></p>
-      <p>This pulls data from all active modules</p>
+      <h3 style="color: #0D47A1;">🔄 Step 3: Sync & Refresh Data</h3>
+      <p><b>Option A - Manual (One-time):</b></p>
+      <p>Menu: <b>🎯 QA Dashboard > 📊 Dashboard > ▶️ Manual Sync + Refresh</b></p>
+      <p>OR click button <b>▶️ RUN NOW (MANUAL)</b> in Config tab (R7)</p>
+      <p>Sequential execution: Jira Sync → Dashboard Refresh</p>
+
+      <p><b>Option B - Auto (Scheduled):</b></p>
+      <p>See Step 5 below</p>
 
       <h3 style="color: #0D47A1;">🔔 Step 4: Setup Notifications (Optional)</h3>
-      <p>Menu: <b>🎯 QA Dashboard > 🔔 Notifications > Setup Notifications</b></p>
-      <p>Configure Google Chat webhook and/or email recipients for daily blocker alerts</p>
+      <p>Menu: <b>🎯 QA Dashboard > 🔔 Notifications > ⚙️ Setup Notifications</b></p>
+      <p>Configure Google Chat, Email, and WhatsApp for automatic daily blocker alerts</p>
 
       <h3 style="color: #0D47A1;">⏰ Step 5: Setup Auto-Refresh (Optional)</h3>
       <p>Go to <b>Config</b> tab, scroll right to columns Q-R:</p>
@@ -102,8 +111,12 @@ function showQuickStartGuide() {
         <li><b>Column Q (Refresh Interval):</b> Set interval in minutes (1-60)</li>
         <li><b>Column R (Enable Auto Refresh):</b> Check to enable</li>
       </ul>
-      <p>Then run: <b>Menu > 🎯 QA Dashboard > 📊 Dashboard > Setup Auto-Refresh Trigger</b></p>
-      <p>Dashboard will auto-refresh (including Jira sync) every X minutes</p>
+      <p>Then click button <b>🚀 SETUP AUTO TRIGGER</b> in Config (Q7)</p>
+      <p>OR Menu: <b>🎯 QA Dashboard > 📊 Dashboard > 🚀 Setup Auto-Refresh Trigger</b></p>
+      <p><b>⚡ Sequential execution:</b> Jira Sync → Dashboard Refresh every X minutes</p>
+      <p style="background: #FFF3E0; padding: 8px; border-left: 4px solid #FF6F00;">
+        <b>💡 Benefit:</b> Dashboard akan selalu punya data terbaru dari Jira!
+      </p>
 
       <hr style="margin: 20px 0;">
       <p style="color: #666; font-size: 12px;">
@@ -133,28 +146,15 @@ function setupNotifications() {
   const ui = SpreadsheetApp.getUi();
 
   const msg =
-    '🔔 SETUP NOTIFICATIONS & AUTO-REFRESH\n\n' +
-    'Di Config tab (scroll right), ada 3 section:\n\n' +
-    '📱 GOOGLE CHAT (kolom L-N)\n' +
-    '1. Buat webhook di Google Chat Space:\n' +
-    '   Space Settings > Apps & integrations > Webhooks\n' +
-    '2. Isi webhook URL di kolom L4\n' +
-    '3. Set waktu notifikasi (jam 0-23) di M4\n' +
-    '4. Check N4 untuk aktifkan\n\n' +
-    '📧 EMAIL (kolom O-P)\n' +
-    '1. Isi email recipients (pisah koma) di O4\n' +
-    '   Contoh: dev@company.com, qa@company.com\n' +
-    '2. Check P4 untuk aktifkan\n\n' +
-    '🔄 AUTO REFRESH (kolom Q-R)\n' +
-    '1. Set interval (1-60 menit) di Q4\n' +
-    '2. Check R4 untuk aktifkan\n' +
-    '3. Run: Setup Auto-Refresh Trigger dari menu\n\n' +
-    '────────────────────────────────\n' +
-    'Test notification:\n' +
-    '🎯 QA Dashboard > 🔔 Notifications > Test Notification Now\n\n' +
-    'Setup daily blocker notification:\n' +
-    '🎯 QA Dashboard > 🔔 Notifications > Setup Daily Notification Trigger\n\n' +
-    'Open Config tab now?';
+    '⚠️ DEPRECATED MENU\n\n' +
+    'Menu ini sudah digabung dengan Setup Notifications yang baru.\n\n' +
+    'Silakan gunakan menu:\n' +
+    '🎯 QA Dashboard > 🔔 Notifications > ⚙️ Setup Notifications\n\n' +
+    'Menu baru sudah include:\n' +
+    '• Setup instruksi lengkap\n' +
+    '• Config Google Chat, Email, WhatsApp\n' +
+    '• Create trigger otomatis\n\n' +
+    'Buka Config tab untuk manual config?';
 
   const response = ui.alert('Setup Notifications', msg, ui.ButtonSet.YES_NO);
 
@@ -168,26 +168,165 @@ function setupNotifications() {
 // SETUP & REFRESH
 // ═══════════════════════════════════════════════════════════════════════
 
+/**
+ * Create Dashboard from scratch
+ *
+ * INCLUDES ALL LATEST FIXES:
+ * ✅ "Failure Scenario" tab (not "Blockers") - fix 12-maret
+ * ✅ Comprehensive notes on all headers - fix 12-maret
+ * ✅ No notes on data rows - fix 12-maret
+ * ✅ Submodul sync from Jira - fix 12-maret-2 (via JiraSync.js)
+ *
+ * For EXISTING dashboards created with old code, run:
+ * - fixDashboard12Maret() - untuk rename & notes fixes
+ * - fixSubmodulJiraSync() - untuk Submodul field sync dari Jira
+ */
 function createDashboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ['Overview','Smoke','Blockers','Coverage','History','_Raw','Config','Credentials'].forEach(name => {
+
+  // Cleanup old tabs (including old naming: 'Blockers', 'Scenario Failure')
+  ['Overview','Bugs','Smoke','Failure Scenario','Scenario Failure','Blockers','Coverage','History','_Raw','Config','Credentials'].forEach(name => {
     const s = ss.getSheetByName(name);
     if (s) ss.deleteSheet(s);
   });
+
+  // Build all tabs with latest structure (no flush - avoid timeout)
   buildConfig(ss);
   buildCredentials(ss);
   buildOverview(ss);
+  buildBugs(ss);  // NEW: Bugs tab with historical tracking
   buildSmoke(ss);
-  buildBlockers(ss);
+  buildFailureScenario(ss);  // Uses "Failure Scenario" naming
   buildCoverage(ss);
   buildHistory(ss);
   buildRaw(ss);
 
-  // Add comprehensive notes to Dashboard headers
+  // Add comprehensive notes to Dashboard headers (fix 12-maret included)
   addNotesToDashboard();
 
   ss.setActiveSheet(ss.getSheetByName('Config'));
   safeAlert_('Dashboard berhasil dibuat!\n\nLangkah selanjutnya:\n1. Isi tab Config dengan Spreadsheet ID modul\n2. Isi tab Credentials dengan Jira credentials\n3. Data Modul/Submodul/QA Lead/PIC QA akan otomatis dari QATM Summary\n4. Jalankan refreshDashboard()');
+}
+
+/**
+ * STEP-BY-STEP CREATE DASHBOARD (untuk debug timeout issues)
+ *
+ * Jika createDashboard() timeout, jalankan step by step:
+ * 1. step1_deleteOldSheets()
+ * 2. step2_createConfigAndCredentials()
+ * 3. step3_createDataTabs()
+ * 4. step4_addNotes()
+ */
+
+// STEP 1: Delete all old sheets
+function step1_deleteOldSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let deleted = 0;
+
+  ['Overview','Bugs','Smoke','Failure Scenario','Scenario Failure','Blockers','Coverage','History','_Raw','Config','Credentials'].forEach(name => {
+    const s = ss.getSheetByName(name);
+    if (s) {
+      ss.deleteSheet(s);
+      deleted++;
+    }
+  });
+
+  Logger.log('Deleted ' + deleted + ' sheets');
+  SpreadsheetApp.getUi().alert('✅ Step 1 Complete!\n\nDeleted ' + deleted + ' old sheets.\n\nNext: Run step2_createConfigAndCredentials()');
+}
+
+// STEP 2: Create Config ONLY (skip Credentials due to timeout on problematic spreadsheets)
+function step2_createConfigAndCredentials() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    Logger.log('Creating Config...');
+    buildConfig(ss);
+    Logger.log('✅ Config created');
+
+    Logger.log('⚠️ SKIPPING Credentials tab (timeout issue on this spreadsheet)');
+    Logger.log('💡 Credentials can be added manually or via step2b_createCredentials()');
+
+    ss.setActiveSheet(ss.getSheetByName('Config'));
+    SpreadsheetApp.getUi().alert('✅ Step 2 Complete!\n\nConfig created.\n\n⚠️ Credentials tab SKIPPED (timeout issue)\n💡 Try step2b_createCredentials() later\n\nNext: Run step3_createDataTabs()');
+  } catch (e) {
+    Logger.log('❌ Error: ' + e.message);
+    SpreadsheetApp.getUi().alert('❌ Error in Step 2:\n\n' + e.message + '\n\nCheck Execution log for details.');
+  }
+}
+
+// STEP 2B: Try to create Credentials separately (optional)
+function step2b_createCredentials() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    Logger.log('Attempting to create Credentials...');
+    buildCredentials(ss);
+    Logger.log('✅ Credentials created successfully!');
+
+    ss.setActiveSheet(ss.getSheetByName('Credentials'));
+    SpreadsheetApp.getUi().alert('✅ Success!\n\nCredentials tab created.\n\nJika timeout, berarti spreadsheet ini memang bermasalah.');
+  } catch (e) {
+    Logger.log('❌ Error: ' + e.message);
+    SpreadsheetApp.getUi().alert('❌ Failed to create Credentials:\n\n' + e.message + '\n\n💡 Spreadsheet ini mungkin corrupt.\nSarankan pakai spreadsheet baru.');
+  }
+}
+
+// STEP 3: Create all data tabs
+function step3_createDataTabs() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    Logger.log('Creating Overview...');
+    buildOverview(ss);
+    Logger.log('✅ Overview created');
+
+    Logger.log('Creating Bugs...');
+    buildBugs(ss);
+    Logger.log('✅ Bugs created');
+
+    Logger.log('Creating Smoke...');
+    buildSmoke(ss);
+    Logger.log('✅ Smoke created');
+
+    Logger.log('Creating Failure Scenario...');
+    buildFailureScenario(ss);
+    Logger.log('✅ Failure Scenario created');
+
+    Logger.log('Creating Coverage...');
+    buildCoverage(ss);
+    Logger.log('✅ Coverage created');
+
+    Logger.log('Creating History...');
+    buildHistory(ss);
+    Logger.log('✅ History created');
+
+    Logger.log('Creating _Raw...');
+    buildRaw(ss);
+    Logger.log('✅ _Raw created');
+
+    SpreadsheetApp.getUi().alert('✅ Step 3 Complete!\n\nAll data tabs created.\n\nNext: Run step4_addNotes()');
+  } catch (e) {
+    Logger.log('❌ Error: ' + e.message);
+    SpreadsheetApp.getUi().alert('❌ Error in Step 3:\n\n' + e.message + '\n\nCheck Execution log for details.');
+  }
+}
+
+// STEP 4: Add notes to headers
+function step4_addNotes() {
+  try {
+    Logger.log('Adding notes to dashboard headers...');
+    addNotesToDashboard();
+    Logger.log('✅ Notes added');
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    ss.setActiveSheet(ss.getSheetByName('Config'));
+
+    SpreadsheetApp.getUi().alert('✅ Step 4 Complete!\n\n✅✅ DASHBOARD COMPLETE! ✅✅\n\nLangkah selanjutnya:\n1. Isi tab Config dengan Spreadsheet ID modul\n2. Isi tab Credentials dengan Jira credentials\n3. Jalankan refreshDashboard()');
+  } catch (e) {
+    Logger.log('❌ Error: ' + e.message);
+    SpreadsheetApp.getUi().alert('❌ Error in Step 4:\n\n' + e.message + '\n\nCheck Execution log for details.');
+  }
 }
 
 function refreshDashboard() {
@@ -213,21 +352,68 @@ function refreshDashboard() {
   });
 
   writeOverview(ss, allData);
+  writeBugs(ss, allData);  // NEW: Write Bugs tab with delta tracking
   writeSmoke(ss, allData);
-  writeBlockers(ss, allData);
+  writeFailureScenario(ss, allData);
   writeCoverage(ss, allData);
   appendHistory(ss, allData);
   updateRaw(ss, allData);
   updateConfig(ss, allData);  // write back PIC + QA Lead from Summary
 
   const ts = 'Last refreshed: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss');
-  ['Overview','Smoke'].forEach(name => {
+  ['Overview','Bugs','Smoke'].forEach(name => {
     const sh = ss.getSheetByName(name);
     if (sh) sh.getRange(1,1).setValue(ts);
   });
 
   Logger.log('refreshDashboard DONE');
   safeAlert_('Refresh selesai! ' + allData.length + ' modul di-update.\n\nQA Lead otomatis diisi dari Summary B4 (jika tersedia).');
+}
+
+/**
+ * Sequential execution: Jira Sync → Dashboard Refresh
+ * This ensures dashboard always has fresh data from Jira
+ */
+function refreshDashboardWithJiraSync() {
+  Logger.log('═══════════════════════════════════════════════════');
+  Logger.log('START: Sequential Jira Sync + Dashboard Refresh');
+  Logger.log('═══════════════════════════════════════════════════');
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    // ── Step 1: Jira Sync ────────────────────────────────────────────────
+    Logger.log('');
+    Logger.log('📊 STEP 1/2: Syncing Jira for all QATM modules...');
+    Logger.log('─────────────────────────────────────────────────────');
+
+    // Check if _runSync_ exists (from JiraSync.js)
+    if (typeof _runSync_ !== 'function') {
+      Logger.log('⚠️  Jira sync skipped - _runSync_ function not available');
+      Logger.log('   (This is normal if Jira integration is not set up)');
+    } else {
+      const syncResults = _runSync_(ss, false); // Sync Title, Desc, Priority, Assignee, Submodul
+      Logger.log('✅ Jira sync completed:');
+      syncResults.forEach(r => Logger.log('   ' + r));
+    }
+
+    // ── Step 2: Dashboard Refresh ────────────────────────────────────────
+    Logger.log('');
+    Logger.log('🔄 STEP 2/2: Refreshing Dashboard...');
+    Logger.log('─────────────────────────────────────────────────────');
+
+    refreshDashboard();
+
+    Logger.log('');
+    Logger.log('═══════════════════════════════════════════════════');
+    Logger.log('✅ DONE: Sequential Jira Sync + Dashboard Refresh');
+    Logger.log('═══════════════════════════════════════════════════');
+
+  } catch(e) {
+    Logger.log('❌ ERROR in sequential sync: ' + e.message);
+    Logger.log('Stack trace: ' + e.stack);
+    safeAlert_('❌ Error during sync + refresh:\n\n' + e.message + '\n\nCheck Executions log for details.');
+  }
 }
 
 function setupTrigger() {
@@ -244,13 +430,16 @@ function setupTrigger() {
   const enabledVal = cfg.getRange(4, 18).getValue(); // R4
   const enabled = (typeof enabledVal === 'boolean') ? enabledVal : false;
 
-  // Delete existing trigger
+  // Delete existing triggers (both old and new function names)
   ScriptApp.getProjectTriggers().forEach(t => {
-    if (t.getHandlerFunction() === 'refreshDashboard') ScriptApp.deleteTrigger(t);
+    const fn = t.getHandlerFunction();
+    if (fn === 'refreshDashboard' || fn === 'refreshDashboardWithJiraSync') {
+      ScriptApp.deleteTrigger(t);
+    }
   });
 
   if (!enabled) {
-    safeAlert_('ℹ️  Trigger auto-refresh dihapus.\n\nSet "Enable Auto Refresh" = TRUE di Config (kolom R4) untuk aktifkan kembali.');
+    safeAlert_('ℹ️  Auto-refresh trigger dihapus.\n\nSet "Enable Auto Refresh" = TRUE di Config (kolom R4) untuk aktifkan kembali.');
     Logger.log('Auto-refresh trigger removed (disabled in config)');
     return;
   }
@@ -261,13 +450,62 @@ function setupTrigger() {
     return;
   }
 
-  // Create new trigger
-  ScriptApp.newTrigger('refreshDashboard').timeBased().everyMinutes(refreshInterval).create();
+  // Create new trigger - SEQUENTIAL: Jira Sync → Dashboard Refresh
+  ScriptApp.newTrigger('refreshDashboardWithJiraSync')
+    .timeBased()
+    .everyMinutes(refreshInterval)
+    .create();
 
-  Logger.log('✅ Trigger created for auto-refresh every ' + refreshInterval + ' minutes');
-  safeAlert_('✅ Trigger set! Auto-refresh setiap ' + refreshInterval + ' menit.\n\n' +
-             'Dashboard akan otomatis refresh (termasuk Jira sync untuk modul yang aktif).\n\n' +
-             'Untuk ubah interval atau disable, edit Config kolom Q4-R4.');
+  Logger.log('✅ Trigger created for sequential auto-refresh every ' + refreshInterval + ' minutes');
+  safeAlert_(
+    '✅ Auto-Refresh Trigger Aktif!\n\n' +
+    '⏱️  Interval: Setiap ' + refreshInterval + ' menit\n\n' +
+    '🔄 Execution Flow (Sequential):\n' +
+    '  1️⃣ Jira Sync → Sync data dari Jira ke QATM modules\n' +
+    '  2️⃣ Dashboard Refresh → Pull data terbaru ke Dashboard\n\n' +
+    '📝 Config: Q4 (interval) | R4 (enable/disable)\n\n' +
+    '💡 Tip: Dashboard akan selalu punya data terbaru dari Jira!'
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUTTON FUNCTIONS - One-click operations
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * 🔘 BUTTON 1: One-click setup auto-refresh trigger
+ * Reads config from Q4-R4, creates time-based trigger
+ */
+function setupAutoRefreshTrigger() {
+  Logger.log('Button clicked: Setup Auto-Refresh Trigger');
+  setupTrigger();
+}
+
+/**
+ * 🔘 BUTTON 2: One-click manual sync + refresh
+ * Executes sequential: Jira Sync → Dashboard Refresh
+ */
+function manualSyncAndRefresh() {
+  Logger.log('Button clicked: Manual Sync + Refresh');
+
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert(
+    '🔄 Manual Sync + Refresh',
+    'Ini akan menjalankan:\n\n' +
+    '1️⃣ Jira Sync → Sync semua QATM modules dari Jira\n' +
+    '2️⃣ Dashboard Refresh → Update semua dashboard tabs\n\n' +
+    'Proses bisa memakan waktu beberapa menit.\n\n' +
+    'Lanjutkan?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    Logger.log('Manual sync cancelled by user');
+    return;
+  }
+
+  // Execute sequential sync + refresh
+  refreshDashboardWithJiraSync();
 }
 
 function safeAlert_(msg) {
@@ -280,7 +518,7 @@ function rebuildConfig() { buildConfig(SpreadsheetApp.getActiveSpreadsheet()); s
 function rebuildCredentials() { buildCredentials(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Credentials tab rebuilt!'); }
 function rebuildOverview() { buildOverview(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Overview tab rebuilt!'); }
 function rebuildSmoke() { buildSmoke(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Smoke tab rebuilt!'); }
-function rebuildBlockers() { buildBlockers(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Blockers tab rebuilt!'); }
+function rebuildFailureScenario() { buildFailureScenario(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Failure Scenario tab rebuilt!'); }
 function rebuildCoverage() { buildCoverage(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Coverage tab rebuilt!'); }
 function rebuildHistory() { buildHistory(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('History tab rebuilt!'); }
 function rebuildRaw() { buildRaw(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('_Raw tab rebuilt!'); }
@@ -876,11 +1114,12 @@ function buildConfig(ss) {
   ws.setTabColor('#37474F');
   ws.clear();
   function hdr(r,c,txt,w,note){
-    ws.getRange(r,c).setValue(txt).setBackground('#0D47A1').setFontColor('#FFFFFF')
+    const cell = ws.getRange(r,c);
+    cell.setValue(txt).setBackground('#0D47A1').setFontColor('#FFFFFF')
         .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
         .setHorizontalAlignment('center').setVerticalAlignment('middle');
     ws.setColumnWidth(c,w);
-    if(note) ws.getRange(r,c).setNote(note);
+    if(note) cell.setNote(note);
   }
   ws.getRange(1,1,1,10).merge().setValue('QA PORTFOLIO DASHBOARD  —  Module Config')
       .setBackground('#0D47A1').setFontColor('#FFFFFF').setFontWeight('bold')
@@ -983,26 +1222,29 @@ function buildConfig(ss) {
   // Column headers (row 3)
   const chatHeaders = [
     ['Google Chat Webhook URL', 300, 'Buat webhook di Google Chat Space:\nSpace Settings > Apps & integrations > Webhooks\n\nFormat: https://chat.googleapis.com/v1/spaces/.../messages?key=...'],
-    ['Notif Time (Hour)', 85, 'Jam berapa notifikasi dikirim (0-23)\nContoh: 15 = jam 3 sore'],
+    ['Notification Schedule', 120, 'FORMAT SCHEDULE:\n• Single: 7 → 1x/hari jam 7:00\n• Multiple: 7,12,18 → 3x/hari jam 7:00, 12:00, 18:00\n• Interval: 4h → Setiap 4 jam (support: 1h, 2h, 4h, 6h, 8h, 12h)\n\nContoh:\n  9,17 → Pagi & sore\n  0,6,12,18 → 4x sehari\n  6h → Setiap 6 jam'],
     ['Enable Notifikasi', 100, 'TRUE = aktif notifikasi harian\nFALSE = nonaktifkan']
   ];
 
   chatHeaders.forEach(([h, w, note], i) => {
     const col = chatCol + i;
-    ws.getRange(3, col)
+    const headerCell = ws.getRange(3, col);
+
+    headerCell
       .setValue(h)
       .setBackground('#1976D2').setFontColor('#FFFFFF')
       .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
       .setHorizontalAlignment('center').setVerticalAlignment('middle')
       .setWrap(true)
       .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
+
     ws.setColumnWidth(col, w);
-    if (note) ws.getRange(3, col).setNote(note);
+    if (note) headerCell.setNote(note);
   });
 
   // Data row with defaults (row 4)
   ws.getRange(4, chatCol, 1, 3)
-    .setValues([['https://chat.googleapis.com/v1/spaces/...', 15, false]])
+    .setValues([['https://chat.googleapis.com/v1/spaces/...', '7,12,18', false]])
     .setBackground('#E3F2FD')
     .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle')
     .setBorder(true, true, true, true, false, false, '#90CAF9', SpreadsheetApp.BorderStyle.SOLID);
@@ -1015,10 +1257,7 @@ function buildConfig(ss) {
   const dvChatEnable = SpreadsheetApp.newDataValidation().requireCheckbox().build();
   ws.getRange(4, chatCol + 2).setDataValidation(dvChatEnable);
 
-  // Data validation for Hour (0-23) - column M (chatCol + 1)
-  const dvHour = SpreadsheetApp.newDataValidation()
-    .requireNumberBetween(0, 23).build();
-  ws.getRange(4, chatCol + 1).setDataValidation(dvHour);
+  // No data validation for Schedule (column M) - accepts text format like "7,12,18" or "4h"
 
   // Conditional formatting for Enable checkbox (N4)
   const chatEnableRange = ws.getRange(4, chatCol + 2, 1, 1);
@@ -1065,15 +1304,18 @@ function buildConfig(ss) {
 
   emailHeaders.forEach(([h, w, note], i) => {
     const col = emailCol + i;
-    ws.getRange(3, col)
+    const headerCell = ws.getRange(3, col);
+
+    headerCell
       .setValue(h)
       .setBackground('#66BB6A').setFontColor('#FFFFFF')
       .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
       .setHorizontalAlignment('center').setVerticalAlignment('middle')
       .setWrap(true)
       .setBorder(true, true, true, true, false, false, '#A5D6A7', SpreadsheetApp.BorderStyle.SOLID);
+
     ws.setColumnWidth(col, w);
-    if (note) ws.getRange(3, col).setNote(note);
+    if (note) headerCell.setNote(note);
   });
 
   // Data row with defaults (row 4)
@@ -1135,15 +1377,18 @@ function buildConfig(ss) {
 
   refreshHeaders.forEach(([h, w, note], i) => {
     const col = refreshCol + i;
-    ws.getRange(3, col)
+    const headerCell = ws.getRange(3, col);
+
+    headerCell
       .setValue(h)
       .setBackground('#FF8F00').setFontColor('#FFFFFF')
       .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
       .setHorizontalAlignment('center').setVerticalAlignment('middle')
       .setWrap(true)
       .setBorder(true, true, true, true, false, false, '#FFCC80', SpreadsheetApp.BorderStyle.SOLID);
+
     ws.setColumnWidth(col, w);
-    if (note) ws.getRange(3, col).setNote(note);
+    if (note) headerCell.setNote(note);
   });
 
   // Data row with defaults (row 4)
@@ -1184,6 +1429,81 @@ function buildConfig(ss) {
   // Merge all rules including refresh
   const finalRules = ws.getConditionalFormatRules();
   ws.setConditionalFormatRules([...finalRules, refreshEnableTrueRule, refreshEnableFalseRule]);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // WHATSAPP NOTIFICATION SECTION (Kolom S-U, global config)
+  // ─────────────────────────────────────────────────────────────────────
+
+  const waCol = 19; // Start at column S (19)
+
+  // Section header (row 1, merged S1:U1)
+  ws.getRange(1, waCol, 1, 3).merge()
+    .setValue('WHATSAPP NOTIFICATION')
+    .setBackground('#25D366').setFontColor('#FFFFFF').setFontWeight('bold')
+    .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+
+  // Info row (row 2, merged S2:U2)
+  ws.getRange(2, waCol, 1, 3).merge()
+    .setValue('📱  Notifikasi blocker ke WhatsApp Group via Fonnte API (global untuk semua module)')
+    .setBackground('#E8F5E9').setFontColor('#1B5E20').setFontStyle('italic')
+    .setFontSize(8).setHorizontalAlignment('center');
+
+  // Column headers (row 3)
+  const waHeaders = [
+    ['WhatsApp Group ID', 200, 'Group ID WhatsApp (global untuk semua module)\nFormat: 120363xxxxxxxxx@g.us\n\nCara dapat:\n1. Menu → Notifications → WhatsApp: Get Groups\n2. Atau dari invite link grup'],
+    ['Fonnte Token', 160, 'Token API dari Fonnte Dashboard\nLogin: https://fonnte.com/dashboard\nMenu: Device → Token\n\nToken ini dipakai untuk kirim message ke WhatsApp'],
+    ['Enable WA', 85, 'TRUE = aktif notifikasi WhatsApp\nFALSE = nonaktifkan']
+  ];
+
+  waHeaders.forEach(([h, w, note], i) => {
+    const col = waCol + i;
+    const headerCell = ws.getRange(3, col);
+
+    headerCell
+      .setValue(h)
+      .setBackground('#43A047').setFontColor('#FFFFFF')
+      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setWrap(true)
+      .setBorder(true, true, true, true, false, false, '#81C784', SpreadsheetApp.BorderStyle.SOLID);
+
+    ws.setColumnWidth(col, w);
+    if (note) headerCell.setNote(note);
+  });
+
+  // Data row with defaults (row 4)
+  ws.getRange(4, waCol, 1, 3)
+    .setValues([['120363289471046194@g.us', 'TDdpPB6Gbyn7KYbqLgN8', false]])
+    .setBackground('#E8F5E9')
+    .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, false, false, '#81C784', SpreadsheetApp.BorderStyle.SOLID);
+
+  ws.getRange(4, waCol).setFontFamily('Courier New').setFontSize(8);
+  ws.getRange(4, waCol + 1).setFontFamily('Courier New').setFontSize(8);
+  ws.getRange(4, waCol + 2).setHorizontalAlignment('center').setFontWeight('bold');
+
+  // Data validation for Enable WA (checkbox) - column U (waCol + 2)
+  const dvWAEnable = SpreadsheetApp.newDataValidation().requireCheckbox().build();
+  ws.getRange(4, waCol + 2).setDataValidation(dvWAEnable);
+
+  // Conditional formatting for Enable WA checkbox (U4)
+  const waEnableRange = ws.getRange(4, waCol + 2, 1, 1);
+  const waEnableTrueRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied('=$U4=TRUE')
+    .setBackground('#C8E6C9')
+    .setFontColor('#2E7D32')
+    .setRanges([waEnableRange])
+    .build();
+  const waEnableFalseRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied('=$U4=FALSE')
+    .setBackground('#F5F5F5')
+    .setFontColor('#757575')
+    .setRanges([waEnableRange])
+    .build();
+
+  // Merge all rules including WhatsApp
+  const allConfigRules = ws.getConditionalFormatRules();
+  ws.setConditionalFormatRules([...allConfigRules, waEnableTrueRule, waEnableFalseRule]);
 }
 
 
@@ -1194,57 +1514,34 @@ function buildConfig(ss) {
 function buildCredentials(ss) {
   const ws = ss.insertSheet('Credentials');
   ws.setTabColor('#4A148C');
-  ws.clear();
 
+  // SIMPLIFIED VERSION - Minimal formatting to avoid timeout
   // Title
-  ws.getRange(1,1,1,4).merge().setValue('JIRA CREDENTIALS  —  Isi email & token per instance Jira')
-    .setBackground('#4A148C').setFontColor('#FFFFFF').setFontWeight('bold')
-    .setFontSize(12).setFontFamily('Arial').setHorizontalAlignment('left');
-  ws.setRowHeight(1,30);
+  ws.getRange(1,1).setValue('JIRA CREDENTIALS - Isi email & token per instance Jira')
+    .setBackground('#4A148C').setFontColor('#FFFFFF').setFontWeight('bold');
 
   // Warning
-  ws.getRange(2,1,1,4).merge()
-    .setValue('⚠️  PENTING: Pastikan hanya owner yang bisa lihat tab ini. Jangan share spreadsheet ke publik jika token diisi di sini. Buat token di: https://id.atlassian.com/manage-profile/security/api-tokens')
-    .setBackground('#F3E5F5').setFontColor('#6A1B9A').setFontStyle('italic').setFontSize(8).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
-  ws.setRowHeight(2,40);
+  ws.getRange(2,1).setValue('⚠️ PENTING: Jangan share spreadsheet ke publik jika token diisi di sini')
+    .setFontColor('#6A1B9A');
 
-  // Headers
-  function hdr(c,txt,bg,w,note){
-    ws.getRange(3,c).setValue(txt)
-      .setBackground(bg).setFontColor('#FFFFFF').setFontWeight('bold')
-      .setFontSize(9).setFontFamily('Arial')
-      .setHorizontalAlignment('center').setVerticalAlignment('middle')
-      .setBorder(true,true,true,true,false,false,'#CE93D8',SpreadsheetApp.BorderStyle.SOLID);
-    ws.setColumnWidth(c,w);
-    if(note) ws.getRange(3,c).setNote(note);
-  }
+  // Headers - Simple, no borders, no notes
+  ws.getRange(3,1,1,4).setValues([['Instance','Email Atlassian','API Token','Notif Email']])
+    .setBackground('#6A1B9A').setFontColor('#FFFFFF').setFontWeight('bold');
 
-  hdr(1,'Instance','#6A1B9A',140,'Nilai: digitalperuri atau bgn-peruri');
-  hdr(2,'Email Atlassian','#7B1FA2',220,'Email login ke id.atlassian.com');
-  hdr(3,'API Token','#7B1FA2',400,'Buat token di:\nhttps://id.atlassian.com/manage-profile/security/api-tokens');
-  hdr(4,'Notif Email','#1565C0',280,'Penerima notif harian jam 07.00.\nBisa multiple, pisah koma.');
-  ws.setRowHeight(3,24);
+  // Column widths
+  ws.setColumnWidth(1, 140);
+  ws.setColumnWidth(2, 220);
+  ws.setColumnWidth(3, 400);
+  ws.setColumnWidth(4, 280);
 
-  // Sample data
-  [['digitalperuri','email@company.com','ATATT3xFf...(paste token disini)','qa@company.com'],
-   ['bgn-peruri',   'email@company.com','ATATT3xFf...(paste token disini)',''],
-  ].forEach(([inst,em,tok,notif], i) => {
-    const r = 4+i;
-    ws.getRange(r,1,1,4).setValues([[inst,em,tok,notif]])
-      .setBackground(i%2===0 ? '#F3E5F5' : '#FFFFFF')
-      .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle')
-      .setBorder(true,true,true,true,false,false,'#CE93D8',SpreadsheetApp.BorderStyle.SOLID);
-    ws.getRange(r,3).setFontFamily('Courier New').setFontSize(8);
-    ws.setRowHeight(r,24);
-  });
+  // Sample data - Batch operation, no individual formatting
+  ws.getRange(4,1,2,4).setValues([
+    ['digitalperuri','email@company.com','ATATT3xFf...(paste token disini)','qa@company.com'],
+    ['bgn-peruri',   'email@company.com','ATATT3xFf...(paste token disini)','']
+  ]);
 
-  // Data validation untuk Instance
-  const dvInstance = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['digitalperuri','bgn-peruri'], true).build();
-  ws.getRange('A4:A100').setDataValidation(dvInstance);
-
-  // Hide tab from normal users
-  ws.protect().setDescription('Credentials - Only owners should edit').setWarningOnly(true);
+  // NO data validation, NO protection - to avoid timeout
+  // Users can add manually if needed
 }
 
 
@@ -1357,9 +1654,31 @@ function writeOverview(ss, allData) {
     // NEW LAYOUT: Project, Modul, Submodul, PIC QA | BUGS (4) | WEB (5) | SMOKE WEB (3) | API (5) | SMOKE API (3) | PERF | NOTES
     cell(1,d.project||d.sprint||'');
     cell(2,d.module||'');
-    ws.getRange(r,3).setValue(d.submodule||d.name).setBackground(bg).setFontFamily('Arial').setFontSize(9)
+
+    // Submodule with hyperlink to QATM BugReport
+    const submodulCell = ws.getRange(r,3);
+    if (d.id) {
+      try {
+        const qatmSs = SpreadsheetApp.openById(d.id);
+        const bugSheet = qatmSs.getSheetByName('BugReport');
+        if (bugSheet) {
+          const bugReportGid = bugSheet.getSheetId();
+          const qatmUrl = 'https://docs.google.com/spreadsheets/d/' + d.id + '/edit#gid=' + bugReportGid;
+          submodulCell.setFormula('=HYPERLINK("' + qatmUrl + '","' + (d.submodule||d.name) + '")');
+          submodulCell.setFontColor('#1155CC');  // Blue link color
+        } else {
+          submodulCell.setValue(d.submodule||d.name);
+        }
+      } catch (e) {
+        submodulCell.setValue(d.submodule||d.name);
+      }
+    } else {
+      submodulCell.setValue(d.submodule||d.name);
+    }
+    submodulCell.setBackground(bg).setFontFamily('Arial').setFontSize(9)
         .setFontWeight('bold').setHorizontalAlignment('left').setVerticalAlignment('middle')
         .setBorder(true,true,true,true,false,false,'#E0E0E0',SpreadsheetApp.BorderStyle.SOLID);
+
     cell(4,d.team||'');
 
     // Bugs (col 5-8) - added prodBugs, all should be count format
@@ -1749,17 +2068,17 @@ function buildSmokeCharts_(ws, allData) {
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// BLOCKERS TAB
+// FAILURE SCENARIO TAB
 // ═══════════════════════════════════════════════════════════════════════
 
-function buildBlockers(ss) {
-  const ws=ss.insertSheet('Blockers'); ws.setTabColor('#B71C1C'); ws.clear();
+function buildFailureScenario(ss) {
+  const ws=ss.insertSheet('Failure Scenario'); ws.setTabColor('#B71C1C'); ws.clear();
   function h_(c,txt){ws.getRange(2,c).setValue(txt).setBackground('#B71C1C').setFontColor('#FFFFFF')
       .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
       .setHorizontalAlignment('center').setVerticalAlignment('middle')
       .setBorder(true,true,true,true,false,false,'#E57373',SpreadsheetApp.BorderStyle.SOLID);}
   [120,80,85,75,75,100,250,85].forEach((w,i)=>ws.setColumnWidth(i+1,w));
-  ws.getRange(1,1,1,8).merge().setValue('BLOCKER ALERT  —  Critical & High  |  Status: FAILED / BLOCKED')
+  ws.getRange(1,1,1,8).merge().setValue('FAILURE SCENARIO  —  Priority: Critical / High / Medium  |  Status: FAILED / BLOCKED')
       .setBackground('#B71C1C').setFontColor('#FFFFFF').setFontWeight('bold')
       .setFontSize(12).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setRowHeight(1,28);
@@ -1771,15 +2090,15 @@ function buildBlockers(ss) {
   ws.setFrozenRows(2);
 }
 
-function writeBlockers(ss, allData) {
-  const ws=ss.getSheetByName('Blockers'); if(!ws)return;
+function writeFailureScenario(ss, allData) {
+  const ws=ss.getSheetByName('Failure Scenario'); if(!ws)return;
   // Clear ALL data rows to remove inactive modules
   const lastRow=ws.getMaxRows();
   if(lastRow>=3)ws.getRange(3,1,lastRow-2,8).clearContent().clearFormat();
   const all=[];
   allData.forEach(d=>d.blockers.forEach(b=>all.push({...b,refreshed:d.refreshed})));
   if(all.length===0){
-    ws.getRange(3,1,1,8).merge().setValue('✅ Tidak ada blocker! Semua Critical & High TC passed.')
+    ws.getRange(3,1,1,8).merge().setValue('✅ Tidak ada failure scenario! Semua Priority Critical/High/Medium TC passed.')
         .setBackground('#C8E6C9').setFontColor('#1B5E20').setFontWeight('bold')
         .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
     ws.setRowHeight(3,28);
