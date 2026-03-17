@@ -43,6 +43,27 @@
 // CUSTOM MENU - Auto-loads when spreadsheet opens
 // ═══════════════════════════════════════════════════════════════════════
 
+/**
+ * Force reload menu - Run this manually if menu doesn't update after deployment
+ *
+ * HOW TO USE:
+ * 1. Open Apps Script Editor
+ * 2. Select function: forceReloadMenu
+ * 3. Click Run (▶️)
+ */
+function forceReloadMenu() {
+  onOpen();
+  SpreadsheetApp.getUi().alert(
+    '✅ Menu Reloaded!',
+    'Menu sudah di-reload dengan versi terbaru.\n\n' +
+    'Kalau menu masih belum update, coba:\n' +
+    '1. Close semua tab Dashboard spreadsheet\n' +
+    '2. Clear browser cache (Ctrl+Shift+Del)\n' +
+    '3. Buka Dashboard lagi dari Google Drive',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+}
+
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('🎯 QA Dashboard')

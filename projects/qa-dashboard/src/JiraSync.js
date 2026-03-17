@@ -43,10 +43,10 @@ const JIRA_JQL_ =
   'project = "{P}" AND issuetype = Bug ' +
   'AND "{F}" = "{M}" ' +
   'ORDER BY priority ASC, updated DESC';
-// Custom fields for Feature/Environment/Steps/Expected/Actual (per instance)
+// Custom fields for Feature/Environment/Steps/Expected/Actual/Submodul (per instance)
 const JIRA_CUSTOM_FIELDS_ = {
-  'digitalperuri': ',customfield_11090,customfield_10095,customfield_10560,customfield_10561,customfield_10562',  // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result
-  'bgn-peruri': ',customfield_10298,customfield_10291,customfield_10292,customfield_10293,customfield_10294'     // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result
+  'digitalperuri': ',customfield_11090,customfield_10095,customfield_10560,customfield_10561,customfield_10562,customfield_11354',  // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result, Submodul
+  'bgn-peruri': ',customfield_10298,customfield_10291,customfield_10292,customfield_10293,customfield_10294,customfield_10300'     // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result, Submodul
 };
 
 // Custom field mappings for accessing fields by instance
@@ -56,14 +56,16 @@ const JIRA_FIELD_MAP_ = {
     environment: 'customfield_10095',
     steps: 'customfield_10560',
     expected: 'customfield_10561',
-    actual: 'customfield_10562'
+    actual: 'customfield_10562',
+    submodul: 'customfield_11354'
   },
   'bgn-peruri': {
     feature: 'customfield_10298',
     environment: 'customfield_10291',
     steps: 'customfield_10292',
     expected: 'customfield_10293',
-    actual: 'customfield_10294'
+    actual: 'customfield_10294',
+    submodul: 'customfield_10300'
   }
 };
 
@@ -740,6 +742,10 @@ function _upd_(sh,row,iss,inclStatus,now,instUrl,instKey){
   const feature = f[fieldMap.feature];
   if(feature) sh.getRange(row,BC_.FEATURE).setValue(feature);
 
+  // Sync Submodul field from Jira
+  const submodul = _dropdown_(f[fieldMap.submodul]);
+  if(submodul) sh.getRange(row,BC_.SUBMODUL).setValue(submodul);
+
   // Use field map for custom fields with proper extraction
   const env = _dropdown_(f[fieldMap.environment]);
   if(env) sh.getRange(row,BC_.ENV).setValue(env);
@@ -779,7 +785,7 @@ function _ins_(sh,iss,instUrl,now,mod,instKey){
   row[BC_.PRIORITY-1] = _prio_(f.priority&&f.priority.name)||'';
   row[BC_.STATUS-1]   = _stat_(f.status&&f.status.name)||'Open';
   row[BC_.FEATURE-1]  = f[fieldMap.feature]||'';  // Feature from Jira
-  row[BC_.SUBMODUL-1] = mod.submodule||'';
+  row[BC_.SUBMODUL-1] = _dropdown_(f[fieldMap.submodul]) || mod.submodule || '';  // Submodul from Jira, fallback to Config
   row[BC_.TITLE-1]    = f.summary||'';
   row[BC_.DESC-1]     = _adf_(f.description);
 
