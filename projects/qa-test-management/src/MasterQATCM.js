@@ -2269,3 +2269,428 @@ function createAppendix(ss) {
   [100,140,80,200].forEach((w,i)=>ws.setColumnWidth(i+1,w));
   addPeruriFooter(ws, r+2, 4);
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// MANUAL JIRA SYNC
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Create custom menu on open
+ * Adds "Jira Sync" menu item for manual sync
+ */
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+
+  // Check if Config tab exists (which means Jira Sync is configured)
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const config = ss.getSheetByName('Config');
+
+  if (config) {
+    ui.createMenu('🔄 Jira Sync')
+      .addItem('✅ Sync Now', 'manualSyncJiraFromQATM')
+      .addSeparator()
+      .addItem('📋 View Config', 'openJiraConfig')
+      .addToUi();
+  }
+}
+
+/**
+ * Open Config tab
+ */
+function openJiraConfig() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const config = ss.getSheetByName('Config');
+
+  if (config) {
+    config.activate();
+    SpreadsheetApp.getUi().alert('Config tab opened.\n\nYou can view and edit Jira configuration here.');
+  } else {
+    SpreadsheetApp.getUi().alert('❌ Config tab not found!\n\nPlease run broadcast from Dashboard to create Config tab.');
+  }
+}
+
+/**
+ * Manual Sync Function - Syncs bugs from Jira to BugReport sheet
+ *
+ * Expected Config tab structure:
+ * Row 3: Labels
+ * Row 4: Values
+ * B4 = Jira Instance (digitalperuri / bgn-peruri)
+ * C4 = Jira Project Key (SQA / BGN / etc)
+ * D4 = Jira Email
+ * E4 = Jira API Token
+ * F4 = Module Name/Number
+ */
+function manualSyncJiraFromQATM() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Get QATM Config
+    const config = ss.getSheetByName('Config');
+    if (!config) {
+      ui.alert('❌ Config tab not found!\n\nPlease create Config tab first via broadcast from Dashboard.');
+      return;
+    }
+
+    // Read Jira config from QATM Config tab
+    // Row 3 = Labels, Row 4 = Values
+    const jiraInstance = String(config.getRange('B4').getValue()).trim().toLowerCase();
+    const jiraProjectKey = String(config.getRange('C4').getValue()).trim().toUpperCase();
+    const jiraEmail = String(config.getRange('D4').getValue()).trim();
+    const jiraApiToken = String(config.getRange('E4').getValue()).trim();
+    const moduleName = String(config.getRange('F4').getValue()).trim();
+
+    // Validate config
+    if (!jiraInstance || !jiraProjectKey || !jiraEmail || !jiraApiToken || !moduleName) {
+      let msg = '❌ Jira configuration incomplete!\n\nPlease fill in Config tab (row 4):\n\n';
+      if (!jiraInstance) msg += '• B4: Jira Instance (digitalperuri / bgn-peruri)\n';
+      if (!jiraProjectKey) msg += '• C4: Jira Project Key (SQA / BGN / etc)\n';
+      if (!jiraEmail) msg += '• D4: Jira Email (your.email@company.com)\n';
+      if (!jiraApiToken) msg += '• E4: Jira API Token (ATATT3xFf...)\n';
+      if (!moduleName) msg += '• F4: Module Name/Number (1 / Portal+SSO / etc)\n';
+
+      ui.alert(msg);
+      return;
+    }
+
+    ui.alert(
+      '🔄 Manual Jira Sync',
+      'Starting Jira sync for this QATM...\n\n' +
+      'Instance: ' + jiraInstance + '\n' +
+      'Project: ' + jiraProjectKey + '\n' +
+      'Module: ' + moduleName + '\n\n' +
+      'This may take a few minutes.',
+      ui.ButtonSet.OK
+    );
+
+    // Call the actual sync function
+    const result = syncJiraForCurrentQATM_(jiraInstance, jiraProjectKey, jiraApiToken, jiraEmail, moduleName);
+
+    ui.alert(
+      '✅ Sync Complete!',
+      result,
+      ui.ButtonSet.OK
+    );
+
+  } catch (e) {
+    ui.alert('❌ Error', 'Sync failed:\n\n' + e.message + '\n\nCheck Execution log for details.', ui.ButtonSet.OK);
+    Logger.log('❌ Manual sync error: ' + e.message);
+    Logger.log('Stack trace: ' + e.stack);
+  }
+}
+
+/**
+ * Core sync logic - Fetches bugs from Jira and updates BugReport sheet
+ */
+function syncJiraForCurrentQATM_(jiraInstance, jiraProjectKey, jiraApiToken, email, moduleName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const bugSheet = ss.getSheetByName('BugReport');
+
+  if (!bugSheet) {
+    Logger.log('❌ BugReport sheet not found');
+    return '❌ BugReport sheet not found in this spreadsheet.';
+  }
+
+  Logger.log('══════════════════════════════════════════');
+  Logger.log('🔄 MANUAL JIRA SYNC');
+  Logger.log('══════════════════════════════════════════');
+  Logger.log('Instance: ' + jiraInstance);
+  Logger.log('Project:  ' + jiraProjectKey);
+  Logger.log('Modul:    ' + (moduleName || '(not specified)'));
+  Logger.log('');
+
+  try {
+    // Fetch issues from Jira
+    const issues = fetchJiraIssues_(jiraInstance, jiraProjectKey, moduleName, email, jiraApiToken);
+
+    if (!issues) {
+      Logger.log('❌ Failed to fetch issues from Jira');
+      return '❌ Failed to fetch issues from Jira.\n\nCheck:\n• Jira Instance URL\n• Project Key\n• API Token\n• Module name';
+    }
+
+    Logger.log('✅ Fetched ' + issues.length + ' issue(s) from Jira');
+
+    // Build index of existing bugs in sheet
+    const bugIndex = buildBugIndex_(bugSheet);
+    Logger.log('📊 Found ' + Object.keys(bugIndex).length + ' existing bug(s) in sheet');
+
+    // Sync bugs
+    const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    const instUrl = getJiraInstanceUrl_(jiraInstance);
+    let inserted = 0;
+    let updated = 0;
+
+    const jiraKeys = new Set();
+
+    issues.forEach(function(issue) {
+      const statusName = issue.fields.status && issue.fields.status.name;
+      const isClosedStatus = statusName === 'Closed' || statusName === "Won't Fix";
+
+      jiraKeys.add(issue.key);
+
+      // Skip closed bugs - they'll be cleaned up below
+      if (isClosedStatus) {
+        return;
+      }
+
+      // Update or insert active bugs
+      if (bugIndex[issue.key] !== undefined) {
+        updateBugRow_(bugSheet, bugIndex[issue.key], issue, now, instUrl, jiraInstance);
+        updated++;
+      } else {
+        insertBugRow_(bugSheet, issue, now, instUrl, jiraInstance, moduleName);
+        inserted++;
+      }
+    });
+
+    // Cleanup closed bugs
+    const deleted = cleanupClosedBugs_(bugSheet, issues);
+
+    Logger.log('✅ Sync complete:');
+    Logger.log('  • Inserted: ' + inserted);
+    Logger.log('  • Updated: ' + updated);
+    Logger.log('  • Deleted (Closed/Won\'t Fix): ' + deleted);
+    Logger.log('══════════════════════════════════════════');
+
+    let result = '📊 Sync Results:\n\n';
+    result += '• Inserted: ' + inserted + ' new bug(s)\n';
+    result += '• Updated: ' + updated + ' bug(s)\n';
+    if (deleted > 0) {
+      result += '• Deleted: ' + deleted + ' (Closed/Won\'t Fix)\n';
+    }
+    result += '\n✅ Total: ' + (inserted + updated) + ' active bug(s)';
+
+    return result;
+
+  } catch (e) {
+    Logger.log('❌ Error during sync: ' + e.message);
+    Logger.log('Stack trace: ' + e.stack);
+    return '❌ Error during sync:\n\n' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// JIRA API & HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════
+
+function fetchJiraIssues_(instance, projectKey, moduleName, email, apiToken) {
+  const baseUrl = getJiraInstanceUrl_(instance);
+  const modulField = getJiraModulField_(instance);
+
+  const isNumeric = /^\d+$/.test(moduleName);
+  const modulValue = isNumeric ? moduleName : '"' + moduleName + '"';
+  const jql = 'project = "' + projectKey + '" AND issuetype = Bug AND "' + modulField + '" = ' + modulValue + ' ORDER BY priority ASC, updated DESC';
+
+  Logger.log('JQL: ' + jql);
+  Logger.log('');
+
+  const auth = Utilities.base64Encode(email + ':' + apiToken);
+  const headers = {'Authorization': 'Basic ' + auth, 'Content-Type': 'application/json'};
+  const fields = 'summary,description,priority,status,assignee,reporter,resolutiondate,key,created,updated,labels,components,environment';
+  const customFields = getJiraCustomFields_(instance);
+  const allFields = fields + customFields;
+  const allIssues = [];
+  let nextPageToken = null;
+
+  do {
+    let url = baseUrl + '/rest/api/3/search/jql?jql=' + encodeURIComponent(jql) + '&fields=' + encodeURIComponent(allFields) + '&maxResults=100';
+    if (nextPageToken) url += '&nextPageToken=' + encodeURIComponent(nextPageToken);
+
+    let response;
+    try {
+      response = UrlFetchApp.fetch(url, {headers: headers, muteHttpExceptions: true});
+    } catch (e) {
+      Logger.log('❌ Fetch error: ' + e.message);
+      return null;
+    }
+
+    if (response.getResponseCode() !== 200) {
+      Logger.log('❌ Jira API error ' + response.getResponseCode() + ': ' + response.getContentText().substring(0, 200));
+      return null;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(response.getContentText());
+    } catch (e) {
+      Logger.log('❌ JSON parse error: ' + e.message);
+      return null;
+    }
+
+    (data.issues || []).forEach(function(issue) { allIssues.push(issue); });
+    nextPageToken = data.nextPageToken || null;
+    if (nextPageToken) Utilities.sleep(300);
+  } while (nextPageToken);
+
+  return allIssues;
+}
+
+function buildBugIndex_(bugSheet) {
+  const data = bugSheet.getDataRange().getValues();
+  const index = {};
+  for (let i = 5; i < data.length; i++) {
+    const jiraKey = String(data[i][19]).trim();
+    if (jiraKey && jiraKey !== '') index[jiraKey] = i + 1;
+  }
+  return index;
+}
+
+function updateBugRow_(bugSheet, rowNum, issue, timestamp, instUrl, instance) {
+  const row = [];
+  row[1] = 'Functional';
+  row[2] = normalizePriority_(issue.fields.priority && issue.fields.priority.name);
+  row[3] = normalizeStatus_(issue.fields.status && issue.fields.status.name);
+  const fieldMap = getJiraFieldMap_(instance);
+  row[4] = getCustomFieldValue_(issue, fieldMap.feature);
+  row[5] = getCustomFieldValue_(issue, fieldMap.submodul);
+  row[6] = issue.fields.summary || '';
+  row[7] = convertADF_(issue.fields.description);
+  row[8] = getCustomFieldValue_(issue, fieldMap.environment) || issue.fields.environment || '';
+  row[9] = getCustomFieldValue_(issue, fieldMap.steps);
+  row[10] = getCustomFieldValue_(issue, fieldMap.expected);
+  row[11] = getCustomFieldValue_(issue, fieldMap.actual);
+  row[13] = issue.fields.reporter && issue.fields.reporter.displayName || '';
+  row[14] = issue.fields.assignee && issue.fields.assignee.displayName || '';
+  row[15] = issue.fields.created ? issue.fields.created.substring(0, 10) : '';
+  row[18] = instUrl + '/browse/' + issue.key;
+  row[19] = issue.key;
+  row[20] = timestamp;
+
+  for (let col = 1; col < row.length; col++) {
+    if (row[col] !== undefined) bugSheet.getRange(rowNum, col + 1).setValue(row[col]);
+  }
+}
+
+function insertBugRow_(bugSheet, issue, timestamp, instUrl, instance, moduleName) {
+  const lastRow = bugSheet.getLastRow();
+  const newRow = lastRow + 1;
+  const row = [];
+  row[0] = 'BUG-' + String(newRow - 5).padStart(4, '0');
+  row[1] = 'Functional';
+  row[2] = normalizePriority_(issue.fields.priority && issue.fields.priority.name);
+  row[3] = normalizeStatus_(issue.fields.status && issue.fields.status.name);
+  const fieldMap = getJiraFieldMap_(instance);
+  row[4] = getCustomFieldValue_(issue, fieldMap.feature);
+  row[5] = getCustomFieldValue_(issue, fieldMap.submodul) || moduleName || '';
+  row[6] = issue.fields.summary || '';
+  row[7] = convertADF_(issue.fields.description);
+  row[8] = getCustomFieldValue_(issue, fieldMap.environment) || issue.fields.environment || '';
+  row[9] = getCustomFieldValue_(issue, fieldMap.steps);
+  row[10] = getCustomFieldValue_(issue, fieldMap.expected);
+  row[11] = getCustomFieldValue_(issue, fieldMap.actual);
+  row[12] = '';
+  row[13] = issue.fields.reporter && issue.fields.reporter.displayName || '';
+  row[14] = issue.fields.assignee && issue.fields.assignee.displayName || '';
+  row[15] = issue.fields.created ? issue.fields.created.substring(0, 10) : '';
+  row[16] = '';
+  row[17] = '';
+  row[18] = instUrl + '/browse/' + issue.key;
+  row[19] = issue.key;
+  row[20] = timestamp;
+  row[21] = '';
+  bugSheet.getRange(newRow, 1, 1, row.length).setValues([row]);
+}
+
+function cleanupClosedBugs_(bugSheet, jiraIssues) {
+  const closedKeys = new Set();
+  jiraIssues.forEach(function(issue) {
+    const statusName = issue.fields.status && issue.fields.status.name;
+    if (statusName === 'Closed' || statusName === "Won't Fix") closedKeys.add(issue.key);
+  });
+  if (closedKeys.size === 0) return 0;
+
+  const data = bugSheet.getDataRange().getValues();
+  const rowsToDelete = [];
+  for (let i = data.length - 1; i >= 5; i--) {
+    const jiraKey = String(data[i][19]).trim();
+    if (closedKeys.has(jiraKey)) rowsToDelete.push(i + 1);
+  }
+  rowsToDelete.forEach(function(rowNum) { bugSheet.deleteRow(rowNum); });
+  return rowsToDelete.length;
+}
+
+function getJiraInstanceUrl_(instance) {
+  const instances = {'digitalperuri': 'https://digitalperuri.atlassian.net', 'bgn-peruri': 'https://bgn-peruri.atlassian.net'};
+  return instances[instance] || instances['digitalperuri'];
+}
+
+function getJiraModulField_(instance) {
+  const fields = {'digitalperuri': 'cf[10097]', 'bgn-peruri': 'cf[10289]'};
+  return fields[instance] || 'cf[10097]';
+}
+
+function getJiraCustomFields_(instance) {
+  const fields = {
+    'digitalperuri': ',customfield_11090,customfield_10095,customfield_10560,customfield_10561,customfield_10562,customfield_11354',
+    'bgn-peruri': ',customfield_10298,customfield_10291,customfield_10292,customfield_10293,customfield_10294,customfield_10300'
+  };
+  return fields[instance] || fields['digitalperuri'];
+}
+
+function getJiraFieldMap_(instance) {
+  const maps = {
+    'digitalperuri': {
+      feature: 'customfield_11090', environment: 'customfield_10095', steps: 'customfield_10560',
+      expected: 'customfield_10561', actual: 'customfield_10562', submodul: 'customfield_11354'
+    },
+    'bgn-peruri': {
+      feature: 'customfield_10298', environment: 'customfield_10291', steps: 'customfield_10292',
+      expected: 'customfield_10293', actual: 'customfield_10294', submodul: 'customfield_10300'
+    }
+  };
+  return maps[instance] || maps['digitalperuri'];
+}
+
+function getCustomFieldValue_(issue, fieldId) {
+  if (!fieldId || !issue.fields) return '';
+  const value = issue.fields[fieldId];
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value.value) return value.value;
+  if (typeof value === 'object' && value.content) return convertADF_(value);
+  return '';
+}
+
+function normalizePriority_(priority) {
+  if (!priority) return '';
+  const map = {'Highest': 'Critical', 'Critical': 'Critical', 'High': 'High', 'Medium': 'Medium', 'Low': 'Low', 'Lowest': 'Low', 'Minor': 'Low', 'Trivial': 'Low'};
+  return map[priority] || priority;
+}
+
+function normalizeStatus_(status) {
+  if (!status) return '';
+  const sl = status.toLowerCase();
+  if (['open', 'to do', 'backlog', 'new'].includes(sl)) return 'Open';
+  if (['in progress', 'in review', 'review', 'testing'].includes(sl)) return 'In Progress';
+  if (['fixed', 'ready for qa', 'ready for review'].includes(sl)) return 'Fixed';
+  if (['verified', 'qa verified'].includes(sl)) return 'Verified';
+  if (['closed', 'done'].includes(sl)) return 'Closed';
+  if (["won't fix", 'wontfix', 'not a bug', 'invalid'].includes(sl)) return "Won't Fix";
+  if (['reopened', 'reopen'].includes(sl)) return 'Reopen';
+  return 'Open';
+}
+
+function convertADF_(adf) {
+  if (!adf) return '';
+  if (typeof adf === 'string') return adf;
+  function extract(node) {
+    if (!node) return '';
+    if (node.type === 'text') return node.text || '';
+    if (node.type === 'hardBreak') return '\n';
+    if (node.type === 'paragraph') return (node.content || []).map(extract).join('') + '\n';
+    if (node.type === 'bulletList' || node.type === 'orderedList') {
+      return (node.content || []).map(function(item, i) {
+        return (node.type === 'orderedList' ? (i + 1) + '. ' : ' • ') + (item.content || []).map(extract).join('');
+      }).join('\n') + '\n';
+    }
+    if (node.type === 'mediaSingle' || node.type === 'mediaInline' || node.type === 'media') return '[Image]';
+    if (node.content) return node.content.map(extract).join('');
+    return '';
+  }
+  try {
+    return extract(adf).trim();
+  } catch (e) {
+    return '';
+  }
+}

@@ -409,7 +409,1059 @@ function showAvailableFixes() {
     '   - Overview, Smoke, Blockers, Coverage, Config\n\n' +
     '🚀 applyAllFixes()\n' +
     '   - Apply semua fixes sekaligus\n\n' +
+    '4️⃣ broadcastManualSyncButton()\n' +
+    '   - Add "🔄 Sync Jira" button ke tiap QATM\n' +
+    '   - Manual sync per-QATM\n\n' +
     'Run dari Extensions > Apps Script atau Script Editor.',
     ui.ButtonSet.OK
   );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// V4: MANUAL JIRA SYNC - REMOTE SYNC FROM DASHBOARD
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Sync Single QATM from Dashboard
+ * Call this function to manually sync a specific QATM
+ */
+function syncSingleQATMFromDashboard() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Get list of active modules
+  const cfg = ss.getSheetByName('Config');
+  if (!cfg) {
+    ui.alert('❌ Config tab tidak ditemukan!');
+    return;
+  }
+
+  const cfgData = cfg.getDataRange().getValues();
+  const modules = [];
+
+  for (let i = 3; i < cfgData.length; i++) {
+    const active = cfgData[i][0] === true;
+    const jiraSync = cfgData[i][1] === true;
+    const project = String(cfgData[i][2]).trim();
+    const modul = String(cfgData[i][3]).trim();
+    const qatmId = String(cfgData[i][6]).trim();
+
+    if (active && jiraSync && qatmId && qatmId.length > 10) {
+      modules.push({
+        label: project + ' - ' + modul,
+        qatmId: qatmId,
+        index: i
+      });
+    }
+  }
+
+  if (modules.length === 0) {
+    ui.alert('❌ Tidak ada modul dengan Jira Sync aktif.');
+    return;
+  }
+
+  // Show selection dialog
+  let msg = 'Pilih QATM untuk di-sync:\n\n';
+  modules.forEach((m, idx) => {
+    msg += (idx + 1) + '. ' + m.label + '\n';
+  });
+  msg += '\nMasukkan nomor (1-' + modules.length + '):';
+
+  const response = ui.prompt('Sync Single QATM', msg, ui.ButtonSet.OK_CANCEL);
+
+  if (response.getSelectedButton() !== ui.Button.OK) {
+    return;
+  }
+
+  const selection = parseInt(response.getResponseText());
+  if (isNaN(selection) || selection < 1 || selection > modules.length) {
+    ui.alert('❌ Nomor tidak valid!');
+    return;
+  }
+
+  const selectedModule = modules[selection - 1];
+  const rowIndex = selectedModule.index;
+
+  // Get credentials
+  const dashboardSs = SpreadsheetApp.getActiveSpreadsheet();
+  const credSheet = dashboardSs.getSheetByName('Credentials');
+  const jiraInstance = String(cfgData[rowIndex][8]).trim().toLowerCase();
+  const jiraProjectKey = String(cfgData[rowIndex][9]).trim().toUpperCase();
+  const moduleName = String(cfgData[rowIndex][3]).trim();
+
+  let jiraEmail = '';
+  let jiraApiToken = '';
+
+  if (credSheet) {
+    const credData = credSheet.getDataRange().getValues();
+    for (let j = 3; j < credData.length; j++) {
+      const inst = String(credData[j][0]).trim().toLowerCase();
+      if (inst === jiraInstance) {
+        jiraEmail = String(credData[j][1]).trim();
+        jiraApiToken = String(credData[j][2]).trim();
+        break;
+      }
+    }
+  }
+
+  if (!jiraEmail || !jiraApiToken) {
+    ui.alert('❌ Credentials tidak ditemukan untuk instance: ' + jiraInstance);
+    return;
+  }
+
+  ui.alert(
+    'Sync QATM: ' + selectedModule.label,
+    'Memulai sync...\n\nIni akan memakan waktu beberapa menit.',
+    ui.ButtonSet.OK
+  );
+
+  // Perform sync
+  try {
+    const result = syncQATMRemote_(selectedModule.qatmId, jiraInstance, jiraProjectKey, jiraEmail, jiraApiToken, moduleName);
+    ui.alert('✅ Sync Selesai!', result, ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('❌ Error', 'Sync gagal:\n\n' + e.message, ui.ButtonSet.OK);
+    Logger.log('❌ Sync error: ' + e.message);
+  }
+}
+
+/**
+ * Sync All Active QATMs from Dashboard
+ */
+function syncAllQATMsFromDashboard() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    'Sync All QATMs',
+    'Ini akan sync SEMUA QATM yang aktif dengan Jira Sync enabled.\n\nLanjutkan?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  const cfg = ss.getSheetByName('Config');
+  if (!cfg) {
+    ui.alert('❌ Config tab tidak ditemukan!');
+    return;
+  }
+
+  const cfgData = cfg.getDataRange().getValues();
+  const dashboardSs = SpreadsheetApp.getActiveSpreadsheet();
+  const credSheet = dashboardSs.getSheetByName('Credentials');
+
+  let successCount = 0;
+  let errorCount = 0;
+  const errors = [];
+
+  for (let i = 3; i < cfgData.length; i++) {
+    const active = cfgData[i][0] === true;
+    const jiraSync = cfgData[i][1] === true;
+    const project = String(cfgData[i][2]).trim();
+    const modul = String(cfgData[i][3]).trim();
+    const qatmId = String(cfgData[i][6]).trim();
+    const jiraInstance = String(cfgData[i][8]).trim().toLowerCase();
+    const jiraProjectKey = String(cfgData[i][9]).trim().toUpperCase();
+
+    if (!active || !jiraSync || !qatmId || qatmId.length < 10) continue;
+
+    let jiraEmail = '';
+    let jiraApiToken = '';
+
+    if (credSheet) {
+      const credData = credSheet.getDataRange().getValues();
+      for (let j = 3; j < credData.length; j++) {
+        const inst = String(credData[j][0]).trim().toLowerCase();
+        if (inst === jiraInstance) {
+          jiraEmail = String(credData[j][1]).trim();
+          jiraApiToken = String(credData[j][2]).trim();
+          break;
+        }
+      }
+    }
+
+    if (!jiraEmail || !jiraApiToken) {
+      errorCount++;
+      errors.push(project + ' - ' + modul + ' (missing credentials)');
+      continue;
+    }
+
+    try {
+      Logger.log('Syncing: ' + project + ' - ' + modul);
+      syncQATMRemote_(qatmId, jiraInstance, jiraProjectKey, jiraEmail, jiraApiToken, modul);
+      successCount++;
+      Logger.log('✅ Synced: ' + project + ' - ' + modul);
+    } catch (e) {
+      errorCount++;
+      errors.push(project + ' - ' + modul + ' (' + e.message + ')');
+      Logger.log('❌ Error: ' + project + ' - ' + modul + ': ' + e.message);
+    }
+  }
+
+  let msg = '✅ Sync All QATMs Selesai!\n\n';
+  msg += '📊 Summary:\n';
+  msg += '• Success: ' + successCount + ' QATM(s)\n';
+  msg += '• Errors: ' + errorCount + ' QATM(s)\n';
+
+  if (errors.length > 0) {
+    msg += '\n❌ Errors:\n';
+    errors.forEach(function(err) {
+      msg += '• ' + err + '\n';
+    });
+  }
+
+  ui.alert('Sync Complete', msg, ui.ButtonSet.OK);
+}
+
+/**
+ * Remote sync function - syncs QATM from Dashboard
+ */
+function syncQATMRemote_(qatmId, jiraInstance, jiraProjectKey, jiraEmail, jiraApiToken, moduleName) {
+  const qatmSs = SpreadsheetApp.openById(qatmId);
+  const bugSheet = qatmSs.getSheetByName('BugReport');
+
+  if (!bugSheet) {
+    throw new Error('BugReport sheet not found');
+  }
+
+  Logger.log('Fetching bugs from Jira...');
+  const issues = fetchJiraIssues_(jiraInstance, jiraProjectKey, moduleName, jiraEmail, jiraApiToken);
+
+  if (!issues) {
+    throw new Error('Failed to fetch issues from Jira');
+  }
+
+  Logger.log('Fetched ' + issues.length + ' issue(s)');
+
+  const bugIndex = buildBugIndex_(bugSheet);
+  const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  const instUrl = getJiraInstanceUrl_(jiraInstance);
+  let inserted = 0;
+  let updated = 0;
+
+  issues.forEach(function(issue) {
+    const statusName = issue.fields.status && issue.fields.status.name;
+    const isClosedStatus = statusName === 'Closed' || statusName === "Won't Fix";
+
+    if (isClosedStatus) return;
+
+    if (bugIndex[issue.key] !== undefined) {
+      updateBugRow_(bugSheet, bugIndex[issue.key], issue, now, instUrl, jiraInstance);
+      updated++;
+    } else {
+      insertBugRow_(bugSheet, issue, now, instUrl, jiraInstance, moduleName);
+      inserted++;
+    }
+  });
+
+  const deleted = cleanupClosedBugs_(bugSheet, issues);
+
+  let result = '📊 Hasil Sync:\n\n';
+  result += '• Inserted: ' + inserted + ' bug baru\n';
+  result += '• Updated: ' + updated + ' bug\n';
+  if (deleted > 0) {
+    result += '• Deleted: ' + deleted + ' (Closed/Won\'t Fix)\n';
+  }
+  result += '\n✅ Total: ' + (inserted + updated) + ' active bugs';
+
+  return result;
+}
+
+/**
+ * Broadcast: Add Config Tab to all QATM spreadsheets
+ *
+ * Creates Config tab with Jira configuration
+ * Users can then sync from Dashboard using syncSingleQATMFromDashboard()
+ */
+function broadcastManualSyncButton() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    '🔄 Add Manual Sync Button',
+    'Fix ini akan:\n\n' +
+    '✅ Add button "🔄 Sync Jira" di Config tab (R4)\n' +
+    '✅ Button untuk manual sync Jira per-QATM\n' +
+    '✅ Auto sync tetap berjalan normal\n\n' +
+    'Button akan di-broadcast ke semua active QATM.\n\n' +
+    'Lanjutkan?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    ui.alert('Broadcast dibatalkan.');
+    return;
+  }
+
+  try {
+    const cfg = ss.getSheetByName('Config');
+    if (!cfg) {
+      ui.alert('❌ Config tab tidak ditemukan!');
+      return;
+    }
+
+    // Get active modules
+    const cfgData = cfg.getDataRange().getValues();
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    for (let i = 3; i < cfgData.length; i++) {
+      const active = cfgData[i][0] === true;  // Col A
+      const project = String(cfgData[i][2]).trim();  // Col C
+      const modul = String(cfgData[i][3]).trim();    // Col D
+      const qatmId = String(cfgData[i][6]).trim();   // Col G
+
+      if (!active || !qatmId || qatmId.length < 10) continue;
+
+      try {
+        Logger.log('Adding sync button to: ' + project + ' - ' + modul);
+
+        const qatmSs = SpreadsheetApp.openById(qatmId);
+
+        // Get Jira config for this module from Dashboard Config
+        const jiraSync = cfgData[i][1] === true;  // Col B
+        const jiraInstance = String(cfgData[i][8]).trim().toLowerCase();  // Col I
+        const jiraProjectKey = String(cfgData[i][9]).trim().toUpperCase();  // Col J
+
+        if (!jiraSync || !jiraInstance || !jiraProjectKey) {
+          Logger.log('⚠️ Jira Sync not configured for ' + project + ' - ' + modul);
+          errorCount++;
+          errors.push(project + ' - ' + modul + ' (Jira Sync not configured)');
+          continue;
+        }
+
+        // Get credentials from Dashboard
+        const dashboardSs = SpreadsheetApp.getActiveSpreadsheet();
+        const credSheet = dashboardSs.getSheetByName('Credentials');
+        let jiraEmail = '';
+        let jiraApiToken = '';
+
+        if (credSheet) {
+          const credData = credSheet.getDataRange().getValues();
+          for (let j = 3; j < credData.length; j++) {
+            const inst = String(credData[j][0]).trim().toLowerCase();
+            if (inst === jiraInstance) {
+              jiraEmail = String(credData[j][1]).trim();
+              jiraApiToken = String(credData[j][2]).trim();
+              break;
+            }
+          }
+        }
+
+        if (!jiraEmail || !jiraApiToken) {
+          Logger.log('⚠️ Jira credentials not found for instance: ' + jiraInstance);
+          errorCount++;
+          errors.push(project + ' - ' + modul + ' (missing credentials for ' + jiraInstance + ')');
+          continue;
+        }
+
+        addSyncButtonToQATM_(qatmSs, project, modul, jiraInstance, jiraProjectKey, jiraEmail, jiraApiToken);
+        successCount++;
+        Logger.log('✅ Config added to ' + project + ' - ' + modul);
+
+      } catch (e) {
+        Logger.log('❌ Error for ' + project + ' - ' + modul + ': ' + e.message);
+        errorCount++;
+        errors.push(project + ' - ' + modul + ' (' + e.message + ')');
+      }
+    }
+
+    let msg = '✅ Broadcast Manual Sync Button Complete!\n\n';
+    msg += '📊 Summary:\n';
+    msg += '• Success: ' + successCount + ' QATM(s)\n';
+    msg += '• Errors: ' + errorCount + ' QATM(s)\n';
+
+    if (errors.length > 0) {
+      msg += '\n❌ Errors:\n';
+      errors.forEach(err => {
+        msg += '• ' + err + '\n';
+      });
+    }
+
+    ui.alert('Broadcast Complete', msg, ui.ButtonSet.OK);
+    Logger.log('✅ Broadcast complete - Success: ' + successCount + ', Errors: ' + errorCount);
+
+  } catch (e) {
+    ui.alert('❌ Error', 'Error during broadcast: ' + e.message, ui.ButtonSet.OK);
+    Logger.log('❌ Broadcast error: ' + e.message);
+  }
+}
+
+/**
+ * Add Sync Button and Config to a single QATM
+ * Creates Config tab if it doesn't exist
+ * Populates Jira configuration
+ * Adds visual sync button indicator
+ */
+function addSyncButtonToQATM_(qatmSs, project, modul, jiraInstance, jiraProjectKey, jiraEmail, jiraApiToken) {
+  // Get or create Config sheet
+  let qatmConfig = qatmSs.getSheetByName('Config');
+
+  if (!qatmConfig) {
+    Logger.log('Creating Config tab...');
+    qatmConfig = qatmSs.insertSheet('Config');
+  }
+
+  // Setup Config tab structure
+  // Row 1: Title
+  qatmConfig.getRange('A1').setValue('JIRA SYNC CONFIGURATION')
+           .setFontSize(14)
+           .setFontWeight('bold')
+           .setBackground('#0D47A1')
+           .setFontColor('#FFFFFF');
+  qatmConfig.getRange('A1:F1').merge();
+
+  // Row 2: Info
+  qatmConfig.getRange('A2').setValue('⚠️ This configuration is auto-generated from Dashboard. DO NOT edit manually.')
+           .setFontSize(9)
+           .setFontStyle('italic')
+           .setBackground('#FFF3E0')
+           .setFontColor('#E65100');
+  qatmConfig.getRange('A2:F2').merge();
+
+  // Row 3: Labels
+  const labels = [
+    ['Label', 'Jira Instance', 'Project Key', 'Email', 'API Token', 'Module'],
+  ];
+  qatmConfig.getRange('A3:F3').setValues(labels)
+           .setFontWeight('bold')
+           .setBackground('#E3F2FD')
+           .setFontColor('#0D47A1')
+           .setHorizontalAlignment('center');
+
+  // Row 4: Values
+  const values = [
+    ['Config', jiraInstance, jiraProjectKey, jiraEmail, jiraApiToken, modul],
+  ];
+  qatmConfig.getRange('A4:F4').setValues(values);
+
+  // Format value cells
+  qatmConfig.getRange('B4:F4')
+           .setBackground('#FFFFFF')
+           .setBorder(true, true, true, true, false, false, '#1976D2', SpreadsheetApp.BorderStyle.SOLID);
+
+  // Set column widths
+  qatmConfig.setColumnWidth(1, 80);   // A
+  qatmConfig.setColumnWidth(2, 120);  // B - Instance
+  qatmConfig.setColumnWidth(3, 100);  // C - Project Key
+  qatmConfig.setColumnWidth(4, 200);  // D - Email
+  qatmConfig.setColumnWidth(5, 300);  // E - API Token
+  qatmConfig.setColumnWidth(6, 150);  // F - Module
+
+  // Hide API Token column for security (user can unhide if needed)
+  qatmConfig.hideColumns(5);
+
+  // Add instructions label
+  qatmConfig.getRange('H3').setValue('Manual Sync:')
+                           .setFontWeight('bold')
+                           .setFontSize(9)
+                           .setHorizontalAlignment('center')
+                           .setBackground('#E3F2FD')
+                           .setFontColor('#0D47A1');
+
+  qatmConfig.setColumnWidth(8, 150);  // H
+
+  // Create visual button indicator in H4
+  const buttonCell = qatmConfig.getRange('H4');
+  buttonCell.setValue('Use Menu Above ↑\n🔄 Jira Sync');
+  buttonCell.setFontWeight('bold')
+           .setFontSize(9)
+           .setWrap(true)
+           .setHorizontalAlignment('center')
+           .setVerticalAlignment('middle')
+           .setBackground('#4285F4')
+           .setFontColor('#FFFFFF')
+           .setBorder(true, true, true, true, false, false, '#1967D2', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+
+  qatmConfig.setRowHeight(4, 40);
+
+  // Add usage instructions in row 6
+  const instructions = 'CARA MANUAL SYNC JIRA:\n\n' +
+    '1️⃣ Klik menu di atas: 🔄 Jira Sync > Sync Now\n' +
+    '2️⃣ Tunggu beberapa menit (tergantung jumlah bug)\n' +
+    '3️⃣ Selesai! Cek tab BugReport untuk hasil sync\n\n' +
+    'YANG DILAKUKAN SAAT SYNC:\n' +
+    '✅ Fetch bugs dari Jira (project ' + jiraProjectKey + ', module ' + modul + ')\n' +
+    '✅ Insert bug baru ke BugReport\n' +
+    '✅ Update bug yang sudah ada\n' +
+    '✅ Hapus bug Closed/Won\'t Fix\n\n' +
+    'AUTO SYNC dari Dashboard tetap berjalan seperti biasa.\n' +
+    'Manual sync ini untuk sync on-demand jika diperlukan.';
+
+  qatmConfig.getRange('A6').setValue(instructions)
+           .setWrap(true)
+           .setFontSize(9)
+           .setBackground('#F5F5F5')
+           .setVerticalAlignment('top');
+  qatmConfig.getRange('A6:H10').merge();
+  qatmConfig.setRowHeight(6, 150);
+
+  // Add project info
+  qatmConfig.getRange('A12').setValue('Project: ' + project + ' / Module: ' + modul)
+           .setFontWeight('bold')
+           .setFontSize(10);
+
+  Logger.log('✅ Config tab created/updated with Jira configuration');
+}
+
+/**
+ * Manual Sync Function - Call this from QATM directly
+ * This function should be added to each QATM's Apps Script
+ *
+ * Usage: Create custom menu in QATM with this function
+ *
+ * Expected Config tab structure:
+ * Row 3: Labels
+ * Row 4: Values
+ * B4 = Jira Instance (digitalperuri / bgn-peruri)
+ * C4 = Jira Project Key (SQA / BGN / etc)
+ * D4 = Jira Email
+ * E4 = Jira API Token
+ * F4 = Module Name/Number
+ */
+function manualSyncJiraFromQATM() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Get QATM Config
+    const config = ss.getSheetByName('Config');
+    if (!config) {
+      ui.alert('❌ Config tab not found!\n\nPlease create Config tab first via broadcast from Dashboard.');
+      return;
+    }
+
+    // Read Jira config from QATM Config tab
+    // Row 3 = Labels, Row 4 = Values
+    const jiraInstance = String(config.getRange('B4').getValue()).trim().toLowerCase();
+    const jiraProjectKey = String(config.getRange('C4').getValue()).trim().toUpperCase();
+    const jiraEmail = String(config.getRange('D4').getValue()).trim();
+    const jiraApiToken = String(config.getRange('E4').getValue()).trim();
+    const moduleName = String(config.getRange('F4').getValue()).trim();
+
+    // Validate config
+    if (!jiraInstance || !jiraProjectKey || !jiraEmail || !jiraApiToken || !moduleName) {
+      let msg = '❌ Jira configuration incomplete!\n\nPlease fill in Config tab (row 4):\n\n';
+      if (!jiraInstance) msg += '• B4: Jira Instance (digitalperuri / bgn-peruri)\n';
+      if (!jiraProjectKey) msg += '• C4: Jira Project Key (SQA / BGN / etc)\n';
+      if (!jiraEmail) msg += '• D4: Jira Email (your.email@company.com)\n';
+      if (!jiraApiToken) msg += '• E4: Jira API Token (ATATT3xFf...)\n';
+      if (!moduleName) msg += '• F4: Module Name/Number (1 / Portal+SSO / etc)\n';
+
+      ui.alert(msg);
+      return;
+    }
+
+    ui.alert(
+      '🔄 Manual Jira Sync',
+      'Starting Jira sync for this QATM...\n\n' +
+      'Instance: ' + jiraInstance + '\n' +
+      'Project: ' + jiraProjectKey + '\n' +
+      'Module: ' + moduleName + '\n\n' +
+      'This may take a few minutes.',
+      ui.ButtonSet.OK
+    );
+
+    // Call the actual sync function
+    const result = syncJiraForCurrentQATM_(jiraInstance, jiraProjectKey, jiraApiToken, jiraEmail, moduleName);
+
+    ui.alert(
+      '✅ Sync Complete!',
+      result,
+      ui.ButtonSet.OK
+    );
+
+  } catch (e) {
+    ui.alert('❌ Error', 'Sync failed:\n\n' + e.message + '\n\nCheck Execution log for details.', ui.ButtonSet.OK);
+    Logger.log('❌ Manual sync error: ' + e.message);
+    Logger.log('Stack trace: ' + e.stack);
+  }
+}
+
+/**
+ * Helper: Sync Jira for current QATM
+ * Reuses logic from JiraSync.js but for single QATM
+ * This is the reference implementation - actual code should be deployed to QATM template
+ */
+function syncJiraForCurrentQATM_(jiraInstance, jiraProjectKey, jiraApiToken, email, moduleName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const bugSheet = ss.getSheetByName('BugReport');
+
+  if (!bugSheet) {
+    Logger.log('❌ BugReport sheet not found');
+    return '❌ BugReport sheet not found in this spreadsheet.';
+  }
+
+  Logger.log('══════════════════════════════════════════');
+  Logger.log('🔄 MANUAL JIRA SYNC');
+  Logger.log('══════════════════════════════════════════');
+  Logger.log('Instance: ' + jiraInstance);
+  Logger.log('Project:  ' + jiraProjectKey);
+  Logger.log('Modul:    ' + (moduleName || '(not specified)'));
+  Logger.log('');
+
+  try {
+    // Fetch issues from Jira
+    const issues = fetchJiraIssues_(jiraInstance, jiraProjectKey, moduleName, email, jiraApiToken);
+
+    if (!issues) {
+      Logger.log('❌ Failed to fetch issues from Jira');
+      return '❌ Failed to fetch issues from Jira.\n\nCheck:\n• Jira Instance URL\n• Project Key\n• API Token\n• Module name';
+    }
+
+    Logger.log('✅ Fetched ' + issues.length + ' issue(s) from Jira');
+
+    // Build index of existing bugs in sheet
+    const bugIndex = buildBugIndex_(bugSheet);
+    Logger.log('📊 Found ' + Object.keys(bugIndex).length + ' existing bug(s) in sheet');
+
+    // Sync bugs
+    const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    const instUrl = getJiraInstanceUrl_(jiraInstance);
+    let inserted = 0;
+    let updated = 0;
+
+    const jiraKeys = new Set();
+
+    issues.forEach(issue => {
+      const statusName = issue.fields.status && issue.fields.status.name;
+      const isClosedStatus = statusName === 'Closed' || statusName === "Won't Fix";
+
+      jiraKeys.add(issue.key);
+
+      // Skip closed bugs - they'll be cleaned up below
+      if (isClosedStatus) {
+        return;
+      }
+
+      // Update or insert active bugs
+      if (bugIndex[issue.key] !== undefined) {
+        updateBugRow_(bugSheet, bugIndex[issue.key], issue, now, instUrl, jiraInstance);
+        updated++;
+      } else {
+        insertBugRow_(bugSheet, issue, now, instUrl, jiraInstance, moduleName);
+        inserted++;
+      }
+    });
+
+    // Cleanup closed bugs
+    const deleted = cleanupClosedBugs_(bugSheet, issues);
+
+    Logger.log('✅ Sync complete:');
+    Logger.log('  • Inserted: ' + inserted);
+    Logger.log('  • Updated: ' + updated);
+    Logger.log('  • Deleted (Closed/Won\'t Fix): ' + deleted);
+    Logger.log('══════════════════════════════════════════');
+
+    let result = '📊 Sync Results:\n\n';
+    result += '• Inserted: ' + inserted + ' new bug(s)\n';
+    result += '• Updated: ' + updated + ' bug(s)\n';
+    if (deleted > 0) {
+      result += '• Deleted: ' + deleted + ' (Closed/Won\'t Fix)\n';
+    }
+    result += '\n✅ Total: ' + (inserted + updated) + ' active bug(s)';
+
+    return result;
+
+  } catch (e) {
+    Logger.log('❌ Error during sync: ' + e.message);
+    Logger.log('Stack trace: ' + e.stack);
+    return '❌ Error during sync:\n\n' + e.message;
+  }
+}
+
+/**
+ * Fetch issues from Jira using REST API
+ */
+function fetchJiraIssues_(instance, projectKey, moduleName, email, apiToken) {
+  const baseUrl = getJiraInstanceUrl_(instance);
+  const modulField = getJiraModulField_(instance);
+
+  // Build JQL query
+  const isNumeric = /^\d+$/.test(moduleName);
+  const modulValue = isNumeric ? moduleName : '"' + moduleName + '"';
+
+  const jql = 'project = "' + projectKey + '" AND issuetype = Bug AND "' + modulField + '" = ' + modulValue + ' ORDER BY priority ASC, updated DESC';
+
+  Logger.log('JQL: ' + jql);
+  Logger.log('');
+
+  const auth = Utilities.base64Encode(email + ':' + apiToken);
+  const headers = {
+    'Authorization': 'Basic ' + auth,
+    'Content-Type': 'application/json'
+  };
+
+  const fields = 'summary,description,priority,status,assignee,reporter,resolutiondate,key,created,updated,labels,components,environment';
+  const customFields = getJiraCustomFields_(instance);
+  const allFields = fields + customFields;
+
+  const allIssues = [];
+  let nextPageToken = null;
+
+  do {
+    let url = baseUrl + '/rest/api/3/search/jql?jql=' + encodeURIComponent(jql) +
+      '&fields=' + encodeURIComponent(allFields) + '&maxResults=100';
+
+    if (nextPageToken) {
+      url += '&nextPageToken=' + encodeURIComponent(nextPageToken);
+    }
+
+    let response;
+    try {
+      response = UrlFetchApp.fetch(url, {headers: headers, muteHttpExceptions: true});
+    } catch (e) {
+      Logger.log('❌ Fetch error: ' + e.message);
+      return null;
+    }
+
+    if (response.getResponseCode() !== 200) {
+      Logger.log('❌ Jira API error ' + response.getResponseCode() + ': ' + response.getContentText().substring(0, 200));
+      return null;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(response.getContentText());
+    } catch (e) {
+      Logger.log('❌ JSON parse error: ' + e.message);
+      return null;
+    }
+
+    (data.issues || []).forEach(issue => allIssues.push(issue));
+
+    nextPageToken = data.nextPageToken || null;
+
+    if (nextPageToken) {
+      Utilities.sleep(300);  // Rate limiting
+    }
+
+  } while (nextPageToken);
+
+  return allIssues;
+}
+
+/**
+ * Build index of existing bugs by Jira key
+ */
+function buildBugIndex_(bugSheet) {
+  const data = bugSheet.getDataRange().getValues();
+  const index = {};
+
+  // Start from row 6 (assuming header rows 1-5)
+  for (let i = 5; i < data.length; i++) {
+    const jiraKey = String(data[i][19]).trim();  // Column T (index 19) = Jira Key
+    if (jiraKey && jiraKey !== '') {
+      index[jiraKey] = i + 1;  // Store 1-based row number
+    }
+  }
+
+  return index;
+}
+
+/**
+ * Update existing bug row
+ */
+function updateBugRow_(bugSheet, rowNum, issue, timestamp, instUrl, instance) {
+  const row = [];
+
+  // Column A: Bug ID (keep existing)
+  // Column B: Type
+  row[1] = 'Functional';  // Default type
+
+  // Column C: Priority
+  row[2] = normalizePriority_(issue.fields.priority && issue.fields.priority.name);
+
+  // Column D: Status
+  row[3] = normalizeStatus_(issue.fields.status && issue.fields.status.name);
+
+  // Column E: Feature
+  const fieldMap = getJiraFieldMap_(instance);
+  row[4] = getCustomFieldValue_(issue, fieldMap.feature);
+
+  // Column F: Submodul
+  row[5] = getCustomFieldValue_(issue, fieldMap.submodul);
+
+  // Column G: Title
+  row[6] = issue.fields.summary || '';
+
+  // Column H: Description
+  row[7] = convertADF_(issue.fields.description);
+
+  // Column I: Environment
+  row[8] = getCustomFieldValue_(issue, fieldMap.environment) || issue.fields.environment || '';
+
+  // Column J: Steps
+  row[9] = getCustomFieldValue_(issue, fieldMap.steps);
+
+  // Column K: Expected
+  row[10] = getCustomFieldValue_(issue, fieldMap.expected);
+
+  // Column L: Actual
+  row[11] = getCustomFieldValue_(issue, fieldMap.actual);
+
+  // Column M: Test Case (keep existing)
+  // Column N: Reported By
+  row[13] = issue.fields.reporter && issue.fields.reporter.displayName || '';
+
+  // Column O: Assigned To
+  row[14] = issue.fields.assignee && issue.fields.assignee.displayName || '';
+
+  // Column P: Date Found
+  row[15] = issue.fields.created ? issue.fields.created.substring(0, 10) : '';
+
+  // Column Q: Date Fixed (keep existing)
+  // Column R: Sprint (keep existing)
+
+  // Column S: Link
+  row[18] = instUrl + '/browse/' + issue.key;
+
+  // Column T: Jira Key
+  row[19] = issue.key;
+
+  // Column U: Last Synced
+  row[20] = timestamp;
+
+  // Update row (starting from column B)
+  for (let col = 1; col < row.length; col++) {
+    if (row[col] !== undefined) {
+      bugSheet.getRange(rowNum, col + 1).setValue(row[col]);
+    }
+  }
+}
+
+/**
+ * Insert new bug row
+ */
+function insertBugRow_(bugSheet, issue, timestamp, instUrl, instance, moduleName) {
+  const lastRow = bugSheet.getLastRow();
+  const newRow = lastRow + 1;
+
+  const row = [];
+
+  // Column A: Bug ID (auto-generated or use Jira key)
+  row[0] = 'BUG-' + String(newRow - 5).padStart(4, '0');
+
+  // Column B: Type
+  row[1] = 'Functional';
+
+  // Column C: Priority
+  row[2] = normalizePriority_(issue.fields.priority && issue.fields.priority.name);
+
+  // Column D: Status
+  row[3] = normalizeStatus_(issue.fields.status && issue.fields.status.name);
+
+  // Column E: Feature
+  const fieldMap = getJiraFieldMap_(instance);
+  row[4] = getCustomFieldValue_(issue, fieldMap.feature);
+
+  // Column F: Submodul
+  row[5] = getCustomFieldValue_(issue, fieldMap.submodul) || moduleName || '';
+
+  // Column G: Title
+  row[6] = issue.fields.summary || '';
+
+  // Column H: Description
+  row[7] = convertADF_(issue.fields.description);
+
+  // Column I: Environment
+  row[8] = getCustomFieldValue_(issue, fieldMap.environment) || issue.fields.environment || '';
+
+  // Column J: Steps
+  row[9] = getCustomFieldValue_(issue, fieldMap.steps);
+
+  // Column K: Expected
+  row[10] = getCustomFieldValue_(issue, fieldMap.expected);
+
+  // Column L: Actual
+  row[11] = getCustomFieldValue_(issue, fieldMap.actual);
+
+  // Column M: Test Case
+  row[12] = '';
+
+  // Column N: Reported By
+  row[13] = issue.fields.reporter && issue.fields.reporter.displayName || '';
+
+  // Column O: Assigned To
+  row[14] = issue.fields.assignee && issue.fields.assignee.displayName || '';
+
+  // Column P: Date Found
+  row[15] = issue.fields.created ? issue.fields.created.substring(0, 10) : '';
+
+  // Column Q: Date Fixed
+  row[16] = '';
+
+  // Column R: Sprint
+  row[17] = '';
+
+  // Column S: Link
+  row[18] = instUrl + '/browse/' + issue.key;
+
+  // Column T: Jira Key
+  row[19] = issue.key;
+
+  // Column U: Last Synced
+  row[20] = timestamp;
+
+  // Column V: Screenshot
+  row[21] = '';
+
+  // Insert row
+  bugSheet.getRange(newRow, 1, 1, row.length).setValues([row]);
+}
+
+/**
+ * Cleanup bugs that are Closed/Won't Fix in Jira
+ */
+function cleanupClosedBugs_(bugSheet, jiraIssues) {
+  const closedKeys = new Set();
+
+  jiraIssues.forEach(issue => {
+    const statusName = issue.fields.status && issue.fields.status.name;
+    if (statusName === 'Closed' || statusName === "Won't Fix") {
+      closedKeys.add(issue.key);
+    }
+  });
+
+  if (closedKeys.size === 0) {
+    return 0;
+  }
+
+  const data = bugSheet.getDataRange().getValues();
+  const rowsToDelete = [];
+
+  // Find rows with closed bugs (from bottom to top for safe deletion)
+  for (let i = data.length - 1; i >= 5; i--) {
+    const jiraKey = String(data[i][19]).trim();
+    if (closedKeys.has(jiraKey)) {
+      rowsToDelete.push(i + 1);  // Store 1-based row number
+    }
+  }
+
+  // Delete rows
+  rowsToDelete.forEach(rowNum => {
+    bugSheet.deleteRow(rowNum);
+  });
+
+  return rowsToDelete.length;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════
+
+function getJiraInstanceUrl_(instance) {
+  const instances = {
+    'digitalperuri': 'https://digitalperuri.atlassian.net',
+    'bgn-peruri': 'https://bgn-peruri.atlassian.net'
+  };
+  return instances[instance] || instances['digitalperuri'];
+}
+
+function getJiraModulField_(instance) {
+  const fields = {
+    'digitalperuri': 'cf[10097]',
+    'bgn-peruri': 'cf[10289]'
+  };
+  return fields[instance] || 'cf[10097]';
+}
+
+function getJiraCustomFields_(instance) {
+  const fields = {
+    'digitalperuri': ',customfield_11090,customfield_10095,customfield_10560,customfield_10561,customfield_10562,customfield_11354',
+    'bgn-peruri': ',customfield_10298,customfield_10291,customfield_10292,customfield_10293,customfield_10294,customfield_10300'
+  };
+  return fields[instance] || fields['digitalperuri'];
+}
+
+function getJiraFieldMap_(instance) {
+  const maps = {
+    'digitalperuri': {
+      feature: 'customfield_11090',
+      environment: 'customfield_10095',
+      steps: 'customfield_10560',
+      expected: 'customfield_10561',
+      actual: 'customfield_10562',
+      submodul: 'customfield_11354'
+    },
+    'bgn-peruri': {
+      feature: 'customfield_10298',
+      environment: 'customfield_10291',
+      steps: 'customfield_10292',
+      expected: 'customfield_10293',
+      actual: 'customfield_10294',
+      submodul: 'customfield_10300'
+    }
+  };
+  return maps[instance] || maps['digitalperuri'];
+}
+
+function getCustomFieldValue_(issue, fieldId) {
+  if (!fieldId || !issue.fields) return '';
+  const value = issue.fields[fieldId];
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value.value) return value.value;
+  if (typeof value === 'object' && value.content) return convertADF_(value);
+  return '';
+}
+
+function normalizePriority_(priority) {
+  if (!priority) return '';
+  const map = {
+    'Highest': 'Critical',
+    'Critical': 'Critical',
+    'High': 'High',
+    'Medium': 'Medium',
+    'Low': 'Low',
+    'Lowest': 'Low',
+    'Minor': 'Low',
+    'Trivial': 'Low'
+  };
+  return map[priority] || priority;
+}
+
+function normalizeStatus_(status) {
+  if (!status) return '';
+  const sl = status.toLowerCase();
+  if (['open', 'to do', 'backlog', 'new'].includes(sl)) return 'Open';
+  if (['in progress', 'in review', 'review', 'testing'].includes(sl)) return 'In Progress';
+  if (['fixed', 'ready for qa', 'ready for review'].includes(sl)) return 'Fixed';
+  if (['verified', 'qa verified'].includes(sl)) return 'Verified';
+  if (['closed', 'done'].includes(sl)) return 'Closed';
+  if (["won't fix", 'wontfix', 'not a bug', 'invalid'].includes(sl)) return "Won't Fix";
+  if (['reopened', 'reopen'].includes(sl)) return 'Reopen';
+  return 'Open';
+}
+
+function convertADF_(adf) {
+  if (!adf) return '';
+  if (typeof adf === 'string') return adf;
+
+  function extract(node) {
+    if (!node) return '';
+    if (node.type === 'text') return node.text || '';
+    if (node.type === 'hardBreak') return '\n';
+    if (node.type === 'paragraph') return (node.content || []).map(extract).join('') + '\n';
+    if (node.type === 'bulletList' || node.type === 'orderedList') {
+      return (node.content || []).map((item, i) =>
+        (node.type === 'orderedList' ? (i + 1) + '. ' : ' • ') +
+        (item.content || []).map(extract).join('')
+      ).join('\n') + '\n';
+    }
+    if (node.type === 'mediaSingle' || node.type === 'mediaInline' || node.type === 'media') {
+      return '[Image]';
+    }
+    if (node.content) return node.content.map(extract).join('');
+    return '';
+  }
+
+  try {
+    return extract(adf).trim();
+  } catch (e) {
+    return '';
+  }
 }
