@@ -49,8 +49,8 @@ function applyV1BroadcastFix() {
     buildBlockers(ss);
     buildCoverage(ss);
 
-    // Add comprehensive notes
-    addNotesToDashboard();
+    // Notes already added by init*Headers_() functions
+    // addNotesToDashboard(); // REMOVED - function deleted during cleanup
 
     // Refresh data dengan fixed logic
     refreshDashboard();
@@ -366,17 +366,17 @@ function applyComprehensiveNotes() {
   }
 
   try {
-    Logger.log('📝 Applying comprehensive notes...');
+    Logger.log('📝 Notes already added by init*Headers_() functions during tab creation');
 
-    addNotesToDashboard();
+    // addNotesToDashboard(); // REMOVED - function deleted during cleanup
 
-    Logger.log('✅ Comprehensive notes applied successfully');
+    Logger.log('✅ Notes are already present in all tabs');
 
   } catch (e) {
-    Logger.log('❌ Error applying notes: ' + e.message);
+    Logger.log('❌ Error in notes section: ' + e.message);
     ui.alert(
       '❌ Error',
-      'Gagal apply notes:\n' + e.message + '\n\n' +
+      'Error in notes section:\n' + e.message + '\n\n' +
       'Check Executions log untuk detail.',
       ui.ButtonSet.OK
     );

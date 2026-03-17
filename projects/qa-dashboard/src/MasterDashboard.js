@@ -166,8 +166,8 @@ function createDashboard() {
   buildHistory(ss);
   buildRaw(ss);
 
-  // Add comprehensive notes to Dashboard headers (fix 12-maret included)
-  addNotesToDashboard();
+  // Notes are added by init*Headers_() functions in each build*() function
+  // addNotesToDashboard(); // REMOVED - function deleted during cleanup
 
   ss.setActiveSheet(ss.getSheetByName('Config'));
   safeAlert_('Dashboard berhasil dibuat!\n\nLangkah selanjutnya:\n1. Isi tab Config dengan Spreadsheet ID modul\n2. Isi tab Credentials dengan Jira credentials\n3. Data Modul/Submodul/QA Lead/PIC QA akan otomatis dari QATM Summary\n4. Jalankan refreshDashboard()');
@@ -280,9 +280,9 @@ function step3_createDataTabs() {
 // STEP 4: Add notes to headers
 function step4_addNotes() {
   try {
-    Logger.log('Adding notes to dashboard headers...');
-    addNotesToDashboard();
-    Logger.log('✅ Notes added');
+    Logger.log('Skipping addNotesToDashboard - notes added by init*Headers_() functions');
+    // addNotesToDashboard(); // REMOVED - function deleted during cleanup
+    Logger.log('✅ Notes already added during dashboard creation');
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     ss.setActiveSheet(ss.getSheetByName('Config'));
