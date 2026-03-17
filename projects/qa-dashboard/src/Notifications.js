@@ -1354,9 +1354,9 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
           // Severity breakdown
           if ((module.critical || 0) > 0 || (module.high || 0) > 0 || (module.medium || 0) > 0) {
             message += '\n   ';
-            if ((module.critical || 0) > 0) message += '🔴 ' + module.critical + '  ';
-            if ((module.high || 0) > 0) message += '🟠 ' + module.high + '  ';
-            if ((module.medium || 0) > 0) message += '🟡 ' + module.medium;
+            if ((module.critical || 0) > 0) message += 'Critical🔴 ' + module.critical + '  ';
+            if ((module.high || 0) > 0) message += 'High🟠 ' + module.high + '  ';
+            if ((module.medium || 0) > 0) message += 'Medium🟡 ' + module.medium;
           }
 
           message += '\n';
