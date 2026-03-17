@@ -87,70 +87,14 @@ function onOpen() {
       .addItem('Show Jira JQL for Module', 'showJiraJQL'))
     .addSubMenu(ui.createMenu('🔧 Broadcast Fixes')
       .addItem('Fix BUG BLOCKER (Rename + Formula)', 'broadcastBugBlockerFix'))
-    .addSeparator()
-    .addItem('📚 Quick Start Guide', 'showQuickStartGuide')
     .addToUi();
 }
 
 /**
- * Quick Start Guide - Shows step-by-step setup instructions
+ * Quick Start Guide - REMOVED
+ * Reason: showModalDialog() requires special permissions that cause authorization issues
+ * Alternative: Users can refer to README.md or GitHub documentation
  */
-function showQuickStartGuide() {
-  const html = `
-    <div style="font-family: Arial; padding: 20px; line-height: 1.6;">
-      <h2 style="color: #1976D2;">🚀 QA Dashboard - Quick Start Guide</h2>
-
-      <h3 style="color: #0D47A1;">📋 Step 1: Create Dashboard</h3>
-      <p>Menu: <b>🎯 QA Dashboard > 📊 Dashboard > Create Dashboard (First Time)</b></p>
-      <p>This creates all tabs: Config, Overview, Smoke, Failure Scenario, Coverage, History</p>
-
-      <h3 style="color: #0D47A1;">📝 Step 2: Add Modules to Config</h3>
-      <p>Go to <b>Config</b> tab and fill in:</p>
-      <ul>
-        <li><b>Column A (Active):</b> Check to enable module</li>
-        <li><b>Column B (Jira Sync):</b> Check to enable Jira sync</li>
-        <li><b>Column G (Spreadsheet ID):</b> Paste module spreadsheet ID</li>
-        <li><b>Column I-J (Jira Instance & Project):</b> For Jira sync</li>
-      </ul>
-
-      <h3 style="color: #0D47A1;">🔄 Step 3: Sync & Refresh Data</h3>
-      <p><b>Option A - Manual (One-time):</b></p>
-      <p>Menu: <b>🎯 QA Dashboard > 📊 Dashboard > ▶️ Manual Sync + Refresh</b></p>
-      <p>OR click button <b>▶️ RUN NOW (MANUAL)</b> in Config tab (R7)</p>
-      <p>Sequential execution: Jira Sync → Dashboard Refresh</p>
-
-      <p><b>Option B - Auto (Scheduled):</b></p>
-      <p>See Step 5 below</p>
-
-      <h3 style="color: #0D47A1;">🔔 Step 4: Setup Notifications (Optional)</h3>
-      <p>Menu: <b>🎯 QA Dashboard > 🔔 Notifications > ⚙️ Setup Notifications</b></p>
-      <p>Configure Google Chat, Email, and WhatsApp for automatic daily blocker alerts</p>
-
-      <h3 style="color: #0D47A1;">⏰ Step 5: Setup Auto-Refresh (Optional)</h3>
-      <p>Go to <b>Config</b> tab, scroll right to columns Q-R:</p>
-      <ul>
-        <li><b>Column Q (Refresh Interval):</b> Set interval in minutes (1-60)</li>
-        <li><b>Column R (Enable Auto Refresh):</b> Check to enable</li>
-      </ul>
-      <p>Then click button <b>🚀 SETUP AUTO TRIGGER</b> in Config (Q7)</p>
-      <p>OR Menu: <b>🎯 QA Dashboard > 📊 Dashboard > 🚀 Setup Auto-Refresh Trigger</b></p>
-      <p><b>⚡ Sequential execution:</b> Jira Sync → Dashboard Refresh every X minutes</p>
-      <p style="background: #FFF3E0; padding: 8px; border-left: 4px solid #FF6F00;">
-        <b>💡 Benefit:</b> Dashboard akan selalu punya data terbaru dari Jira!
-      </p>
-
-      <hr style="margin: 20px 0;">
-      <p style="color: #666; font-size: 12px;">
-        <b>Need help?</b> Check the documentation or contact your QA team lead.
-      </p>
-    </div>
-  `;
-
-  const htmlOutput = HtmlService.createHtmlOutput(html)
-    .setWidth(600)
-    .setHeight(500);
-  SpreadsheetApp.getUi().showModalDialog(htmlOutput, 'QA Dashboard - Quick Start Guide');
-}
 
 /**
  * Setup Notifications - Guided wizard for Google Chat & Email notifications
