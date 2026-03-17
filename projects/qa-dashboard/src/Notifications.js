@@ -188,9 +188,51 @@ function sendBlockerNotification() {
 function setupDailyBlockerNotification() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const cfg = ss.getSheetByName('Config');
+  const ui = SpreadsheetApp.getUi();
 
   if (!cfg) {
-    SpreadsheetApp.getUi().alert('❌ Config tab not found!');
+    ui.alert('❌ Config tab not found!');
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // SHOW SETUP INSTRUCTIONS FIRST
+  // ═══════════════════════════════════════════════════════════════════════
+  const instructionsMsg =
+    '🔔 SETUP NOTIFICATIONS\n\n' +
+    'Buka Config tab dan isi konfigurasi berikut:\n\n' +
+    '📱 GOOGLE CHAT (kolom L-N) - Per Module\n' +
+    '  L = Webhook URL (dari Google Chat Space)\n' +
+    '  M = Schedule (9,14,18 atau 4h)\n' +
+    '  N = ☑ Enable Chat\n\n' +
+    '📧 EMAIL (kolom O-P) - Per Module\n' +
+    '  O = Email recipients (comma separated)\n' +
+    '  P = ☑ Enable Email\n\n' +
+    '📲 WHATSAPP (kolom S-U row 4) - GLOBAL\n' +
+    '  S = Group ID (120363xxx@g.us)\n' +
+    '  T = Fonnte Token\n' +
+    '  U = ☑ Enable WhatsApp\n\n' +
+    '⏰ SCHEDULE FORMAT:\n' +
+    '  • Single: 9\n' +
+    '  • Multiple: 9,14,18\n' +
+    '  • Interval: 4h (1h/2h/4h/6h/8h/12h)\n\n' +
+    '────────────────────────────────\n' +
+    'Sudah setup config?\n' +
+    'YES = Lanjut create trigger\n' +
+    'NO = Buka Config tab dulu';
+
+  const response = ui.alert('Setup Notifications', instructionsMsg, ui.ButtonSet.YES_NO);
+
+  if (response === ui.Button.NO) {
+    // Open Config tab for user to setup
+    ss.setActiveSheet(cfg);
+    ss.setActiveRange(cfg.getRange('L4'));
+    ui.alert(
+      'ℹ️ Config Tab Opened',
+      'Silakan isi konfigurasi notification di Config tab.\n\n' +
+      'Setelah selesai, jalankan menu ini lagi untuk create trigger.',
+      ui.ButtonSet.OK
+    );
     return;
   }
 
@@ -220,15 +262,21 @@ function setupDailyBlockerNotification() {
   }
 
   if (!hasAnyEnabled) {
-    SpreadsheetApp.getUi().alert(
+    const openConfig = ui.alert(
       '⚠️ No Notifications Enabled',
       'Tidak ada notification yang aktif.\n\n' +
-      'Aktifkan di Config tab:\n' +
-      '• Kolom N = Enable Google Chat (per-module)\n' +
-      '• Kolom P = Enable Email (per-module)\n' +
-      '• Kolom U row 4 = Enable WhatsApp (global)',
-      SpreadsheetApp.getUi().ButtonSet.OK
+      'Aktifkan minimal 1 channel di Config tab:\n' +
+      '• Kolom N = ☑ Enable Google Chat (per-module)\n' +
+      '• Kolom P = ☑ Enable Email (per-module)\n' +
+      '• Kolom U row 4 = ☑ Enable WhatsApp (global)\n\n' +
+      'Buka Config tab sekarang?',
+      ui.ButtonSet.YES_NO
     );
+
+    if (openConfig === ui.Button.YES) {
+      ss.setActiveSheet(cfg);
+      ss.setActiveRange(cfg.getRange('N4'));
+    }
     return;
   }
 
@@ -310,17 +358,18 @@ function setupDailyBlockerNotification() {
   // SUCCESS CONFIRMATION
   // ═══════════════════════════════════════════════════════════════════════
 
-  SpreadsheetApp.getUi().alert(
-    '✅ Notification Schedule Setup!',
+  ui.alert(
+    '✅ Notifications Setup Complete!',
     '📅 SCHEDULE: ' + scheduleDescription + '\n' +
     '🔧 Triggers created: ' + createdTriggers + '\n\n' +
-    '📤 Notification Channels:\n' +
-    '• Google Chat (per-module): Kolom L, N\n' +
-    '• Email (per-module): Kolom O, P\n' +
-    '• WhatsApp (GLOBAL): Kolom S-U row 4\n\n' +
+    '📤 Active Channels:\n' +
+    '• Google Chat (per-module)\n' +
+    '• Email (per-module)\n' +
+    '• WhatsApp (global)\n\n' +
     '💡 Test now: Menu > Notifications > Test Notification Now\n' +
-    '🔍 View triggers: Apps Script Editor > Triggers tab',
-    SpreadsheetApp.getUi().ButtonSet.OK
+    '🔍 View triggers: Apps Script Editor > Triggers tab\n\n' +
+    'Notifikasi akan otomatis terkirim sesuai schedule yang sudah di-set.',
+    ui.ButtonSet.OK
   );
 
   Logger.log('✅ Successfully created ' + createdTriggers + ' notification trigger(s): ' + scheduleDescription);
