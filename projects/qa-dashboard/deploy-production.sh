@@ -43,14 +43,6 @@ else
     echo "❌ Deployment failed!"
 fi
 
-# Revert back to testing
+# Keep production config (default)
 echo ""
-echo "Reverting .clasp.json back to TESTING..."
-cat > .clasp.json <<EOF
-{
-  "scriptId": "$TESTING_SCRIPT_ID",
-  "rootDir": "./src"
-}
-EOF
-
-echo "✅ Reverted to testing script ID"
+echo "✅ .clasp.json remains on PRODUCTION (default)"
