@@ -906,8 +906,8 @@ function _notifBody_(bugs,ss){
   bugs.sort((a,b)=>(PO[a.priority]||9)-(PO[b.priority]||9));
   const PBG={'Critical':'#FFCDD2','High':'#FFE0B2','Medium':'#E3F2FD','Low':'#F1F8E9'};
   const PFG={'Critical':'#B71C1C','High':'#E65100','Medium':'#1565C0','Low':'#388E3C'};
-  const SBG={'Open':'#FFCDD2','In Progress':'#E3F2FD','Reopen':'#EDE7F6','In Progress VAPT':'#E1F5FE','Done VAPT':'#B2DFDB'};
-  const SFG={'Open':'#C62828','In Progress':'#1565C0','Reopen':'#6A1B9A','In Progress VAPT':'#01579B','Done VAPT':'#004D40'};
+  const SBG={'Open':'#FFCDD2','In Progress':'#E3F2FD','Reopen':'#EDE7F6','Fixed':'#FFF9C4','Verified':'#C8E6C9','In Progress VAPT':'#E1F5FE','Done VAPT':'#B2DFDB'};
+  const SFG={'Open':'#C62828','In Progress':'#1565C0','Reopen':'#6A1B9A','Fixed':'#F57F17','Verified':'#2E7D32','In Progress VAPT':'#01579B','Done VAPT':'#004D40'};
   const cnt={}; bugs.forEach(b=>{cnt[b.priority]=(cnt[b.priority]||0)+1;});
   const badges=['Critical','High','Medium','Low'].filter(p=>cnt[p])
     .map(p=>`<span style="background:${PBG[p]};color:${PFG[p]};font-weight:bold;padding:3px 10px;border-radius:12px;font-size:12px;margin-right:6px;">${p}: ${cnt[p]}</span>`).join('');
@@ -1934,7 +1934,7 @@ function _getBlockerData_(mods) {
       }
 
       const rows = bugSh.getRange(BUG_START_, 1, last - BUG_START_ + 1, BUG_COLS_).getValues();
-      const BLOCKER_STATUS = ['open', 'in progress', 'reopen', 'in progress vapt', 'done vapt'];
+      const BLOCKER_STATUS = ['open', 'in progress', 'reopen', 'fixed', 'verified', 'in progress vapt', 'done vapt'];
       const bugs = [];
       let critical = 0, high = 0, medium = 0, prodBugs = 0;
 

@@ -1513,7 +1513,7 @@ function createSummary(ss) {
   // BugReport data mulai row 5, col B=Type, C=Priority, D=Status
   const BLOCKER_FORMULA =
       'SUMPRODUCT(' +
-      '(ISNUMBER(MATCH(BugReport!D5:D2000,{\"Open\",\"In Progress\",\"Reopen\",\"In Progress VAPT\",\"Done VAPT\"},0)))*' +
+      '(ISNUMBER(MATCH(BugReport!D5:D2000,{\"Open\",\"In Progress\",\"Reopen\",\"Fixed\",\"Verified\",\"In Progress VAPT\",\"Done VAPT\"},0)))*' +
       '(ISNUMBER(MATCH(BugReport!C5:C2000,{\"Critical\",\"High\",\"Medium\"},0)))' +
       ')';
   // Sama untuk kedua sisi (Web dan API mengacu ke BugReport yang sama)
@@ -1561,14 +1561,14 @@ function createSummary(ss) {
   ws.getRange(R,L+2).setNote(
       'Open Blocker (Smoke) - UPDATED WITH VAPT\n\n' +
       'Bug yang dihitung sebagai blocker:\n' +
-      '  • Status: Open / In Progress / Reopen / In Progress VAPT / Done VAPT\n' +
+      '  • Status: Open / In Progress / Reopen / Fixed / Verified / In Progress VAPT / Done VAPT\n' +
       '  • Priority: Critical / High / Medium\n\n' +
       'NOT Blocker:\n' +
-      '  • Verified (sudah OK QA, waiting VAPT atau skip VAPT)\n' +
       '  • Closed (final)\n' +
       '  • Won\'t Fix (rejected)\n\n' +
-      'Why Done VAPT is still blocker?\n' +
-      'Bug perlu re-test QA sebelum Closed. Hanya Closed yang tidak blocker.\n\n' +
+      'Why Fixed/Verified/Done VAPT still blocker?\n' +
+      'Semua status sebelum Closed masih blocker karena belum release.\n' +
+      'Hanya Closed yang tidak blocker.\n\n' +
       'Target: 0 Open Blocker sebelum release ke production.'
   );
   R += 2;
@@ -1995,9 +1995,9 @@ function createBugReport(ss) {
       '  • Verified can skip directly to Closed (no VAPT needed)\n'+
       '  • Done VAPT can return to In Progress VAPT if issues found\n\n'+
       '🚨 BLOCKER STATUS:\n'+
-      'Open, In Progress, Reopen, In Progress VAPT, Done VAPT\n'+
+      'Open, In Progress, Reopen, Fixed, Verified, In Progress VAPT, Done VAPT\n'+
       '(with Priority Critical/High/Medium)\n\n'+
-      'NOT Blocker: Verified, Closed, Won\'t Fix'
+      'NOT Blocker: Closed, Won\'t Fix'
   );
 
   // Data rows
@@ -2260,11 +2260,11 @@ function createAppendix(ss) {
   row2('Lead update ke',     "Won\'t Fix (dengan komentar alasan yang jelas)\nClosed (keputusan akhir)");
   row2('🚨 Open Blocker Calculation (UPDATED WITH VAPT)',
       'Formula Open Blocker di Summary & Dashboard menghitung bug dengan:\n' +
-      '  • Status = Open / In Progress / Reopen / In Progress VAPT / Done VAPT\n' +
+      '  • Status = Open / In Progress / Reopen / Fixed / Verified / In Progress VAPT / Done VAPT\n' +
       '  • Priority = Critical / High / Medium\n\n' +
-      'NOT Blocker: Verified, Closed, Won\'t Fix\n\n' +
-      '💡 Kenapa Done VAPT masih blocker?\n' +
-      'Karena bug perlu di-test ulang oleh QA sebelum bisa Closed.\n' +
+      'NOT Blocker: Closed, Won\'t Fix\n\n' +
+      '💡 Kenapa Fixed/Verified/Done VAPT masih blocker?\n' +
+      'Semua status sebelum Closed masih blocker karena belum release ke production.\n' +
       'Hanya setelah Closed baru tidak dihitung blocker.\n\n' +
       'Target: 0 Open Blocker sebelum release ke production.');
   r++;
