@@ -1513,7 +1513,7 @@ function createSummary(ss) {
   // BugReport data mulai row 5, col B=Type, C=Priority, D=Status
   const BLOCKER_FORMULA =
       'SUMPRODUCT(' +
-      '(ISNUMBER(MATCH(BugReport!D5:D2000,{\"Open\",\"In Progress\",\"Reopen\"},0)))*' +
+      '(ISNUMBER(MATCH(BugReport!D5:D2000,{\"Open\",\"In Progress\",\"Reopen\",\"In Progress VAPT\",\"Done VAPT\"},0)))*' +
       '(ISNUMBER(MATCH(BugReport!C5:C2000,{\"Critical\",\"High\",\"Medium\"},0)))' +
       ')';
   // Sama untuk kedua sisi (Web dan API mengacu ke BugReport yang sama)
@@ -1559,9 +1559,17 @@ function createSummary(ss) {
       .setFontSize(7).setFontFamily('Arial').setHorizontalAlignment('left')
       .setVerticalAlignment('middle');
   ws.getRange(R,L+2).setNote(
-      'Open Blocker (Smoke) = Bug yang masih Open dengan Priority Medium / High / Critical.\n' +
-      'Semua bug ini menghambat release.\n' +
-      'Target: 0 Open Blocker sebelum go-live.'
+      'Open Blocker (Smoke) - UPDATED WITH VAPT\n\n' +
+      'Bug yang dihitung sebagai blocker:\n' +
+      '  • Status: Open / In Progress / Reopen / In Progress VAPT / Done VAPT\n' +
+      '  • Priority: Critical / High / Medium\n\n' +
+      'NOT Blocker:\n' +
+      '  • Verified (sudah OK QA, waiting VAPT atau skip VAPT)\n' +
+      '  • Closed (final)\n' +
+      '  • Won\'t Fix (rejected)\n\n' +
+      'Why Done VAPT is still blocker?\n' +
+      'Bug perlu re-test QA sebelum Closed. Hanya Closed yang tidak blocker.\n\n' +
+      'Target: 0 Open Blocker sebelum release ke production.'
   );
   R += 2;
   // ── END SMOKE BLOCKER ─────────────────────────────────────────────
@@ -1924,7 +1932,7 @@ function createBugReport(ss) {
 
   // Row 2: note
   ws.getRange(2,1,1,22).merge()
-      .setValue('Priority: Critical = showstopper · High = blocker · Medium = degraded (blocker) · Low = minor  |  Status: Open · In Progress · Fixed · Verified · Closed')
+      .setValue('Priority: Critical = showstopper · High = blocker · Medium = degraded (blocker) · Low = minor  |  Status: Open · In Progress · Fixed · Verified · In Progress VAPT · Done VAPT · Closed')
       .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic')
       .setFontFamily('Arial').setFontSize(8).setHorizontalAlignment('left');
   ws.setRowHeight(2,16);
@@ -1976,10 +1984,20 @@ function createBugReport(ss) {
       'Low       = Minor. Kosmetik atau edge case kecil, tidak blokir release.'
   );
   ws.getRange(4,4).setNote(
-      'Status Flow:\n'+
-      'Open --> In Progress --> Fixed --> Verified --> Closed\n\n'+
-      "Won't Fix = diputuskan tidak diperbaiki (dengan alasan)\n"+
-      'Reopen    = sudah Fixed tapi masih reproducible'
+      'Status Flow (with VAPT Integration):\n\n'+
+      'QA Phase:\n'+
+      '  Open → In Progress → Fixed → Verified\n\n'+
+      'VAPT Phase (Security Testing):\n'+
+      '  Verified → In Progress VAPT → Done VAPT → Closed\n\n'+
+      'Exception Flows:\n'+
+      '  • Any status → Reopen (bug reappears after fix)\n'+
+      '  • Any status → Won\'t Fix (rejected with reason)\n'+
+      '  • Verified can skip directly to Closed (no VAPT needed)\n'+
+      '  • Done VAPT can return to In Progress VAPT if issues found\n\n'+
+      '🚨 BLOCKER STATUS:\n'+
+      'Open, In Progress, Reopen, In Progress VAPT, Done VAPT\n'+
+      '(with Priority Critical/High/Medium)\n\n'+
+      'NOT Blocker: Verified, Closed, Won\'t Fix'
   );
 
   // Data rows
@@ -1987,7 +2005,7 @@ function createBugReport(ss) {
 
   ws.getRange(DS,2,MR,1).setDataValidation(dv_(['Web','Mobile','API']));
   ws.getRange(DS,3,MR,1).setDataValidation(dv_(['Critical','High','Medium','Low']));
-  ws.getRange(DS,4,MR,1).setDataValidation(dv_(['Open','In Progress','Fixed','Verified','Closed',"Won't Fix",'Reopen']));
+  ws.getRange(DS,4,MR,1).setDataValidation(dv_(['Open','In Progress','Fixed','Verified','In Progress VAPT','Done VAPT','Closed',"Won't Fix",'Reopen']));
   ws.getRange(DS,9,MR,1).setDataValidation(dv_(['Dev','Staging / UAT','Production','All']));
 
   // Alternating row bg
@@ -2023,13 +2041,15 @@ function createBugReport(ss) {
       .setRanges([prioRange]).build()));
 
   // Status CF
-  [{v:'Open',        bg:'#FFCDD2',fg:'#C62828'},
-    {v:'In Progress', bg:'#E3F2FD',fg:'#1565C0'},
-    {v:'Fixed',       bg:'#FFF9C4',fg:'#F57F17'},
-    {v:'Verified',    bg:'#C8E6C9',fg:'#2E7D32'},
-    {v:'Closed',      bg:'#E8F5E9',fg:'#388E3C'},
-    {v:"Won't Fix",   bg:'#F5F5F5',fg:'#9E9E9E'},
-    {v:'Reopen',      bg:'#EDE7F6',fg:'#6A1B9A'}
+  [{v:'Open',             bg:'#FFCDD2',fg:'#C62828'},
+    {v:'In Progress',      bg:'#E3F2FD',fg:'#1565C0'},
+    {v:'Fixed',            bg:'#FFF9C4',fg:'#F57F17'},
+    {v:'Verified',         bg:'#C8E6C9',fg:'#2E7D32'},
+    {v:'In Progress VAPT', bg:'#E1F5FE',fg:'#01579B'},
+    {v:'Done VAPT',        bg:'#B2DFDB',fg:'#004D40'},
+    {v:'Closed',           bg:'#E8F5E9',fg:'#388E3C'},
+    {v:"Won't Fix",        bg:'#F5F5F5',fg:'#9E9E9E'},
+    {v:'Reopen',           bg:'#EDE7F6',fg:'#6A1B9A'}
   ].forEach(s=>rules.push(SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo(s.v).setBackground(s.bg).setFontColor(s.fg).setBold(true)
       .setRanges([statRange]).build()));
@@ -2200,15 +2220,17 @@ function createAppendix(ss) {
   ].forEach(([s,d])=>row2(s,d));
   r++;
 
-  sec('7. BUG REPORT  —  STATUS & ALUR KERJA','#B71C1C');
-  // Status flow table
-  [['Open',         '#FFCDD2','#B71C1C', 'QA',  'Bug baru ditemukan. Belum ada yang mengerjakan. Masuk antrian Dev.'],
-    ['In Progress',  '#E3F2FD','#1565C0', 'Dev', 'Dev sedang mengerjakan fix. Bug belum bisa di-retest.'],
-    ['Fixed',        '#FFF9C4','#E65100', 'Dev', 'Dev klaim sudah diperbaiki. Menunggu QA untuk verifikasi ulang.'],
-    ['Verified',     '#C8E6C9','#2E7D32', 'QA',  'QA sudah re-test dan bug confirmed fixed di environment yang disepakati.'],
-    ['Closed',       '#E8F5E9','#388E3C', 'Lead','Done. Tidak perlu action lagi. Biasanya setelah release ke prod.'],
-    ["Won\'t Fix",  '#F5F5F5','#9E9E9E', 'Lead','Diputuskan tidak diperbaiki (alasan bisnis/teknis). Harus ada komentar alasan.'],
-    ['Reopen',       '#EDE7F6','#6A1B9A', 'QA',  'QA re-test setelah Fixed, tapi bug masih muncul. Kembali ke Dev.'],
+  sec('7. BUG REPORT  —  STATUS & ALUR KERJA (WITH VAPT)','#B71C1C');
+  // Status flow table with VAPT
+  [['Open',              '#FFCDD2','#B71C1C', 'QA',       'Bug baru ditemukan. Belum ada yang mengerjakan. Masuk antrian Dev.'],
+    ['In Progress',      '#E3F2FD','#1565C0', 'Dev',      'Dev sedang mengerjakan fix. Bug belum bisa di-retest.'],
+    ['Fixed',            '#FFF9C4','#E65100', 'Dev',      'Dev klaim sudah diperbaiki. Menunggu QA untuk verifikasi ulang.'],
+    ['Verified',         '#C8E6C9','#2E7D32', 'QA',       'QA sudah re-test dan bug confirmed fixed. Ready untuk VAPT (Security testing) atau langsung Closed jika skip VAPT.'],
+    ['In Progress VAPT', '#E1F5FE','#01579B', 'Security', '🔒 Security team sedang melakukan VAPT testing.'],
+    ['Done VAPT',        '#B2DFDB','#004D40', 'Security', '🔒 VAPT testing selesai. Perlu re-test QA sebelum Closed.'],
+    ['Closed',           '#E8F5E9','#388E3C', 'QA/Lead',  '✅ Final. Bug sudah selesai dan di-release ke production.'],
+    ["Won\'t Fix",       '#F5F5F5','#9E9E9E', 'Lead',     '❌ Tidak diperbaiki (alasan bisnis/teknis). Harus ada komentar.'],
+    ['Reopen',           '#EDE7F6','#6A1B9A', 'QA',       '🔄 Bug masih muncul setelah Fixed/Done VAPT. Kembali ke Dev.'],
   ].forEach(function(s) {
     var bg=s[1], fg=s[2], who=s[3], desc=s[4];
     ws.getRange(r,1,1,1).setValue(s[0]).setBackground(bg).setFontColor(fg)
@@ -2224,20 +2246,26 @@ function createAppendix(ss) {
         .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
     ws.setRowHeight(r,30); r++;
   });
-  // Sub-header for Who column
-  // Flow legend
+  // Flow legend with VAPT
   ws.getRange(r,1,1,4).merge()
-      .setValue('Flow:  Open  →  In Progress  →  Fixed  →  Verified  →  Closed  |  Reopen kembali ke In Progress')
+      .setValue('Flow:  Open → In Progress → Fixed → Verified → In Progress VAPT → Done VAPT → Closed  |  Reopen dari any status')
       .setBackground('#FFEBEE').setFontColor('#C62828').setFontStyle('italic')
       .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left').setVerticalAlignment('middle')
       .setBorder(true,true,true,true,false,false,'#EF9A9A',SpreadsheetApp.BorderStyle.SOLID);
   ws.setRowHeight(r,16); r++;
-  // Siapa update apa
-  row2('Dev update ke',  'In Progress (saat mulai mengerjakan)\nFixed (saat selesai — Dev TIDAK boleh langsung ke Verified/Closed)');
-  row2('QA update ke',   'Verified (jika re-test lulus)\nReopen (jika bug masih ada setelah Fixed)\nClosed (setelah Verified dan sudah release ke prod)');
-  row2('Lead update ke', "Won\'t Fix (dengan komentar alasan yang jelas)\nClosed (keputusan akhir)");
-  row2('Kaitannya dengan Open Blocker',
-      'Formula Open Blocker di Summary menghitung bug Status = Open/In Progress/Reopen dengan Priority Medium/High/Critical.\n' +
+  // Siapa update apa - with VAPT roles
+  row2('Dev update ke',      'In Progress (saat mulai mengerjakan)\nFixed (saat selesai — Dev TIDAK boleh langsung ke Verified/Closed)');
+  row2('QA update ke',       'Verified (jika re-test lulus dan siap VAPT)\nReopen (jika bug masih ada)\nClosed (final setelah Done VAPT dan re-test QA)');
+  row2('Security update ke', 'In Progress VAPT (saat mulai security testing)\nDone VAPT (testing selesai, siap re-test QA)\nReopen (jika ditemukan issue baru saat VAPT)');
+  row2('Lead update ke',     "Won\'t Fix (dengan komentar alasan yang jelas)\nClosed (keputusan akhir)");
+  row2('🚨 Open Blocker Calculation (UPDATED WITH VAPT)',
+      'Formula Open Blocker di Summary & Dashboard menghitung bug dengan:\n' +
+      '  • Status = Open / In Progress / Reopen / In Progress VAPT / Done VAPT\n' +
+      '  • Priority = Critical / High / Medium\n\n' +
+      'NOT Blocker: Verified, Closed, Won\'t Fix\n\n' +
+      '💡 Kenapa Done VAPT masih blocker?\n' +
+      'Karena bug perlu di-test ulang oleh QA sebelum bisa Closed.\n' +
+      'Hanya setelah Closed baru tidak dihitung blocker.\n\n' +
       'Target: 0 Open Blocker sebelum release ke production.');
   r++;
 
