@@ -1,8 +1,29 @@
 # ⚡ Quick Setup: Web App URL
 
-## Langkah Singkat (1 menit)
+## ⚠️ PENTING: Deployment dari Testing Script
 
-### Option 1: Run dari Apps Script Editor (Recommended)
+**Web App HARUS di-deploy dari Testing Script** (Production Script error saat deployment).
+
+**Data tetap aman** - hardcoded ke Production Spreadsheet.
+
+---
+
+## Langkah Singkat (2 menit total)
+
+### Step 1: Run di Testing Script
+
+1. **Buka Testing Apps Script:**
+   ```
+   https://script.google.com/d/1LJ83OATTAp7ChDWGkrSTg0b9KmMhOABISBrAJrB54JksjQ7mi5oNB7C3/edit
+   ```
+
+2. **Pilih function:** `setWebAppUrlDirect`
+
+3. **Klik Run** ▶️
+
+4. **Done!** ✅ Testing Script Properties updated
+
+### Step 2: Run di Production Script
 
 1. **Buka Production Apps Script:**
    ```
@@ -13,7 +34,7 @@
 
 3. **Klik Run** ▶️
 
-4. **Done!** ✅
+4. **Done!** ✅ Production Script Properties updated
 
 Function akan otomatis set Web App URL:
 ```
