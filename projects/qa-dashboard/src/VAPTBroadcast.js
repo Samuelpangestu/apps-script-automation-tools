@@ -722,18 +722,18 @@ function broadcastFixNoteAndAppendix() {
     return;
   }
 
-  // Get active modules
+  // Get active modules (Config structure: Row 1=Title, Row 2=Subtitle, Row 3=Headers, Row 4+=Data)
   const lastRow = configSh.getLastRow();
-  if (lastRow < 2) {
+  if (lastRow < 4) {
     ui.alert('Config kosong! Isi tab Config dulu.');
     return;
   }
 
-  const configData = configSh.getRange(2, 1, lastRow - 1, 10).getValues();
+  const configData = configSh.getRange(4, 1, lastRow - 3, 10).getValues();
   const activeModules = configData.filter(row => {
-    const status = String(row[0]).trim().toUpperCase();
-    const ssId = String(row[1]).trim();
-    return status === 'ACTIVE' && ssId.length > 10;
+    const active = row[0] === true;  // Col A: Active (TRUE/FALSE boolean)
+    const ssId = String(row[6]).trim();  // Col G: Spreadsheet ID
+    return active && ssId && ssId.length > 10 && ssId !== 'PASTE_SPREADSHEET_ID_HERE';
   });
 
   if (activeModules.length === 0) {
@@ -749,9 +749,9 @@ function broadcastFixNoteAndAppendix() {
   const errors = [];
 
   activeModules.forEach(row => {
-    const ssId = String(row[1]).trim();
-    const project = String(row[2]).trim();
-    const modul = String(row[3]).trim();
+    const ssId = String(row[6]).trim();  // Col G: Spreadsheet ID
+    const project = String(row[2]).trim();  // Col C: Project
+    const modul = String(row[3]).trim();  // Col D: Modul
 
     try {
       Logger.log('\n📂 Processing: ' + project + ' - ' + modul);
