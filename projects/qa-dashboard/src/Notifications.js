@@ -1278,6 +1278,10 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     const dashboardBugsUrl = dashboardUrl + '#gid=' + getDashboardBugsGid_(ss);
     const dashboardOverviewUrl = dashboardUrl + '#gid=' + getDashboardOverviewGid_(ss);
 
+    // Get Web App URL from Script Properties (or fallback to spreadsheet URL)
+    const scriptProps = PropertiesService.getScriptProperties();
+    const dashboardWebAppUrl = scriptProps.getProperty('WEB_APP_URL') || dashboardUrl;
+
     // Get detailed bug data from QATM BugReport sheets
     const bugDetails = getBugDetailsFromQATM_(blockerData.modules);
 
@@ -1289,7 +1293,7 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     // ══════════════════════════════════════════════════════════════════════
     message += '📊 *DAILY BUG REPORT*\n';
     message += '📅 ' + blockerData.timestamp + '\n';
-    message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    message += '━━━━━━━━━━━━━\n\n';
 
     // Calculate total severity counts (same as email)
     const totalCritical = blockerData.modules.reduce((sum, m) => sum + (m.critical || 0), 0);
@@ -1298,14 +1302,10 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
 
     // Summary
     message += '📈 *SUMMARY*\n';
-    message += '🐛 Total Bugs: *' + blockerData.totalBlockers + '*';
-    if (blockerData.totalProdBugs > 0) {
-      message += '  |  🚨 PROD: *' + blockerData.totalProdBugs + '*';
-    }
-    message += '\n';
+    message += '🐛 Total Bugs: ' + blockerData.totalBlockers + '\n';
 
     // Severity breakdown
-    message += '*Severity:* ';
+    message += 'Severity: ';
     if (totalCritical > 0) message += 'Critical🔴 ' + totalCritical + '  ';
     if (totalHigh > 0) message += 'High🟠 ' + totalHigh + '  ';
     if (totalMedium > 0) message += 'Medium🟡 ' + totalMedium;
@@ -1341,31 +1341,20 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     // ALL MODULES - Blocker Breakdown
     // ══════════════════════════════════════════════════════════════════════
     if (blockerData.totalBlockers > 0) {
-      message += '═══════════════════════════════════\n';
+      message += '━━━━━━━━━━━━━\n';
       message += '⚠️ *BLOCKER BUGS*\n';
-      message += '═══════════════════════════════════\n\n';
+      message += '━━━━━━━━━━━━━\n\n';
 
       blockerData.modules.forEach(module => {
         if (module.blocker > 0 || module.prodBugs > 0) {
           message += '*' + module.project + ' - ' + module.module + '*\n';
           message += '📌 ' + module.submodule + '\n';
-          message += '   🐛 Blockers: *' + module.blocker + '*';
+          message += '* Blockers: ' + module.blocker + '\n';
 
-          // Severity breakdown
-          if ((module.critical || 0) > 0 || (module.high || 0) > 0 || (module.medium || 0) > 0) {
-            message += '\n   ';
-            if ((module.critical || 0) > 0) message += 'Critical🔴 ' + module.critical + '  ';
-            if ((module.high || 0) > 0) message += 'High🟠 ' + module.high + '  ';
-            if ((module.medium || 0) > 0) message += 'Medium🟡 ' + module.medium;
-          }
-
-          message += '\n';
-
-          if (module.qatmUrl) {
-            const gid = getBugReportGidFromQATM_(module.qatmUrl);
-            message += '   📋 ' + module.qatmUrl + '#gid=' + gid + '\n';
-            Logger.log('WhatsApp link (BLOCKER): ' + module.qatmUrl + '#gid=' + gid);
-          }
+          // Severity breakdown as bullet points
+          if ((module.critical || 0) > 0) message += '* Critical🔴 ' + module.critical + '\n';
+          if ((module.high || 0) > 0) message += '* High🟠 ' + module.high + '\n';
+          if ((module.medium || 0) > 0) message += '* Medium🟡 ' + module.medium + '\n';
 
           message += '\n';
         }
@@ -1375,10 +1364,10 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     // ══════════════════════════════════════════════════════════════════════
     // FOOTER: Dashboard Links
     // ══════════════════════════════════════════════════════════════════════
-    message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    message += '━━━━━━━━━━━━━\n';
     message += '🔗 *Dashboard Links:*\n';
-    message += '📊 Overview: ' + dashboardOverviewUrl + '\n';
-    message += '🐛 Bugs: ' + dashboardBugsUrl + '\n\n';
+    message += '📊 Web Dashboard: ' + dashboardWebAppUrl + '\n';
+    message += '📋 Overview Tab: ' + dashboardOverviewUrl + '\n\n';
     message += '_Automated Daily Report - QA Dashboard_';
 
     // Send via Fonnte API
