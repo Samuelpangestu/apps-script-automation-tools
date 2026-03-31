@@ -170,7 +170,20 @@ function createDashboard() {
   // addNotesToDashboard(); // REMOVED - function deleted during cleanup
 
   ss.setActiveSheet(ss.getSheetByName('Config'));
-  safeAlert_('Dashboard berhasil dibuat!\n\nLangkah selanjutnya:\n1. Isi tab Config dengan Spreadsheet ID modul\n2. Isi tab Credentials dengan Jira credentials\n3. Data Modul/Submodul/QA Lead/PIC QA akan otomatis dari QATM Summary\n4. Jalankan refreshDashboard()');
+  safeAlert_(
+    'Dashboard berhasil dibuat!\n\n' +
+    'Langkah selanjutnya:\n' +
+    '1. Isi tab Config dengan Spreadsheet ID modul\n' +
+    '2. Isi tab Credentials dengan Jira credentials\n' +
+    '3. Data Modul/Submodul/QA Lead/PIC QA akan otomatis dari QATM Summary\n' +
+    '4. Jalankan refreshDashboard()\n\n' +
+    '=== WEB APP SETUP (opsional) ===\n' +
+    '5. Deploy as Web App (lihat DEPLOYMENT_NOTES.md)\n' +
+    '6. Jalankan setupWebAppUrl() dan paste deployment URL\n' +
+    '7. Web App URL akan muncul di WhatsApp notifications\n\n' +
+    'PENTING: Deploy Web App dari Testing Script, BUKAN Production!\n' +
+    '(Production Script error saat deployment)'
+  );
 }
 
 /**
