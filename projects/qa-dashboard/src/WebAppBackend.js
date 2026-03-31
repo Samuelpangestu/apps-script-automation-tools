@@ -53,6 +53,48 @@ function setupWebAppSpreadsheet() {
 }
 
 /**
+ * Setup function: Store Web App URL for notifications
+ * Run this AFTER deploying web app to store the deployment URL
+ *
+ * Web App URL akan digunakan di WhatsApp notifications (line 1369 Notifications.js)
+ */
+function setupWebAppUrl() {
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.prompt(
+    'Setup Web App URL',
+    'Paste Web App URL dari deployment:\n\n' +
+    '(Format: https://script.google.com/a/macros/.../exec)',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response.getSelectedButton() === ui.Button.OK) {
+    const webAppUrl = response.getResponseText().trim();
+
+    if (webAppUrl && webAppUrl.includes('script.google.com')) {
+      PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', webAppUrl);
+
+      ui.alert(
+        '✅ Web App URL Saved',
+        'URL has been stored for notifications.\n\n' +
+        'URL: ' + webAppUrl + '\n\n' +
+        'This URL will be included in WhatsApp notifications.',
+        ui.ButtonSet.OK
+      );
+
+      Logger.log('Web App URL saved: ' + webAppUrl);
+    } else {
+      ui.alert(
+        '❌ Invalid URL',
+        'Please enter a valid Apps Script Web App URL.\n\n' +
+        'Format: https://script.google.com/a/macros/.../exec',
+        ui.ButtonSet.OK
+      );
+    }
+  }
+}
+
+/**
  * Main function to fetch all dashboard data
  * Called by WebApp.html via google.script.run
  *
