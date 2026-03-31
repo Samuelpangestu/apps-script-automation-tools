@@ -681,3 +681,211 @@ function updateAppendixSection7WithVAPT_(ws) {
 
   Logger.log('  ✅ Section 7 updated: rows ' + section7Row + ' to ' + (r-1) + ' (kept all other sections intact)');
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// LIGHTWEIGHT BROADCAST - UPDATE ONLY NOTE & APPENDIX DOCUMENTATION
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Lightweight broadcast: Update ONLY BugReport D4 note and Appendix Section 7
+ * Does NOT update dropdowns, formulas, or colors
+ *
+ * Use this when:
+ * - Full broadcast already done, but documentation needs refresh
+ * - Only want to update text/notes, not functional changes
+ */
+function broadcastFixNoteAndAppendix() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    '📝 Update Note & Appendix Only',
+    'Broadcast ini hanya update DOKUMENTASI (tidak ubah dropdown/formula):\n\n' +
+    '✅ BugReport D4 note (Status Flow)\n' +
+    '✅ Appendix Section 7 (Open Blocker Calculation)\n\n' +
+    '⚠️ TIDAK update:\n' +
+    '- Dropdown validation\n' +
+    '- Conditional formatting\n' +
+    '- Open Blocker formula\n\n' +
+    'Lanjutkan?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    ui.alert('❌ Broadcast dibatalkan.');
+    return;
+  }
+
+  const configSh = ss.getSheetByName('Config');
+  if (!configSh) {
+    ui.alert('❌ Config sheet tidak ditemukan!');
+    return;
+  }
+
+  // Get active modules
+  const lastRow = configSh.getLastRow();
+  if (lastRow < 2) {
+    ui.alert('Config kosong! Isi tab Config dulu.');
+    return;
+  }
+
+  const configData = configSh.getRange(2, 1, lastRow - 1, 10).getValues();
+  const activeModules = configData.filter(row => {
+    const status = String(row[0]).trim().toUpperCase();
+    const ssId = String(row[1]).trim();
+    return status === 'ACTIVE' && ssId.length > 10;
+  });
+
+  if (activeModules.length === 0) {
+    ui.alert('Tidak ada modul aktif di Config!');
+    return;
+  }
+
+  Logger.log('🚀 Starting lightweight broadcast: Note & Appendix update');
+  Logger.log('Target modules: ' + activeModules.length);
+
+  let successCount = 0;
+  let errorCount = 0;
+  const errors = [];
+
+  activeModules.forEach(row => {
+    const ssId = String(row[1]).trim();
+    const project = String(row[2]).trim();
+    const modul = String(row[3]).trim();
+
+    try {
+      Logger.log('\n📂 Processing: ' + project + ' - ' + modul);
+      const qatmSs = SpreadsheetApp.openById(ssId);
+      const bugSheet = qatmSs.getSheetByName('BugReport');
+      const appendixSheet = qatmSs.getSheetByName('Appendix');
+
+      if (!bugSheet) {
+        Logger.log('⚠️ BugReport sheet not found');
+        errorCount++;
+        errors.push(project + ' - ' + modul + ' (BugReport not found)');
+        return;
+      }
+
+      // Update BugReport D4 note
+      bugSheet.getRange('D4').setNote(
+        'Status Flow (with VAPT Integration):\n\n' +
+        'QA Phase:\n' +
+        '  Open → In Progress → Fixed → Verified\n\n' +
+        'VAPT Phase (Security Testing):\n' +
+        '  Verified → In Progress VAPT → Done VAPT → Closed\n\n' +
+        'Exception Flows:\n' +
+        '  • Any status → Reopen (bug reappears after fix)\n' +
+        '  • Any status → Won\'t Fix (rejected with reason)\n' +
+        '  • Verified can skip directly to Closed (no VAPT needed)\n' +
+        '  • Done VAPT can return to In Progress VAPT if issues found\n\n' +
+        '🚨 BLOCKER STATUS:\n' +
+        'Open, In Progress, Reopen, In Progress VAPT, Done VAPT\n' +
+        '(with Priority Critical/High/Medium)\n\n' +
+        'NOT Blocker: Verified, Closed, Won\'t Fix'
+      );
+      Logger.log('  ✅ BugReport D4 note updated');
+
+      // Update Appendix Section 7 if exists
+      if (appendixSheet) {
+        updateAppendixSection7Only_(appendixSheet);
+        Logger.log('  ✅ Appendix Section 7 updated');
+      } else {
+        Logger.log('  ⚠️ Appendix sheet not found, skipped');
+      }
+
+      successCount++;
+      Logger.log('✅ SUCCESS: ' + project + ' - ' + modul);
+
+    } catch (err) {
+      Logger.log('❌ ERROR: ' + err.message);
+      errorCount++;
+      errors.push(project + ' - ' + modul + ' (' + err.message + ')');
+    }
+
+    Utilities.sleep(500);
+  });
+
+  // Summary
+  Logger.log('\n═══════════════════════════════════════════');
+  Logger.log('📊 BROADCAST SUMMARY (Note & Appendix Only)');
+  Logger.log('═══════════════════════════════════════════');
+  Logger.log('✅ Success: ' + successCount + ' modules');
+  Logger.log('❌ Errors: ' + errorCount + ' modules');
+
+  let msg = '✅ Broadcast Selesai!\n\n';
+  msg += '📊 SUMMARY:\n';
+  msg += '✅ Success: ' + successCount + ' modules\n';
+  msg += '❌ Errors: ' + errorCount + ' modules\n\n';
+  msg += 'Updated:\n';
+  msg += '• BugReport D4 note (Status Flow with VAPT)\n';
+  msg += '• Appendix Section 7 (Open Blocker Calculation)\n\n';
+
+  if (errorCount > 0) {
+    msg += '⚠️ ERRORS:\n' + errors.slice(0, 5).join('\n');
+    if (errors.length > 5) msg += '\n... dan ' + (errors.length - 5) + ' errors lainnya';
+  }
+
+  msg += '\n\nCek Execution log untuk detail lengkap.';
+  ui.alert('📝 Note & Appendix Update Complete', msg, ui.ButtonSet.OK);
+}
+
+/**
+ * Update ONLY the Open Blocker Calculation section in existing Appendix
+ * Does not recreate entire Appendix, only updates Section 7 blocker text
+ */
+function updateAppendixSection7Only_(appendixSh) {
+  if (!appendixSh) return;
+
+  // Find Section 7 header row
+  const lastRow = appendixSh.getLastRow();
+  let section7StartRow = -1;
+
+  for (let r = 1; r <= lastRow; r++) {
+    const cellA = String(appendixSh.getRange(r, 1).getValue());
+    const cellB = String(appendixSh.getRange(r, 2).getValue());
+
+    // Look for "7. BUG REPORT" header
+    if (cellA.includes('7.') && (cellA.toUpperCase().includes('BUG') || cellB.toUpperCase().includes('BUG'))) {
+      section7StartRow = r;
+      break;
+    }
+  }
+
+  if (section7StartRow === -1) {
+    Logger.log('  ⚠️ Section 7 header not found in Appendix');
+    return;
+  }
+
+  // Find the "Open Blocker Calculation" row within Section 7
+  let blockerRow = -1;
+  for (let r = section7StartRow; r <= Math.min(section7StartRow + 50, lastRow); r++) {
+    const cellB = String(appendixSh.getRange(r, 2).getValue());
+    if (cellB.includes('Open Blocker') || cellB.includes('BLOCKER') && cellB.includes('CALCULATION')) {
+      blockerRow = r;
+      break;
+    }
+  }
+
+  if (blockerRow === -1) {
+    Logger.log('  ⚠️ Open Blocker row not found in Section 7');
+    return;
+  }
+
+  // Update the blocker calculation text
+  const newBlockerText =
+    'Formula Open Blocker di Summary & Dashboard menghitung bug dengan:\n' +
+    '  • Status = Open / In Progress / Reopen / In Progress VAPT / Done VAPT\n' +
+    '  • Priority = Critical / High / Medium\n\n' +
+    'NOT Blocker: Verified, Closed, Won\'t Fix\n\n' +
+    '💡 Kenapa Done VAPT masih blocker?\n' +
+    'Karena bug perlu di-test ulang oleh QA sebelum bisa Closed.\n' +
+    'Hanya setelah Closed baru tidak dihitung blocker.\n\n' +
+    'Target: 0 Open Blocker sebelum release ke production.';
+
+  appendixSh.getRange(blockerRow, 3).setValue(newBlockerText);
+
+  // Also update the label in column B if needed
+  appendixSh.getRange(blockerRow, 2).setValue('🚨 Open Blocker Calculation (UPDATED WITH VAPT)');
+
+  Logger.log('  ✅ Open Blocker text updated at row ' + blockerRow);
+}
