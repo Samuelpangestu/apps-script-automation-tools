@@ -687,26 +687,28 @@ function updateAppendixSection7WithVAPT_(ws) {
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
- * Lightweight broadcast: Update ONLY BugReport D4 note and Appendix Section 7
+ * Focused broadcast: Update BugReport D4 note and recreate Appendix with VAPT
  * Does NOT update dropdowns, formulas, or colors
  *
  * Use this when:
  * - Full broadcast already done, but documentation needs refresh
- * - Only want to update text/notes, not functional changes
+ * - Need to fix Appendix content without touching functional code
  */
 function broadcastFixNoteAndAppendix() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
   const response = ui.alert(
-    '📝 Update Note & Appendix Only',
-    'Broadcast ini hanya update DOKUMENTASI (tidak ubah dropdown/formula):\n\n' +
-    '✅ BugReport D4 note (Status Flow)\n' +
-    '✅ Appendix Section 7 (Open Blocker Calculation)\n\n' +
+    '📝 Update Note & Recreate Appendix',
+    'Broadcast ini update DOKUMENTASI (tidak ubah dropdown/formula):\n\n' +
+    '✅ BugReport D4 note (Status Flow with VAPT)\n' +
+    '✅ Recreate entire Appendix with VAPT\n\n' +
     '⚠️ TIDAK update:\n' +
     '- Dropdown validation\n' +
     '- Conditional formatting\n' +
     '- Open Blocker formula\n\n' +
+    '⚠️ WARNING: Appendix akan di-DELETE dan recreate!\n' +
+    'Semua section (0-10) akan di-recreate dengan VAPT.\n\n' +
     'Lanjutkan?',
     ui.ButtonSet.YES_NO
   );
@@ -785,10 +787,10 @@ function broadcastFixNoteAndAppendix() {
       );
       Logger.log('  ✅ BugReport D4 note updated');
 
-      // Update Appendix Section 7 if exists
+      // Recreate entire Appendix with VAPT if exists
       if (appendixSheet) {
-        updateAppendixSection7Only_(appendixSheet);
-        Logger.log('  ✅ Appendix Section 7 updated');
+        recreateEntireAppendixWithVAPT_(qatmSs);
+        Logger.log('  ✅ Appendix recreated with VAPT');
       } else {
         Logger.log('  ⚠️ Appendix sheet not found, skipped');
       }
@@ -818,7 +820,7 @@ function broadcastFixNoteAndAppendix() {
   msg += '❌ Errors: ' + errorCount + ' modules\n\n';
   msg += 'Updated:\n';
   msg += '• BugReport D4 note (Status Flow with VAPT)\n';
-  msg += '• Appendix Section 7 (Open Blocker Calculation)\n\n';
+  msg += '• Appendix RECREATED with all sections + VAPT\n\n';
 
   if (errorCount > 0) {
     msg += '⚠️ ERRORS:\n' + errors.slice(0, 5).join('\n');
