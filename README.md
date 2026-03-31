@@ -25,6 +25,11 @@ This repository contains a suite of automation tools built with **Google Apps Sc
 - ✅ **Document Generation** - Automated template creation and management
 - ✅ **Scheduling & Triggers** - Time-based and event-driven automation
 
+**📖 Documentation:**
+- **[System Architecture](ARCHITECTURE.md)** - Complete system design, data flows, and integration patterns
+- **[Clasp Workflow](CLASP_WORKFLOW.md)** - Development and deployment guide
+- **[Environments](ENVIRONMENTS.md)** - Testing vs Production setup
+
 ---
 
 ## 🚀 **Projects**
@@ -143,6 +148,9 @@ Local Development (VS Code/WebStorm)
 
 - ✅ Inline JSDoc comments
 - ✅ README for each project
+- ✅ **[System Architecture](ARCHITECTURE.md)** - Complete architecture & data flow documentation
+- ✅ **[Clasp Workflow](CLASP_WORKFLOW.md)** - Development and deployment guide
+- ✅ **[Environments](ENVIRONMENTS.md)** - Testing vs Production setup
 - ✅ Setup guides and troubleshooting
 - ✅ API reference documentation
 
@@ -180,16 +188,13 @@ google-apps-script-portfolio/
 │   └── workflows/
 │       └── deploy-apps-script.yml
 │
-├── docs/                        # Portfolio documentation
-│   ├── ARCHITECTURE.md
-│   ├── DEPLOYMENT.md
-│   └── screenshots/
-│
 ├── scripts/
 │   ├── setup-clasp.sh
 │   └── sync-from-appscript.sh
 │
-├── CLASP_WORKFLOW.md
+├── ARCHITECTURE.md              # System architecture & data flow
+├── CLASP_WORKFLOW.md            # Development workflow guide
+├── ENVIRONMENTS.md              # Testing vs Production setup
 └── README.md                    # This file
 ```
 
