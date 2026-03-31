@@ -168,8 +168,8 @@ Jika ada deployment yang perlu di-update:
 - [ ] 3. Push to Production Script: `./deploy-production.sh`
 - [ ] 4. Deploy Web App from Testing Script Editor
 - [ ] 5. Copy new Web App URL
-- [ ] 6. Run `setWebAppUrlDirect()` in Testing Script (update hardcoded URL first)
-- [ ] 7. Run `setWebAppUrlDirect()` in Production Script
+- [ ] 6. Run `setupWebAppUrl()` in Testing Script (paste Web App URL)
+- [ ] 7. Run `setupWebAppUrl()` in Production Script (paste same URL)
 - [ ] 8. Test notification: Menu > Notifications > Test Now
 - [ ] 9. Verify Web App URL in WhatsApp message
 - [ ] 10. Commit deployment URL to git/documentation

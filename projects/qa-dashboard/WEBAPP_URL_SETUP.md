@@ -12,7 +12,13 @@ message += '📊 Web Dashboard: ' + dashboardWebAppUrl + '\n';
 
 ### 1. Deploy Web App (jika belum)
 
-1. Buka Apps Script Editor
+⚠️ **PENTING:** Deploy Web App dari **Testing Script ONLY**, BUKAN Production Script!
+
+1. **Buka Testing Apps Script Editor:**
+   ```
+   https://script.google.com/d/1LJ83OATTAp7ChDWGkrSTg0b9KmMhOABISBrAJrB54JksjQ7mi5oNB7C3/edit
+   ```
+
 2. Klik **Deploy** > **New deployment**
 3. Select type: **Web app**
 4. Configure:
@@ -25,6 +31,11 @@ URL format:
 ```
 https://script.google.com/a/macros/inadigital.co.id/s/AKfycby.../exec
 ```
+
+**Kenapa Testing Script?**
+- Production Script error saat deployment Web App
+- Data tetap aman: hardcoded ke Production Spreadsheet di `getDashboardSpreadsheet_()`
+- Lihat DEPLOYMENT_NOTES.md untuk detail
 
 ### 2. Simpan URL ke Script Properties
 
@@ -63,14 +74,17 @@ https://script.google.com/a/macros/inadigital.co.id/s/AKfycby.../exec
 
 ## Current Web App URL
 
-**Testing Script:**
+**Production (deployed from Testing Script):**
 ```
-https://script.google.com/a/macros/inadigital.co.id/s/AKfycbyGQZbca-O1zFVFyh4xvRDdX-M8Hce-FRorhp5d-7SrxSo706ernucw9ge1wPIwEP_qRw/exec
+https://script.google.com/a/macros/inadigital.co.id/s/AKfycbxswnlu4nYCdkKtsDrt8gWbEl75r7yAatMYTt5AKOXvTu1kBYMHdf-iKsdAOQi5aiMg3A/exec
 ```
 
-**Production Script:**
-- Belum di-deploy sebagai Web App
-- Gunakan Testing Script URL untuk sementara
+**Deployment:** v62 (AKfycbzh1ujm97GtRKvccYb7zLg7cEKzzUmzCcozGRYyRqvJBrJVpSSJm8v-Ct3FvAao5rorbg)
+
+**Notes:**
+- Deployed from Testing Script (1LJ83OATTAp7ChDWGkrSTg0b9KmMhOABISBrAJrB54JksjQ7mi5oNB7C3)
+- Data source: Production Spreadsheet (1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY)
+- Script Properties set in both Testing and Production scripts
 
 ## Kapan Update URL?
 
@@ -120,18 +134,18 @@ Harus ada:
 
 **Function:** `setupWebAppUrl()`
 - File: `projects/qa-dashboard/src/WebAppBackend.js`
-- Lines: 55-95
+- Lines: ~37-77 (interactive setup with UI prompt)
 
 **Usage:** WhatsApp Notification
 - File: `projects/qa-dashboard/src/Notifications.js`
-- Line: 1281-1283 (get URL from Script Properties)
-- Line: 1369 (include in message)
+- Gets URL from Script Properties
+- Includes in WhatsApp notification footer
 
 ## Related Functions
 
-- `setupWebAppSpreadsheet()` - Setup spreadsheet ID
-- `sendWhatsAppNotification_()` - Send WhatsApp notification
-- `getDashboardSpreadsheet_()` - Get dashboard spreadsheet
+- `setupWebAppUrl()` - Interactive setup: prompt and store Web App URL
+- `getDashboardSpreadsheet_()` - Get dashboard spreadsheet (hardcoded to Production)
+- `sendWhatsAppNotification_()` - Send WhatsApp notification with Web App link
 
 ---
 

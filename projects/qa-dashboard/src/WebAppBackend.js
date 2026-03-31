@@ -33,24 +33,6 @@ function getDashboardSpreadsheet_() {
   return SpreadsheetApp.openById(PRODUCTION_SPREADSHEET_ID);
 }
 
-/**
- * Setup function: Store current spreadsheet ID for web app access
- * Run this ONCE from spreadsheet context before deploying web app
- */
-function setupWebAppSpreadsheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ssId = ss.getId();
-
-  PropertiesService.getScriptProperties().setProperty('DASHBOARD_SPREADSHEET_ID', ssId);
-
-  SpreadsheetApp.getUi().alert(
-    '✅ Web App Setup Complete',
-    'Spreadsheet ID has been stored.\n\n' +
-    'ID: ' + ssId + '\n\n' +
-    'You can now deploy as Web App.',
-    SpreadsheetApp.getUi().ButtonSet.OK
-  );
-}
 
 /**
  * Setup function: Store Web App URL for notifications
@@ -94,40 +76,6 @@ function setupWebAppUrl() {
   }
 }
 
-/**
- * TEMPORARY: Set Web App URL directly without prompt
- * Run this once from Apps Script Editor, then can be deleted
- *
- * Current Production Web App URL (March 31, 2026)
- */
-function setWebAppUrlDirect() {
-  const webAppUrl = 'https://script.google.com/a/macros/inadigital.co.id/s/AKfycbxswnlu4nYCdkKtsDrt8gWbEl75r7yAatMYTt5AKOXvTu1kBYMHdf-iKsdAOQi5aiMg3A/exec';
-
-  PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', webAppUrl);
-
-  Logger.log('✅ Web App URL set successfully: ' + webAppUrl);
-
-  // Verify
-  const saved = PropertiesService.getScriptProperties().getProperty('WEB_APP_URL');
-  Logger.log('Verified: ' + saved);
-
-  // Show confirmation if called from spreadsheet
-  try {
-    SpreadsheetApp.getUi().alert(
-      '✅ Web App URL Saved',
-      'URL has been stored for notifications.\n\n' +
-      'URL: ' + webAppUrl + '\n\n' +
-      'This URL will be included in WhatsApp notifications.\n\n' +
-      'You can now delete the setWebAppUrlDirect() function.',
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
-  } catch (e) {
-    // Running from Apps Script Editor, UI not available
-    Logger.log('UI alert skipped (not running from spreadsheet)');
-  }
-
-  return 'Success! Web App URL has been saved: ' + saved;
-}
 
 /**
  * Main function to fetch all dashboard data

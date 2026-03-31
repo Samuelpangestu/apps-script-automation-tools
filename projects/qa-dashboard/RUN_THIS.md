@@ -8,60 +8,60 @@
 
 ---
 
-## Langkah Singkat (2 menit total)
+## Langkah Setup (5 menit total)
 
-### Step 1: Run di Testing Script
+### Step 1: Deploy Web App (Testing Script Only)
 
 1. **Buka Testing Apps Script:**
    ```
    https://script.google.com/d/1LJ83OATTAp7ChDWGkrSTg0b9KmMhOABISBrAJrB54JksjQ7mi5oNB7C3/edit
    ```
 
-2. **Pilih function:** `setWebAppUrlDirect`
+2. **Deploy Web App:**
+   - Click: Deploy > New deployment
+   - Type: Web app
+   - Execute as: Me
+   - Who has access: Anyone with Google account
+   - Click: Deploy
+   - **Copy the Web App URL**
+
+### Step 2: Set URL di Testing Script
+
+1. **Di Testing Apps Script Editor**
+
+2. **Pilih function:** `setupWebAppUrl`
 
 3. **Klik Run** ▶️
 
-4. **Done!** ✅ Testing Script Properties updated
+4. **Paste Web App URL** yang di-copy dari Step 1
 
-### Step 2: Run di Production Script
+5. **Done!** ✅ Testing Script Properties updated
+
+### Step 3: Set URL di Production Script
 
 1. **Buka Production Apps Script:**
    ```
    https://script.google.com/d/1lHO8yKyqKs1_n5GV1m-SJMACLS95Jc7yy6dM_ItyT-l_-GdmkGQk3OIO/edit
    ```
 
-2. **Pilih function:** `setWebAppUrlDirect`
+2. **Pilih function:** `setupWebAppUrl`
 
 3. **Klik Run** ▶️
 
-4. **Done!** ✅ Production Script Properties updated
+4. **Paste Web App URL** yang sama dari Step 1
 
-Function akan otomatis set Web App URL:
+5. **Done!** ✅ Production Script Properties updated
+
+### Current Production Web App URL:
 ```
 https://script.google.com/a/macros/inadigital.co.id/s/AKfycbxswnlu4nYCdkKtsDrt8gWbEl75r7yAatMYTt5AKOXvTu1kBYMHdf-iKsdAOQi5aiMg3A/exec
 ```
-
-### Option 2: Run dari Dashboard Spreadsheet
-
-1. **Buka Production Dashboard:**
-   ```
-   https://docs.google.com/spreadsheets/d/1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY/edit
-   ```
-
-2. **Menu:** Extensions > Apps Script
-
-3. **Pilih function:** `setWebAppUrlDirect`
-
-4. **Klik Run** ▶️
-
-5. **Done!** ✅
 
 ## Verify Setup
 
 **Check di Execution Log:**
 ```
-✅ Web App URL set successfully: https://script.google.com/a/macros/...
-Verified: https://script.google.com/a/macros/...
+✅ Web App URL saved: https://script.google.com/a/macros/...
 ```
 
 **Test Notification:**
@@ -72,41 +72,28 @@ Verified: https://script.google.com/a/macros/...
 
 ## What Happens
 
-Function `setWebAppUrlDirect()` akan:
+Function `setupWebAppUrl()` akan:
 
-1. ✅ Save Web App URL ke Script Properties
-2. ✅ Verify URL tersimpan dengan benar
-3. ✅ Show confirmation message
+1. ✅ Prompt untuk paste Web App URL
+2. ✅ Validate URL format
+3. ✅ Save ke Script Properties
+4. ✅ Show confirmation message
 
 Web App URL akan digunakan di:
-- **WhatsApp notifications** (line 1369 Notifications.js)
+- **WhatsApp notifications** (Notifications.js)
 - Footer setiap daily bug report
 - Link "📊 Web Dashboard"
 
-## URL Yang Di-Set
-
-```
-Production Web App:
-https://script.google.com/a/macros/inadigital.co.id/s/AKfycbxswnlu4nYCdkKtsDrt8gWbEl75r7yAatMYTt5AKOXvTu1kBYMHdf-iKsdAOQi5aiMg3A/exec
-```
-
-## Setelah Setup Selesai
-
-Function `setWebAppUrlDirect()` bisa di-delete kalau mau (optional):
-
-1. Buka `WebAppBackend.js`
-2. Delete function `setWebAppUrlDirect()` (lines 97-130)
-3. Commit & deploy ulang
-
-Atau biarkan aja, tidak masalah. Function ini hanya untuk setup sekali.
-
 ---
 
-**Quick Link to Apps Script Editor:**
+## Quick Links
+
+**Testing Apps Script:**
+https://script.google.com/d/1LJ83OATTAp7ChDWGkrSTg0b9KmMhOABISBrAJrB54JksjQ7mi5oNB7C3/edit
+
+**Production Apps Script:**
 https://script.google.com/d/1lHO8yKyqKs1_n5GV1m-SJMACLS95Jc7yy6dM_ItyT-l_-GdmkGQk3OIO/edit
 
-**Function to Run:** `setWebAppUrlDirect`
+**Function to Run:** `setupWebAppUrl`
 
-**Status:** ⏳ Pending - Butuh 1x run manual dari Apps Script Editor
-
-**Estimated Time:** < 1 minute
+**Estimated Time:** 5 minutes total
