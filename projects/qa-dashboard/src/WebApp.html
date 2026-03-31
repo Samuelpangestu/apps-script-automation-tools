@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QA Dashboard</title>
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Google Charts -->
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .navbar {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    .navbar-brand {
+      font-weight: bold;
+      font-size: 1.5rem;
+    }
+    .summary-card {
+      border-radius: 12px;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: transform 0.2s, box-shadow 0.2s;
+      height: 100%;
+    }
+    .summary-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    .card-title {
+      font-size: 0.9rem;
+      color: #6c757d;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .card-value {
+      font-size: 2.5rem;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    .chart-container {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .chart-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #f0f0f0;
+      color: #333;
+    }
+    .section-divider {
+      margin: 32px 0;
+      border-top: 2px solid #e0e0e0;
+    }
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 400px;
+    }
+    .spinner-border {
+      width: 3rem;
+      height: 3rem;
+    }
+    .badge-danger { background-color: #dc3545; }
+    .badge-warning { background-color: #ffc107; color: #000; }
+    .badge-success { background-color: #28a745; }
+    .text-danger { color: #dc3545 !important; }
+    .text-warning { color: #ffc107 !important; }
+    .text-success { color: #28a745 !important; }
+    .text-primary { color: #667eea !important; }
+    .last-updated {
+      font-size: 0.85rem;
+      color: #6c757d;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-dark mb-4">
+    <div class="container-fluid">
+      <span class="navbar-brand mb-0 h1">📊 QA Dashboard</span>
+      <div class="d-flex align-items-center">
+        <a href="https://docs.google.com/spreadsheets/d/1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY/edit?gid=2137895928#gid=2137895928" target="_blank" class="btn btn-outline-light btn-sm me-2" title="Open Overview Tab">
+          📋 Overview
+        </a>
+        <a href="https://docs.google.com/spreadsheets/d/1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY/edit?gid=1796839997#gid=1796839997" target="_blank" class="btn btn-outline-light btn-sm me-2" title="Open Bugs Tab">
+          🐛 Bugs
+        </a>
+        <select id="projectFilter" class="form-select form-select-sm me-3" style="width: 250px;">
+          <option value="">All Modules</option>
+        </select>
+        <button class="btn btn-light btn-sm" onclick="loadDashboard()">
+          🔄 Refresh
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid">
+    <!-- Loading State -->
+    <div id="loadingState" class="loading">
+      <div class="text-center">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3 text-muted">Loading dashboard data...</p>
+      </div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div id="dashboardContent" style="display: none;">
+
+      <!-- Last Updated -->
+      <div class="row mb-3">
+        <div class="col-12 text-end">
+          <span class="last-updated" id="lastUpdated">-</span>
+        </div>
+      </div>
+
+      <!-- Summary Cards Row 1: Testing Metrics -->
+      <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Web Pass Rate</h6>
+              <div class="card-value text-primary" id="webPassRate">-</div>
+              <small class="text-muted">Execution: <span id="webExecRate">-</span></small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">API Pass Rate</h6>
+              <div class="card-value text-primary" id="apiPassRate">-</div>
+              <small class="text-muted">Execution: <span id="apiExecRate">-</span></small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Smoke Web Pass</h6>
+              <div class="card-value text-success" id="smokeWebPassRate">-</div>
+              <small class="text-muted">Execution: <span id="smokeWebExecRate">-</span></small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Smoke API Pass</h6>
+              <div class="card-value text-success" id="smokeApiPassRate">-</div>
+              <small class="text-muted">Execution: <span id="smokeApiExecRate">-</span></small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <hr class="section-divider">
+
+      <!-- Summary Cards Row 2: Bug Metrics -->
+      <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Total Bugs</h6>
+              <div class="card-value text-primary" id="totalBugs">-</div>
+              <small class="text-muted">Open: <span id="openBugs">-</span></small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card border-danger">
+            <div class="card-body">
+              <h6 class="card-title">Blocker Bugs</h6>
+              <div class="card-value text-danger" id="blockerBugs">-</div>
+              <small class="text-danger">🚨 Must be 0</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card border-warning">
+            <div class="card-body">
+              <h6 class="card-title">Critical Bugs</h6>
+              <div class="card-value text-warning" id="criticalBugs">-</div>
+              <small class="text-muted">Priority: Critical</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Performance</h6>
+              <div class="card-value" id="perfResult">-</div>
+              <small class="text-muted">Test Result</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <hr class="section-divider">
+
+      <!-- Bug Breakdown Section -->
+      <h4 style="margin-bottom: 20px; color: #333; font-weight: 600;">🐛 Bug Breakdown</h4>
+      <div class="row mb-3">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+          <div class="card summary-card border-warning">
+            <div class="card-body">
+              <h6 class="card-title">High</h6>
+              <div class="card-value" style="color: #ff6b6b;" id="highBugs">-</div>
+              <small class="text-muted">Severity: High</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+          <div class="card summary-card border-warning">
+            <div class="card-body">
+              <h6 class="card-title">Medium</h6>
+              <div class="card-value" style="color: #ffa500;" id="mediumBugs">-</div>
+              <small class="text-muted">Severity: Medium</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Low</h6>
+              <div class="card-value" style="color: #4CAF50;" id="lowBugs">-</div>
+              <small class="text-muted">Severity: Low</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+          <div class="card summary-card border-danger">
+            <div class="card-body">
+              <h6 class="card-title">Production</h6>
+              <div class="card-value text-danger" id="productionBugs">-</div>
+              <small class="text-muted">Env: Production</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+          <div class="card summary-card border-warning">
+            <div class="card-body">
+              <h6 class="card-title">UAT</h6>
+              <div class="card-value" style="color: #ffa500;" id="uatBugs">-</div>
+              <small class="text-muted">Env: UAT</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Development</h6>
+              <div class="card-value" style="color: #4CAF50;" id="devBugs">-</div>
+              <small class="text-muted">Env: Development</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <hr class="section-divider">
+
+      <!-- Section Title -->
+      <h4 style="margin-bottom: 24px; color: #333; font-weight: 600;">📊 Trend Analysis (Last 30 Days)</h4>
+
+      <!-- Charts Row 1 -->
+      <div class="row mb-4">
+        <div class="col-lg-6 mb-3">
+          <div class="chart-container">
+            <h5 class="chart-title">📈 Pass Rate Trend (Last 30 Days)</h5>
+            <div id="passRateTrendChart" style="height: 350px;"></div>
+          </div>
+        </div>
+        <div class="col-lg-6 mb-3">
+          <div class="chart-container">
+            <h5 class="chart-title">📊 Execution Rate Trend (Last 30 Days)</h5>
+            <div id="execRateTrendChart" style="height: 350px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row 2 -->
+      <div class="row mb-4">
+        <div class="col-lg-6 mb-3">
+          <div class="chart-container">
+            <h5 class="chart-title">🐛 Bug Trend (Last 30 Days)</h5>
+            <div id="bugTrendChart" style="height: 350px;"></div>
+          </div>
+        </div>
+        <div class="col-lg-6 mb-3">
+          <div class="chart-container">
+            <h5 class="chart-title">🔥 Smoke Test Pass Rate Trend (Last 30 Days)</h5>
+            <div id="smokeTrendChart" style="height: 350px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Table -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="chart-container">
+            <h5 class="chart-title">📋 Recent History (Last 20 Entries)</h5>
+            <div class="table-responsive">
+              <table class="table table-sm table-hover" id="historyTable">
+                <thead class="table-light">
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Project</th>
+                    <th>Module</th>
+                    <th>Submodule</th>
+                    <th>PIC QA</th>
+                    <th>Web Pass%</th>
+                    <th>API Pass%</th>
+                    <th>Bugs</th>
+                    <th>Blocker</th>
+                    <th>Critical</th>
+                  </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                  <tr><td colspan="10" class="text-center">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Load Google Charts
+    google.charts.load('current', {'packages':['corechart', 'line']});
+    google.charts.setOnLoadCallback(loadDashboard);
+
+    let dashboardData = null;
+    let currentFilter = '';
+
+    // Helper function to format date to WIB readable format
+    function formatDateWIB(dateString) {
+      if (!dateString) return '-';
+
+      const date = new Date(dateString);
+
+      // Convert to WIB (UTC+7)
+      const wibOffset = 7 * 60; // WIB is UTC+7
+      const localOffset = date.getTimezoneOffset();
+      const wibTime = new Date(date.getTime() + (wibOffset + localOffset) * 60000);
+
+      // Format: "26 Mar 2026, 10:14 WIB"
+      const options = {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      };
+
+      return wibTime.toLocaleString('en-GB', options) + ' WIB';
+    }
+
+    function loadDashboard() {
+      document.getElementById('loadingState').style.display = 'flex';
+      document.getElementById('dashboardContent').style.display = 'none';
+
+      // Call Apps Script backend
+      google.script.run
+        .withSuccessHandler(onDataLoaded)
+        .withFailureHandler(onError)
+        .getDashboardData();
+    }
+
+    function onDataLoaded(data) {
+      console.log('Data loaded:', data);
+
+      // Check if data is null or has error
+      if (!data) {
+        onError({message: 'No data returned from backend'});
+        return;
+      }
+
+      if (data.error) {
+        console.error('Backend error:', data.errorMessage);
+        console.error('Stack trace:', data.errorStack);
+        document.getElementById('loadingState').innerHTML =
+          '<div class="alert alert-danger">' +
+          '<h5>Error loading dashboard data:</h5>' +
+          '<p>' + data.errorMessage + '</p>' +
+          '<small>Check Apps Script logs for details</small>' +
+          '</div>';
+        return;
+      }
+
+      dashboardData = data;
+
+      // Populate module filter
+      populateProjectFilter(data.modules);
+
+      // Render dashboard
+      renderDashboard(data);
+
+      // Hide loading, show content
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('dashboardContent').style.display = 'block';
+    }
+
+    function onError(error) {
+      console.error('Error loading data:', error);
+      document.getElementById('loadingState').innerHTML =
+        '<div class="alert alert-danger">' +
+        '<h5>Error loading dashboard:</h5>' +
+        '<p>' + (error.message || 'Unknown error') + '</p>' +
+        '<small>Check browser console (F12) for details</small>' +
+        '</div>';
+    }
+
+    function populateProjectFilter(modules) {
+      const select = document.getElementById('projectFilter');
+      const currentValue = select.value;
+
+      // Clear existing options except "All Modules"
+      select.innerHTML = '<option value="">All Modules</option>';
+
+      // Add module options (e.g., "SIPGN - 0.E2E", "SIPGN - 1", etc)
+      modules.forEach(module => {
+        const option = document.createElement('option');
+        option.value = module;
+        option.textContent = module;
+        select.appendChild(option);
+      });
+
+      // Restore selection
+      select.value = currentValue;
+
+      // Add event listener
+      select.onchange = function() {
+        currentFilter = this.value;
+        renderDashboard(dashboardData);
+      };
+    }
+
+    function renderDashboard(data) {
+      const filtered = filterDataByProject(data, currentFilter);
+
+      // Update summary cards
+      updateSummaryCards(filtered.summary, filtered.bugsTable);
+
+      // Update last updated timestamp
+      document.getElementById('lastUpdated').textContent =
+        'Last updated: ' + formatDateWIB(filtered.summary.lastUpdated);
+
+      // Update history table
+      updateHistoryTable(filtered.history);
+
+      // Draw charts - ensure Google Charts is loaded
+      google.charts.setOnLoadCallback(function() {
+        drawPassRateChart(filtered.history);
+        drawExecRateChart(filtered.history);
+        drawBugTrendChart(filtered.history);
+        drawSmokeTrendChart(filtered.history);
+      });
+    }
+
+    function filterDataByProject(data, moduleFilter) {
+      // Ensure bugsTable exists
+      if (!data.bugsTable) {
+        data.bugsTable = [];
+      }
+
+      if (!moduleFilter) return data;
+
+      // Parse module filter: "SIPGN - 0.E2E" => project="SIPGN", modul="0.E2E"
+      const parts = moduleFilter.split(' - ');
+      const projectName = parts[0];
+      const modulName = parts[1];
+
+      // Filter history by module (project + modul)
+      // IMPORTANT: Convert row[2] to string for comparison (can be number like 1, 2, 3)
+      const filteredHistory = data.history.filter(row => {
+        return String(row[1]).trim() === projectName && String(row[2]).trim() === modulName;
+      });
+
+      // Filter bugs table by module (project + modul)
+      // Bugs table: [0]=Project, [1]=Modul
+      const filteredBugsTable = data.bugsTable ? data.bugsTable.filter(row => {
+        return String(row[0]).trim() === projectName && String(row[1]).trim() === modulName;
+      }) : [];
+
+      // Aggregate summary from filtered history (use latest entry)
+      let summary = data.summary;
+      if (filteredHistory.length > 0) {
+        const latest = filteredHistory[0]; // Already sorted newest first
+        summary = {
+          webPassRate: latest[5],
+          webExecRate: latest[6],
+          apiPassRate: latest[7],
+          apiExecRate: latest[8],
+          smokeWebPassRate: latest[9],
+          smokeWebExecRate: latest[10],
+          smokeApiPassRate: latest[11],
+          smokeApiExecRate: latest[12],
+          perfResult: latest[13],
+          totalBugs: latest[14],
+          openBugs: latest[15],
+          blockerBugs: latest[16],
+          criticalBugs: latest[17],
+          lastUpdated: latest[0]
+        };
+      }
+
+      return {
+        summary: summary,
+        history: filteredHistory,
+        bugsTable: filteredBugsTable,
+        modules: data.modules
+      };
+    }
+
+    function updateSummaryCards(summary, bugsTableData) {
+      // Format percentages
+      const fmt = (val) => {
+        if (val === null || val === undefined || val === '') return '-';
+        if (typeof val === 'number') return Math.round(val * 100) + '%';
+        return val;
+      };
+
+      document.getElementById('webPassRate').textContent = fmt(summary.webPassRate);
+      document.getElementById('webExecRate').textContent = fmt(summary.webExecRate);
+      document.getElementById('apiPassRate').textContent = fmt(summary.apiPassRate);
+      document.getElementById('apiExecRate').textContent = fmt(summary.apiExecRate);
+      document.getElementById('smokeWebPassRate').textContent = fmt(summary.smokeWebPassRate);
+      document.getElementById('smokeWebExecRate').textContent = fmt(summary.smokeWebExecRate);
+      document.getElementById('smokeApiPassRate').textContent = fmt(summary.smokeApiPassRate);
+      document.getElementById('smokeApiExecRate').textContent = fmt(summary.smokeApiExecRate);
+
+      document.getElementById('totalBugs').textContent = summary.totalBugs || 0;
+      document.getElementById('openBugs').textContent = summary.openBugs || 0;
+      document.getElementById('blockerBugs').textContent = summary.blockerBugs || 0;
+      document.getElementById('criticalBugs').textContent = summary.criticalBugs || 0;
+      document.getElementById('perfResult').textContent = summary.perfResult || '-';
+
+      // Calculate bug breakdown from bugsTable
+      // Bugs table columns: [0]=Project, [1]=Modul, [2]=Submodul, [3]=Total,
+      // [4]=Critical, [5]=High, [6]=Medium, [7]=Low, [8]=Lowest, [9]=Blocker,
+      // [10]=Δ Total, [11]=Δ Blocker, [12]=Dev, [13]=UAT, [14]=Prod
+      let highBugs = 0, mediumBugs = 0, lowBugs = 0;
+      let prodBugs = 0, uatBugs = 0, devBugs = 0;
+
+      if (bugsTableData && Array.isArray(bugsTableData) && bugsTableData.length > 0) {
+        bugsTableData.forEach(row => {
+          if (!row || !row[0]) return;
+          // IMPORTANT: Convert to Number to avoid string concatenation
+          highBugs += Number(row[5]) || 0;     // High
+          mediumBugs += Number(row[6]) || 0;   // Medium
+          lowBugs += Number(row[7]) || 0;      // Low
+          devBugs += Number(row[12]) || 0;     // Dev
+          uatBugs += Number(row[13]) || 0;     // UAT
+          prodBugs += Number(row[14]) || 0;    // Prod
+        });
+      }
+
+      document.getElementById('highBugs').textContent = highBugs;
+      document.getElementById('mediumBugs').textContent = mediumBugs;
+      document.getElementById('lowBugs').textContent = lowBugs;
+      document.getElementById('productionBugs').textContent = prodBugs;
+      document.getElementById('uatBugs').textContent = uatBugs;
+      document.getElementById('devBugs').textContent = devBugs;
+    }
+
+    function drawPassRateChart(historyData) {
+      if (historyData.length === 0) {
+        document.getElementById('passRateTrendChart').innerHTML =
+          '<p class="text-muted text-center">No data available</p>';
+        return;
+      }
+
+      // Aggregate data by DATE (not by entry) to avoid duplicate dates
+      const dailyData = {};
+      historyData.forEach(row => {
+        const dateStr = row[0].split('T')[0]; // "2026-03-24"
+        if (!dailyData[dateStr]) {
+          dailyData[dateStr] = {
+            webPassSum: 0,
+            apiPassSum: 0,
+            count: 0
+          };
+        }
+        dailyData[dateStr].webPassSum += (row[5] || 0);
+        dailyData[dateStr].apiPassSum += (row[7] || 0);
+        dailyData[dateStr].count++;
+      });
+
+      // Convert to array and sort by date
+      const dailyArray = Object.keys(dailyData).sort().map(date => {
+        const data = dailyData[date];
+        return {
+          date: date,
+          webPass: data.webPassSum / data.count,
+          apiPass: data.apiPassSum / data.count
+        };
+      });
+
+      // Get last 30 days (not entries!)
+      const last30Days = dailyArray.slice(-30);
+
+      // Check if we have enough data
+      if (last30Days.length === 0) {
+        document.getElementById('passRateTrendChart').innerHTML =
+          '<p class="text-muted text-center">No data available</p>';
+        return;
+      }
+
+      // Prepare chart data
+      const chartData = [['Date', 'Web Pass%', 'API Pass%']];
+      last30Days.forEach(day => {
+        const dateParts = day.date.split('-');
+        const dateLabel = dateParts[1] + '/' + dateParts[2]; // "03/24"
+        chartData.push([
+          dateLabel,
+          day.webPass * 100,
+          day.apiPass * 100
+        ]);
+      });
+
+      const data = google.visualization.arrayToDataTable(chartData);
+      const options = {
+        curveType: 'function',
+        legend: { position: 'bottom' },
+        vAxis: {
+          title: 'Pass Rate (%)',
+          minValue: 0,
+          maxValue: 100
+        },
+        hAxis: {
+          title: 'Date'
+        },
+        series: {
+          0: { color: '#667eea' },
+          1: { color: '#28a745' }
+        },
+        chartArea: { width: '85%', height: '70%' }
+      };
+
+      // Clear and re-render to avoid label issues on refresh
+      const container = document.getElementById('passRateTrendChart');
+      container.innerHTML = '';
+      const chart = new google.visualization.LineChart(container);
+      chart.draw(data, options);
+    }
+
+    function drawExecRateChart(historyData) {
+      if (historyData.length === 0) {
+        document.getElementById('execRateTrendChart').innerHTML =
+          '<p class="text-muted text-center">No data available</p>';
+        return;
+      }
+
+      // Aggregate by date
+      const dailyData = {};
+      historyData.forEach(row => {
+        const dateStr = row[0].split('T')[0];
+        if (!dailyData[dateStr]) {
+          dailyData[dateStr] = { webExecSum: 0, apiExecSum: 0, count: 0 };
+        }
+        dailyData[dateStr].webExecSum += (row[6] || 0);
+        dailyData[dateStr].apiExecSum += (row[8] || 0);
+        dailyData[dateStr].count++;
+      });
+
+      const dailyArray = Object.keys(dailyData).sort().map(date => ({
+        date: date,
+        webExec: dailyData[date].webExecSum / dailyData[date].count,
+        apiExec: dailyData[date].apiExecSum / dailyData[date].count
+      }));
+
+      const last30Days = dailyArray.slice(-30);
+      const chartData = [['Date', 'Web Exec%', 'API Exec%']];
+      last30Days.forEach(day => {
+        const dateParts = day.date.split('-');
+        const dateLabel = dateParts[1] + '/' + dateParts[2];
+        chartData.push([
+          dateLabel,
+          day.webExec * 100,
+          day.apiExec * 100
+        ]);
+      });
+
+      const data = google.visualization.arrayToDataTable(chartData);
+      const options = {
+        curveType: 'function',
+        legend: { position: 'bottom' },
+        vAxis: {
+          title: 'Execution Rate (%)',
+          minValue: 0,
+          maxValue: 100
+        },
+        hAxis: {
+          title: 'Date'
+        },
+        series: {
+          0: { color: '#764ba2' },
+          1: { color: '#ffc107' }
+        },
+        chartArea: { width: '85%', height: '70%' }
+      };
+
+      // Clear and re-render
+      const container = document.getElementById('execRateTrendChart');
+      container.innerHTML = '';
+      const chart = new google.visualization.LineChart(container);
+      chart.draw(data, options);
+    }
+
+    function drawBugTrendChart(historyData) {
+      if (historyData.length === 0) {
+        document.getElementById('bugTrendChart').innerHTML =
+          '<p class="text-muted text-center">No data available</p>';
+        return;
+      }
+
+      // Aggregate by date - SUM bugs per day
+      const dailyData = {};
+      historyData.forEach(row => {
+        const dateStr = row[0].split('T')[0];
+        if (!dailyData[dateStr]) {
+          dailyData[dateStr] = { totalBugs: 0, blocker: 0, critical: 0 };
+        }
+        dailyData[dateStr].totalBugs += (row[14] || 0);
+        dailyData[dateStr].blocker += (row[16] || 0);
+        dailyData[dateStr].critical += (row[17] || 0);
+      });
+
+      const dailyArray = Object.keys(dailyData).sort().map(date => ({
+        date: date,
+        totalBugs: dailyData[date].totalBugs,
+        blocker: dailyData[date].blocker,
+        critical: dailyData[date].critical
+      }));
+
+      const last30Days = dailyArray.slice(-30);
+      const chartData = [['Date', 'Total Bugs', 'Blocker', 'Critical']];
+      last30Days.forEach(day => {
+        const dateParts = day.date.split('-');
+        const dateLabel = dateParts[1] + '/' + dateParts[2];
+        chartData.push([
+          dateLabel,
+          day.totalBugs,
+          day.blocker,
+          day.critical
+        ]);
+      });
+
+      const data = google.visualization.arrayToDataTable(chartData);
+      const options = {
+        curveType: 'function',
+        legend: { position: 'bottom' },
+        vAxis: {
+          title: 'Bug Count',
+          minValue: 0
+        },
+        hAxis: {
+          title: 'Date'
+        },
+        series: {
+          0: { color: '#667eea' },
+          1: { color: '#dc3545' },
+          2: { color: '#ffc107' }
+        },
+        chartArea: { width: '85%', height: '70%' }
+      };
+
+      // Clear and re-render
+      const container = document.getElementById('bugTrendChart');
+      container.innerHTML = '';
+      const chart = new google.visualization.LineChart(container);
+      chart.draw(data, options);
+    }
+
+    function drawSmokeTrendChart(historyData) {
+      if (historyData.length === 0) {
+        document.getElementById('smokeTrendChart').innerHTML =
+          '<p class="text-muted text-center">No data available</p>';
+        return;
+      }
+
+      // Aggregate by date
+      const dailyData = {};
+      historyData.forEach(row => {
+        const dateStr = row[0].split('T')[0];
+        if (!dailyData[dateStr]) {
+          dailyData[dateStr] = { webSmokeSum: 0, apiSmokeSum: 0, count: 0 };
+        }
+        dailyData[dateStr].webSmokeSum += (row[9] || 0);
+        dailyData[dateStr].apiSmokeSum += (row[11] || 0);
+        dailyData[dateStr].count++;
+      });
+
+      const dailyArray = Object.keys(dailyData).sort().map(date => ({
+        date: date,
+        webSmoke: dailyData[date].webSmokeSum / dailyData[date].count,
+        apiSmoke: dailyData[date].apiSmokeSum / dailyData[date].count
+      }));
+
+      const last30Days = dailyArray.slice(-30);
+      const chartData = [['Date', 'Smoke Web Pass%', 'Smoke API Pass%']];
+      last30Days.forEach(day => {
+        const dateParts = day.date.split('-');
+        const dateLabel = dateParts[1] + '/' + dateParts[2];
+        chartData.push([
+          dateLabel,
+          day.webSmoke * 100,
+          day.apiSmoke * 100
+        ]);
+      });
+
+      const data = google.visualization.arrayToDataTable(chartData);
+      const options = {
+        curveType: 'function',
+        legend: { position: 'bottom' },
+        vAxis: {
+          title: 'Pass Rate (%)',
+          minValue: 0,
+          maxValue: 100
+        },
+        hAxis: {
+          title: 'Date'
+        },
+        series: {
+          0: { color: '#28a745' },
+          1: { color: '#17a2b8' }
+        },
+        chartArea: { width: '85%', height: '70%' }
+      };
+
+      // Clear and re-render
+      const container = document.getElementById('smokeTrendChart');
+      container.innerHTML = '';
+      const chart = new google.visualization.LineChart(container);
+      chart.draw(data, options);
+    }
+
+    function updateHistoryTable(historyData) {
+      const tbody = document.getElementById('historyTableBody');
+      tbody.innerHTML = '';
+
+      if (historyData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No data available</td></tr>';
+        return;
+      }
+
+      // Get last 20 entries
+      const last20 = historyData.slice(-20).reverse();
+
+      last20.forEach(row => {
+        const tr = document.createElement('tr');
+
+        const fmt = (val) => {
+          if (val === null || val === undefined || val === '') return '-';
+          if (typeof val === 'number' && val < 1) return Math.round(val * 100) + '%';
+          return val;
+        };
+
+        tr.innerHTML = `
+          <td>${formatDateWIB(row[0])}</td>
+          <td>${row[1]}</td>
+          <td>${row[2]}</td>
+          <td>${row[3]}</td>
+          <td>${row[4]}</td>
+          <td>${fmt(row[5])}</td>
+          <td>${fmt(row[7])}</td>
+          <td>${row[14]}</td>
+          <td><span class="badge ${row[16] > 0 ? 'badge-danger' : 'badge-success'}">${row[16]}</span></td>
+          <td><span class="badge ${row[17] > 0 ? 'badge-warning' : 'badge-success'}">${row[17]}</span></td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+</html>
