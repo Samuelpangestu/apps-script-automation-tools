@@ -248,6 +248,17 @@ function calculateVAPTSummary_(entries) {
   const summary = {
     totalApps: entries.length,
     totalFindings: 0,
+    blocker: 0,  // NEW: Medium + High + Critical Open
+    blockerBreakdown: {  // NEW: Blocker by severity
+      critical: 0,
+      high: 0,
+      medium: 0
+    },
+    otherOpen: {  // NEW: Non-blocker open findings
+      low: 0,
+      info: 0
+    },
+    totalClosed: 0,  // NEW: Total closed findings
     bySeverity: {
       critical: 0,
       high: 0,
@@ -270,6 +281,23 @@ function calculateVAPTSummary_(entries) {
   };
 
   entries.forEach(entry => {
+    // BLOCKER CALCULATION (Medium + High + Critical Open)
+    const blockerForEntry = (entry.open.medium || 0) + (entry.open.high || 0) + (entry.open.critical || 0);
+    summary.blocker += blockerForEntry;
+
+    // Blocker Breakdown
+    summary.blockerBreakdown.critical += (entry.open.critical || 0);
+    summary.blockerBreakdown.high += (entry.open.high || 0);
+    summary.blockerBreakdown.medium += (entry.open.medium || 0);
+
+    // Other Open Findings (Low + Info)
+    summary.otherOpen.low += (entry.open.low || 0);
+    summary.otherOpen.info += (entry.open.info || 0);
+
+    // Total Closed
+    const closedTotal = (entry.closed.critical || 0) + (entry.closed.high || 0) + (entry.closed.medium || 0) + (entry.closed.low || 0) + (entry.closed.info || 0);
+    summary.totalClosed += closedTotal;
+
     // By Severity (sum across all statuses)
     summary.bySeverity.critical += (entry.readyToRetest.critical + entry.open.critical + entry.closed.critical);
     summary.bySeverity.high += (entry.readyToRetest.high + entry.open.high + entry.closed.high);
@@ -280,7 +308,6 @@ function calculateVAPTSummary_(entries) {
     // By Status (sum across all severities)
     const rtrTotal = entry.readyToRetest.critical + entry.readyToRetest.high + entry.readyToRetest.medium + entry.readyToRetest.low + entry.readyToRetest.info;
     const openTotal = entry.open.critical + entry.open.high + entry.open.medium + entry.open.low + entry.open.info;
-    const closedTotal = entry.closed.critical + entry.closed.high + entry.closed.medium + entry.closed.low + entry.closed.info;
 
     summary.byStatus.readyToRetest += rtrTotal;
     summary.byStatus.open += openTotal;
