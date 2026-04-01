@@ -23,21 +23,22 @@ function buildVAPT(ss) {
   ws.clear();
   initVAPTHeaders_(ws);
 
-  ws.getRange(22,1,1,23).merge()
+  ws.getRange(10,1,1,7).merge()
       .setValue('▶ Run refreshDashboard() untuk mengisi data VAPT')
       .setBackground('#FFF3E0').setFontColor('#E65100').setFontStyle('italic')
       .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
-  ws.setFrozenRows(21);
+  ws.setFrozenRows(9);
 }
 
 function initVAPTHeaders_(ws) {
-  // Set column widths
-  ws.setColumnWidth(1, 80);   // Type
-  ws.setColumnWidth(2, 200);  // Aplikasi
-  ws.setColumnWidth(3, 120);  // PIC VAPT
-  ws.setColumnWidth(4, 100);  // VAPT Status
-  ws.setColumnWidth(5, 90);   // Blocker (NEW)
-  for (let c=6; c<=23; c++) ws.setColumnWidth(c, 65);
+  // Set column widths (7 columns total - removed Status)
+  ws.setColumnWidth(1, 250);  // Aplikasi
+  ws.setColumnWidth(2, 90);   // Blocker
+  ws.setColumnWidth(3, 70);   // Critical
+  ws.setColumnWidth(4, 70);   // High
+  ws.setColumnWidth(5, 70);   // Medium
+  ws.setColumnWidth(6, 70);   // Low
+  ws.setColumnWidth(7, 70);   // Info
 
   function h_(r,c,rCnt,cCnt,txt,bg,fg) {
     fg = fg || '#FFFFFF';
@@ -50,82 +51,53 @@ function initVAPTHeaders_(ws) {
   }
 
   // Row 1 — last refresh
-  ws.getRange(1,1,1,23).merge().setValue('Last refreshed: —')
+  ws.getRange(1,1,1,7).merge().setValue('Last refreshed: —')
       .setBackground('#FFF3E0').setFontColor('#E65100').setFontStyle('italic')
       .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
   ws.setRowHeight(1,16);
 
-  // Row 2 — title
-  h_(2,1,1,23,'🔒 VAPT BLOCKER TRACKING  |  Medium-Critical Open Findings','#BF360C','#FFFFFF');
-  ws.getRange(2,1).setFontSize(13);
+  // Row 2 — title with link
+  ws.getRange(2,1,1,7).merge().setValue('🔒 VAPT BLOCKER TRACKING')
+      .setBackground('#BF360C').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(13).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setRowHeight(2,30);
 
-  // Row 3-20 — SUMMARY SECTION
-  ws.getRange(3,1,1,23).merge().setValue('SUMMARY METRICS')
-      .setBackground('#FF6F00').setFontColor('#FFFFFF').setFontWeight('bold')
-      .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
-  ws.setRowHeight(3,24);
+  // Row 3 — subtitle + link to external
+  ws.getRange(3,1,1,7).merge()
+      .setBackground('#FFF3E0').setFontColor('#E65100')
+      .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
+  ws.setRowHeight(3,20);
 
-  // Summary layout (will be populated by writeVAPT)
+  // Row 4-8 — SIMPLE SUMMARY
+  ws.getRange(4,1,1,7).merge().setValue('🚨 SUMMARY')
+      .setBackground('#FF6F00').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+  ws.setRowHeight(4,22);
+
   const summaryLabels = [
-    ['Total Applications:', '—'],
-    ['', ''],
-    ['🚨 VAPT BLOCKER:', '—'],
-    ['   (Medium-Critical Open)', ''],
-    ['', ''],
-    ['BLOCKER BREAKDOWN:', ''],
-    ['  Critical Open:', '—'],
-    ['  High Open:', '—'],
-    ['  Medium Open:', '—'],
-    ['', ''],
-    ['OTHER OPEN FINDINGS:', ''],
-    ['  Low Open:', '—'],
-    ['  Info Open:', '—'],
-    ['', ''],
-    ['CLOSED FINDINGS:', '—'],
-    ['', ''],
-    ['VAPT STATUS:', ''],
-    ['  Done:', '—'],
-    ['  In Progress:', '—']
+    ['Total Blocker:', '—', 'Ad Hoc:', '—'],
+    ['Apps with Blocker:', '—', 'Regular:', '—']
   ];
 
   summaryLabels.forEach((row, i) => {
-    const r = 4 + i;
-    ws.getRange(r,1).setValue(row[0]).setFontWeight('bold').setBackground('#FFEBEE');
-    ws.getRange(r,2).setValue(row[1]).setBackground('#FFFFFF');
+    const r = 5 + i;
+    ws.getRange(r,1).setValue(row[0]).setFontWeight('bold').setBackground('#FFEBEE').setHorizontalAlignment('right');
+    ws.getRange(r,2).setValue(row[1]).setBackground('#FFFFFF').setFontSize(11).setFontWeight('bold');
+    ws.getRange(r,4).setValue(row[2]).setFontWeight('bold').setBackground('#FFEBEE').setHorizontalAlignment('right');
+    ws.getRange(r,5).setValue(row[3]).setBackground('#FFFFFF').setFontSize(10);
   });
 
-  // Row 21 — TABLE SECTION HEADER
-  h_(21,1, 1,4, 'VAPT INFO',              '#263238');
-  h_(21,5, 1,1, 'BLOCKER',                '#B71C1C');  // NEW: Red for blocker
-  h_(21,6, 1,5, 'OPEN FINDINGS',          '#D32F2F');
-  h_(21,11,1,5, 'CLOSED',                 '#388E3C');
-  h_(21,16,1,5, 'READY TO RETEST',        '#FF6F00');
-  h_(21,21,1,3, 'STATUS',                 '#37474F');
-  ws.setRowHeight(21,22);
+  // Row 7 — blank
+  ws.setRowHeight(7,8);
 
-  // Row 22 — column headers
-  const headers = [
-    'Type','Aplikasi','PIC VAPT','Status',
-    'Blocker',  // NEW: Blocker column (Med+High+Crit Open)
-    'Crit','High','Med','Low','Info',  // Open
-    'Crit','High','Med','Low','Info',  // Closed
-    'Crit','High','Med','Low','Info',  // Ready to Retest
-    'Prod','Report','Last Updated'
-  ];
-  headers.forEach((lbl,i) => h_(22,i+1,1,1,lbl,'#1565C0'));
+  // Row 8 — Target
+  ws.getRange(8,1,1,7).merge().setValue('🎯 Target: 0 blocker di semua aplikasi!')
+      .setBackground('#E8F5E9').setFontColor('#2E7D32').setFontWeight('bold')
+      .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+  ws.setRowHeight(8,20);
 
-  // Add notes
-  ws.getRange(22,1).setNote('Type\n\nAd Hoc = Development/Improvement VAPT\nRegular = Quarterly/Routine VAPT');
-  ws.getRange(22,4).setNote('VAPT Status\n\nDone, In Progress, Not Started, Todo');
-  ws.getRange(22,5).setNote('VAPT BLOCKER\n\n🚨 Medium + High + Critical findings yang masih OPEN\n\nTarget: 0 blocker\n\nPriority tinggi untuk diperbaiki!');
-  ws.getRange(22,6).setNote('Open Findings\n\nActive findings that need to be fixed\nBreakdown by severity');
-  ws.getRange(22,11).setNote('Closed\n\nFindings that have been verified and closed');
-  ws.getRange(22,16).setNote('Ready to Retest\n\nFindings waiting for retest after fix');
-  ws.getRange(22,21).setNote('Production Status\n\nTRUE = In Production\nFALSE = Not yet in Production');
-
-  ws.setRowHeight(22,26);
-  ws.setFrozenRows(22);
+  // Row 9 — blank
+  ws.setRowHeight(9,8);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -138,14 +110,16 @@ function writeVAPT(ss, vaptData) {
 
   initVAPTHeaders_(ws);
 
-  // Clear ALL data rows
+  // Clear ALL data rows (from row 10 onwards)
   const lastRow = ws.getMaxRows();
-  if (lastRow>=23) ws.getRange(23,1,lastRow-22,23).clearContent().clearFormat();
+  if (lastRow >= 10) ws.getRange(10, 1, lastRow - 9, 7).clearContent().clearFormat();
 
-  // Update summary section (rows 4-21)
-  updateVAPTSummary_(ws, vaptData.summary);
+  // Update link to external VAPT spreadsheet
+  const vaptSpreadsheetId = '17qeErP3VHxN7qcNQqhT6zGLukxZU4OKLmBMbsgsl1Rk';
+  const externalLink = 'https://docs.google.com/spreadsheets/d/' + vaptSpreadsheetId + '/edit';
+  ws.getRange(3, 1).setFormula('=HYPERLINK("' + externalLink + '", "📋 View External VAPT Spreadsheet")');
 
-  // Calculate blocker for each row and sort by blocker descending
+  // Calculate blocker for each row
   const now = new Date();
   let data = vaptData.table.map(row => {
     // Calculate blocker: Medium + High + Critical yang Open
@@ -153,75 +127,121 @@ function writeVAPT(ss, vaptData) {
     return {...row, blocker: blocker};
   });
 
-  // Sort by blocker descending (apps with most blockers first)
-  data.sort((a, b) => b.blocker - a.blocker);
+  // Separate Ad Hoc and Regular, then sort each by blocker descending
+  const adHocData = data.filter(row => row.type === 'Ad Hoc').sort((a, b) => b.blocker - a.blocker);
+  const regularData = data.filter(row => row.type === 'Regular').sort((a, b) => b.blocker - a.blocker);
 
-  data.forEach((row, i) => {
-    const r = 23 + i;
-    const bg = i%2===0 ? '#FFF8E1' : '#FFFFFF';
+  // Update summary
+  updateVAPTSummary_(ws, vaptData.summary, vaptData.adHocSummary, vaptData.regularSummary, data);
 
-    function cell(col,val,fmt){
-      const c=ws.getRange(r,col).setValue(val==null?'':val).setBackground(bg)
-          .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle')
-          .setBorder(true,true,true,true,false,false,'#E0E0E0',SpreadsheetApp.BorderStyle.SOLID);
-      if(fmt)c.setNumberFormat(fmt);
-      return c;
-    }
+  let currentRow = 10;
 
-    // VAPT Info (col 1-4)
-    cell(1, row.type);  // Ad Hoc or Regular
-    ws.getRange(r,2).setValue(row.aplikasi).setBackground(bg).setHorizontalAlignment('left').setFontFamily('Arial').setFontSize(9);
-    cell(3, row.picVapt);
-    cell(4, row.status);
+  // ═══════════════════════════════════════════════════════════════════════
+  // AD HOC VAPT SECTION
+  // ═══════════════════════════════════════════════════════════════════════
+  if (adHocData.length > 0) {
+    // Section header
+    ws.getRange(currentRow, 1, 1, 7).merge()
+        .setValue('═══ AD HOC VAPT (Development/Improvement) ═══')
+        .setBackground('#37474F').setFontColor('#FFFFFF').setFontWeight('bold')
+        .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+    ws.setRowHeight(currentRow, 24);
+    currentRow++;
 
-    // Blocker (col 5) - NEW: Medium + High + Critical Open
-    const blockerCell = ws.getRange(r,5);
-    blockerCell.setValue(row.blocker).setBackground(bg).setFontFamily('Arial').setFontSize(9)
-        .setHorizontalAlignment('center').setVerticalAlignment('middle').setFontWeight('bold')
-        .setBorder(true,true,true,true,false,false,'#E0E0E0',SpreadsheetApp.BorderStyle.SOLID);
-    // Apply color: Red if > 0, Green if 0
-    if (row.blocker > 0) {
-      blockerCell.setBackground('#FFCDD2').setFontColor('#C62828');
-    } else {
-      blockerCell.setBackground('#C8E6C9').setFontColor('#2E7D32');
-    }
+    // Table headers (7 columns - removed Status)
+    const headers = ['Aplikasi', 'Blocker', 'Critical', 'High', 'Medium', 'Low', 'Info'];
+    headers.forEach((lbl, i) => {
+      ws.getRange(currentRow, i + 1)
+          .setValue(lbl)
+          .setBackground('#1565C0').setFontColor('#FFFFFF').setFontWeight('bold')
+          .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center')
+          .setBorder(true, true, true, true, false, false, '#FFFFFF', SpreadsheetApp.BorderStyle.SOLID);
+    });
+    ws.setRowHeight(currentRow, 22);
+    currentRow++;
 
-    // Open (col 6-10)
-    cell(6, row.open.critical);
-    cell(7, row.open.high);
-    cell(8, row.open.medium);
-    cell(9, row.open.low);
-    cell(10, row.open.info);
+    // Data rows
+    adHocData.forEach((row, i) => {
+      writeVAPTRow_(ws, currentRow, row, i);
+      currentRow++;
+    });
 
-    // Closed (col 11-15)
-    cell(11, row.closed.critical);
-    cell(12, row.closed.high);
-    cell(13, row.closed.medium);
-    cell(14, row.closed.low);
-    cell(15, row.closed.info);
+    currentRow++; // Blank row after section
+  }
 
-    // Ready to Retest (col 16-20)
-    cell(16, row.readyToRetest.critical);
-    cell(17, row.readyToRetest.high);
-    cell(18, row.readyToRetest.medium);
-    cell(19, row.readyToRetest.low);
-    cell(20, row.readyToRetest.info);
+  // ═══════════════════════════════════════════════════════════════════════
+  // REGULAR VAPT SECTION
+  // ═══════════════════════════════════════════════════════════════════════
+  if (regularData.length > 0) {
+    // Section header
+    ws.getRange(currentRow, 1, 1, 7).merge()
+        .setValue('═══ REGULAR VAPT (Quarterly/Routine) ═══')
+        .setBackground('#37474F').setFontColor('#FFFFFF').setFontWeight('bold')
+        .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+    ws.setRowHeight(currentRow, 24);
+    currentRow++;
 
-    // Status (col 21-23)
-    cell(21, row.prod ? 'TRUE' : 'FALSE');
-    ws.getRange(r,22).setValue(row.report || '').setBackground(bg).setHorizontalAlignment('left').setFontFamily('Arial').setFontSize(8);
-    cell(23, Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd'));
+    // Table headers (7 columns - removed Status)
+    const headers = ['Aplikasi', 'Blocker', 'Critical', 'High', 'Medium', 'Low', 'Info'];
+    headers.forEach((lbl, i) => {
+      ws.getRange(currentRow, i + 1)
+          .setValue(lbl)
+          .setBackground('#1565C0').setFontColor('#FFFFFF').setFontWeight('bold')
+          .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center')
+          .setBorder(true, true, true, true, false, false, '#FFFFFF', SpreadsheetApp.BorderStyle.SOLID);
+    });
+    ws.setRowHeight(currentRow, 22);
+    currentRow++;
 
-    ws.setRowHeight(r, 22);
-  });
-
-  // Conditional formatting for severity columns
-  applyVAPTConditionalFormatting_(ws, 23, data.length);
+    // Data rows
+    regularData.forEach((row, i) => {
+      writeVAPTRow_(ws, currentRow, row, i);
+      currentRow++;
+    });
+  }
 
   // Update last refresh timestamp
-  ws.getRange(1,1).setValue('Last refreshed: ' + Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss'));
+  ws.getRange(1, 1).setValue('Last refreshed: ' + Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss'));
 
-  Logger.log('✅ VAPT tab updated: ' + data.length + ' applications');
+  Logger.log('✅ VAPT tab updated: ' + data.length + ' applications (Ad Hoc: ' + adHocData.length + ', Regular: ' + regularData.length + ')');
+}
+
+/**
+ * Write a single VAPT data row (7 columns - removed Status)
+ */
+function writeVAPTRow_(ws, row, data, index) {
+  const bg = index % 2 === 0 ? '#FFF8E1' : '#FFFFFF';
+
+  function cell(col, val) {
+    return ws.getRange(row, col).setValue(val == null ? '' : val).setBackground(bg)
+        .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle')
+        .setBorder(true, true, true, true, false, false, '#E0E0E0', SpreadsheetApp.BorderStyle.SOLID);
+  }
+
+  // Col 1: Aplikasi (left-aligned)
+  ws.getRange(row, 1).setValue(data.aplikasi).setBackground(bg).setHorizontalAlignment('left')
+      .setFontFamily('Arial').setFontSize(9)
+      .setBorder(true, true, true, true, false, false, '#E0E0E0', SpreadsheetApp.BorderStyle.SOLID);
+
+  // Col 2: Blocker (colored: red if > 0, green if 0)
+  const blockerCell = ws.getRange(row, 2);
+  blockerCell.setValue(data.blocker).setBackground(bg).setFontFamily('Arial').setFontSize(9)
+      .setHorizontalAlignment('center').setVerticalAlignment('middle').setFontWeight('bold')
+      .setBorder(true, true, true, true, false, false, '#E0E0E0', SpreadsheetApp.BorderStyle.SOLID);
+  if (data.blocker > 0) {
+    blockerCell.setBackground('#FFCDD2').setFontColor('#C62828');  // Red
+  } else {
+    blockerCell.setBackground('#C8E6C9').setFontColor('#2E7D32');  // Green
+  }
+
+  // Col 3-7: OPEN findings (Critical, High, Medium, Low, Info)
+  cell(3, data.open.critical);
+  cell(4, data.open.high);
+  cell(5, data.open.medium);
+  cell(6, data.open.low);
+  cell(7, data.open.info);
+
+  ws.setRowHeight(row, 22);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -231,72 +251,22 @@ function writeVAPT(ss, vaptData) {
 /**
  * Update summary section with calculated metrics
  */
-function updateVAPTSummary_(ws, summary) {
-  ws.getRange(4,2).setValue(summary.totalApps || 0);
-
-  // VAPT BLOCKER (row 6) - HIGHLIGHT
-  const blockerValue = summary.blocker || 0;
-  const blockerCell = ws.getRange(6,2);
-  blockerCell.setValue(blockerValue).setFontWeight('bold').setFontSize(14);
-  if (blockerValue > 0) {
-    blockerCell.setBackground('#FFCDD2').setFontColor('#C62828');  // Red alert
+function updateVAPTSummary_(ws, summary, adHocSummary, regularSummary, data) {
+  // Row 5: Total Blocker & Ad Hoc Blocker
+  const totalBlockerCell = ws.getRange(5, 2);
+  totalBlockerCell.setValue(summary.blocker || 0).setFontWeight('bold').setFontSize(12);
+  if (summary.blocker > 0) {
+    totalBlockerCell.setBackground('#FFCDD2').setFontColor('#C62828');  // Red
   } else {
-    blockerCell.setBackground('#C8E6C9').setFontColor('#2E7D32');  // Green = good
+    totalBlockerCell.setBackground('#C8E6C9').setFontColor('#2E7D32');  // Green
   }
 
-  // Blocker Breakdown
-  ws.getRange(9,2).setValue(summary.blockerBreakdown.critical || 0)
-      .setBackground('#FFCDD2').setFontWeight('bold');  // Critical Open
-  ws.getRange(10,2).setValue(summary.blockerBreakdown.high || 0)
-      .setBackground('#FFCDD2').setFontWeight('bold');  // High Open
-  ws.getRange(11,2).setValue(summary.blockerBreakdown.medium || 0)
-      .setBackground('#FFE0B2').setFontWeight('bold');  // Medium Open
+  ws.getRange(5, 5).setValue(adHocSummary.blocker || 0).setFontWeight('bold');
 
-  // Other Open Findings
-  ws.getRange(14,2).setValue(summary.otherOpen.low || 0)
-      .setBackground('#C8E6C9').setFontWeight('bold');  // Low Open
-  ws.getRange(15,2).setValue(summary.otherOpen.info || 0)
-      .setBackground('#C8E6C9').setFontWeight('bold');  // Info Open
-
-  // Closed Findings
-  ws.getRange(17,2).setValue(summary.totalClosed || 0);
-
-  // VAPT Status
-  ws.getRange(20,2).setValue(summary.byVaptStatus.done || 0);
-  ws.getRange(21,2).setValue(summary.byVaptStatus.inProgress || 0);
-}
-
-/**
- * Apply conditional formatting for severity columns
- */
-function applyVAPTConditionalFormatting_(ws, startRow, dataLength) {
-  if (dataLength === 0) return;
-
-  const endRow = startRow + dataLength - 1;
-
-  // Critical columns: 6 (Open), 11 (Closed), 16 (Ready to Retest) - Red if > 0
-  [6, 11, 16].forEach(col => {
-    const range = ws.getRange(startRow, col, dataLength, 1);
-    const rule = SpreadsheetApp.newConditionalFormatRule()
-        .whenNumberGreaterThan(0)
-        .setBackground('#FFCDD2')
-        .setFontColor('#C62828')
-        .setRanges([range])
-        .build();
-    ws.setConditionalFormatRules([...ws.getConditionalFormatRules(), rule]);
-  });
-
-  // High columns: 7 (Open), 12 (Closed), 17 (Ready to Retest) - Orange if > 0
-  [7, 12, 17].forEach(col => {
-    const range = ws.getRange(startRow, col, dataLength, 1);
-    const rule = SpreadsheetApp.newConditionalFormatRule()
-        .whenNumberGreaterThan(0)
-        .setBackground('#FFE0B2')
-        .setFontColor('#E65100')
-        .setRanges([range])
-        .build();
-    ws.setConditionalFormatRules([...ws.getConditionalFormatRules(), rule]);
-  });
+  // Row 6: Apps with Blocker & Regular Blocker
+  const appsWithBlocker = data ? data.filter(app => app.blocker > 0).length : 0;
+  ws.getRange(6, 2).setValue(appsWithBlocker).setFontWeight('bold');
+  ws.getRange(6, 5).setValue(regularSummary.blocker || 0).setFontWeight('bold');
 }
 
 // ═══════════════════════════════════════════════════════════════════════

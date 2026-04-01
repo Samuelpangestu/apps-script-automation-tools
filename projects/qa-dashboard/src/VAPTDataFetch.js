@@ -84,7 +84,7 @@ function fetchAndProcessVAPTData_(vaptSpreadsheetId) {
 }
 
 /**
- * Fetch Ad Hoc VAPT data (C1:U30)
+ * Fetch Ad Hoc VAPT data (C1:Y100)
  */
 function fetchAdHocVAPTData_(vaptSs) {
   try {
@@ -94,7 +94,7 @@ function fetchAdHocVAPTData_(vaptSs) {
       return [];
     }
 
-    const data = sheet.getRange('C1:U100').getValues();  // Extended range to capture all rows
+    const data = sheet.getRange('C1:Y100').getValues();  // C to Y = 23 columns (No, Aplikasi, ..., Prod, Formula Updated)
     const entries = [];
 
     // Skip header row (row 0)
@@ -105,39 +105,39 @@ function fetchAdHocVAPTData_(vaptSs) {
       if (!row[1] || String(row[1]).trim() === '') continue;
 
       // Parse row data
-      // Columns: No, Aplikasi, PIC VAPT, Scope, VAPT Status, Report,
-      //          RTR(Crit,High,Med,Low,Info), Open(Crit,High,Med,Low,Info), Closed(Crit,High,Med,Low,Info),
-      //          Prod, Formula Updated
+      // Columns: C=No, D=Aplikasi, E=PIC VAPT, F=Scope, G=VAPT Status, H=Report,
+      //          I=RTR(total), J-N=Open(Crit,High,Med,Low,Info), O-S=Closed(Crit,High,Med,Low,Info),
+      //          T=Prod, U=Formula Updated
       const entry = {
         type: 'Ad Hoc',
-        aplikasi: String(row[1]).trim(),
-        picVapt: String(row[2]).trim(),
-        scope: String(row[3]).trim(),
-        status: String(row[4]).trim(),
-        report: String(row[5]).trim(),
+        aplikasi: String(row[1]).trim(),      // D (index 1)
+        picVapt: String(row[2]).trim(),       // E (index 2)
+        scope: String(row[3]).trim(),         // F (index 3)
+        status: String(row[4]).trim(),        // G (index 4)
+        report: String(row[5]).trim(),        // H (index 5)
         readyToRetest: {
-          critical: Number(row[6]) || 0,
-          high: Number(row[7]) || 0,
-          medium: Number(row[8]) || 0,
-          low: Number(row[9]) || 0,
-          info: Number(row[10]) || 0
+          critical: 0,  // I is total only, no breakdown
+          high: 0,
+          medium: 0,
+          low: 0,
+          info: 0
         },
         open: {
-          critical: Number(row[11]) || 0,
-          high: Number(row[12]) || 0,
-          medium: Number(row[13]) || 0,
-          low: Number(row[14]) || 0,
-          info: Number(row[15]) || 0
+          critical: Number(row[7]) || 0,      // J (index 7)
+          high: Number(row[8]) || 0,          // K (index 8)
+          medium: Number(row[9]) || 0,        // L (index 9)
+          low: Number(row[10]) || 0,          // M (index 10)
+          info: Number(row[11]) || 0          // N (index 11)
         },
         closed: {
-          critical: Number(row[16]) || 0,
-          high: Number(row[17]) || 0,
-          medium: Number(row[18]) || 0,
-          low: Number(row[19]) || 0,
-          info: Number(row[20]) || 0
+          critical: Number(row[12]) || 0,     // O (index 12)
+          high: Number(row[13]) || 0,         // P (index 13)
+          medium: Number(row[14]) || 0,       // Q (index 14)
+          low: Number(row[15]) || 0,          // R (index 15)
+          info: Number(row[16]) || 0          // S (index 16)
         },
-        prod: row[21] === true || String(row[21]).toUpperCase() === 'TRUE',
-        formulaUpdated: row[22] === true || String(row[22]).toUpperCase() === 'TRUE'
+        prod: row[17] === true || String(row[17]).toUpperCase() === 'TRUE',         // T (index 17)
+        formulaUpdated: row[18] === true || String(row[18]).toUpperCase() === 'TRUE' // U (index 18)
       };
 
       entries.push(entry);
@@ -151,7 +151,7 @@ function fetchAdHocVAPTData_(vaptSs) {
 }
 
 /**
- * Fetch Regular VAPT data (C1:AB30)
+ * Fetch Regular VAPT data (C1:AF100)
  */
 function fetchRegularVAPTData_(vaptSs) {
   try {
@@ -161,7 +161,7 @@ function fetchRegularVAPTData_(vaptSs) {
       return [];
     }
 
-    const data = sheet.getRange('C1:AB100').getValues();  // Extended range
+    const data = sheet.getRange('C1:AF100').getValues();  // C to AF = 30 columns (Aplikasi, ..., Prod, Formula Updated)
     const entries = [];
 
     // Skip header row (row 0)
@@ -172,42 +172,43 @@ function fetchRegularVAPTData_(vaptSs) {
       if (!row[0] || String(row[0]).trim() === '') continue;
 
       // Parse row data
-      // Columns: Aplikasi, PIC VAPT, PIC QA, Product Owner, VAPT MSSP Status, MSSP Report,
-      //          MSSP Checklist Status, MSSP Checklist Report, Internal VAPT Status, Report,
-      //          Report to PMO, MSSP Reported, Internal Reported,
-      //          RTR(Crit,High,Med,Low,Info), Open(Crit,High,Med,Low,Info), Closed(Crit,High,Med,Low,Info),
-      //          Prod, Formula Updated
+      // Columns: C=Aplikasi, D=Product Owner, E=VAPT MSSP, F=MSSP Report,
+      //          G=MSSP Checklist Status, H=MSSP Checklist Report, I=Internal VAPT Status, J=Report,
+      //          K=Report to PMO, L=MSSP Reported, M=Internal Reported,
+      //          N=???, O=???, P=RTR(total),
+      //          Q-U=Open(Crit,High,Med,Low,Info), V-Z=Closed(Crit,High,Med,Low,Info),
+      //          AA=Prod, AB=Formula Updated
       const entry = {
         type: 'Regular',
-        aplikasi: String(row[0]).trim(),
-        picVapt: String(row[1]).trim(),
-        picQa: String(row[2]).trim(),
-        productOwner: String(row[3]).trim(),
-        status: String(row[8]).trim(),  // Internal VAPT Status (col 8)
-        report: String(row[9]).trim(),   // Report (col 9)
+        aplikasi: String(row[0]).trim(),       // C (index 0)
+        picVapt: String(row[1]).trim(),        // D (index 1) - Product Owner actually, but use as picVapt
+        picQa: '',                             // Not available in Regular VAPT
+        productOwner: String(row[1]).trim(),   // D (index 1)
+        status: String(row[6]).trim(),         // I - Internal VAPT Status (index 6)
+        report: String(row[7]).trim(),         // J - Report (index 7)
         readyToRetest: {
-          critical: Number(row[13]) || 0,
-          high: Number(row[14]) || 0,
-          medium: Number(row[15]) || 0,
-          low: Number(row[16]) || 0,
-          info: Number(row[17]) || 0
+          critical: 0,  // P is total only, no breakdown
+          high: 0,
+          medium: 0,
+          low: 0,
+          info: 0
         },
         open: {
-          critical: Number(row[18]) || 0,
-          high: Number(row[19]) || 0,
-          medium: Number(row[20]) || 0,
-          low: Number(row[21]) || 0,
-          info: Number(row[22]) || 0
+          critical: Number(row[14]) || 0,      // Q (index 14)
+          high: Number(row[15]) || 0,          // R (index 15)
+          medium: Number(row[16]) || 0,        // S (index 16)
+          low: Number(row[17]) || 0,           // T (index 17)
+          info: Number(row[18]) || 0           // U (index 18)
         },
         closed: {
-          critical: Number(row[23]) || 0,
-          high: Number(row[24]) || 0,
-          medium: Number(row[25]) || 0,
-          low: Number(row[26]) || 0,
-          info: Number(row[27]) || 0
+          critical: Number(row[19]) || 0,      // V (index 19)
+          high: Number(row[20]) || 0,          // W (index 20)
+          medium: Number(row[21]) || 0,        // X (index 21)
+          low: Number(row[22]) || 0,           // Y (index 22)
+          info: Number(row[23]) || 0           // Z (index 23)
         },
-        prod: row[28] === true || String(row[28]).toUpperCase() === 'TRUE',
-        formulaUpdated: row[29] === true || String(row[29]).toUpperCase() === 'TRUE'
+        prod: row[24] === true || String(row[24]).toUpperCase() === 'TRUE',         // AA (index 24)
+        formulaUpdated: row[25] === true || String(row[25]).toUpperCase() === 'TRUE' // AB (index 25)
       };
 
       entries.push(entry);
@@ -225,12 +226,16 @@ function fetchRegularVAPTData_(vaptSs) {
  * Calculate summary metrics
  */
 function processVAPTData_(adHocData, regularData) {
+  // AGGREGATE: Combine multiple rows for same aplikasi
+  const aggregatedAdHoc = aggregateByAplikasi_(adHocData);
+  const aggregatedRegular = aggregateByAplikasi_(regularData);
+
   // Combine all entries
-  const allEntries = [...adHocData, ...regularData];
+  const allEntries = [...aggregatedAdHoc, ...aggregatedRegular];
 
   // Calculate summaries
-  const adHocSummary = calculateVAPTSummary_(adHocData);
-  const regularSummary = calculateVAPTSummary_(regularData);
+  const adHocSummary = calculateVAPTSummary_(aggregatedAdHoc);
+  const regularSummary = calculateVAPTSummary_(aggregatedRegular);
   const combinedSummary = calculateVAPTSummary_(allEntries);
 
   return {
@@ -239,6 +244,104 @@ function processVAPTData_(adHocData, regularData) {
     adHocSummary: adHocSummary,
     regularSummary: regularSummary
   };
+}
+
+/**
+ * Aggregate multiple rows with same aplikasi name
+ * Sum all findings (RTR, Open, Closed) for each severity
+ */
+function aggregateByAplikasi_(entries) {
+  if (entries.length === 0) return [];
+
+  const grouped = {};
+
+  entries.forEach(entry => {
+    const key = entry.aplikasi.toLowerCase().trim();
+
+    if (!grouped[key]) {
+      // First entry for this aplikasi - clone it
+      grouped[key] = {
+        type: entry.type,
+        aplikasi: entry.aplikasi,
+        picVapt: entry.picVapt,
+        scope: entry.scope || '',
+        status: entry.status,
+        report: entry.report,
+        readyToRetest: {
+          critical: entry.readyToRetest.critical,
+          high: entry.readyToRetest.high,
+          medium: entry.readyToRetest.medium,
+          low: entry.readyToRetest.low,
+          info: entry.readyToRetest.info
+        },
+        open: {
+          critical: entry.open.critical,
+          high: entry.open.high,
+          medium: entry.open.medium,
+          low: entry.open.low,
+          info: entry.open.info
+        },
+        closed: {
+          critical: entry.closed.critical,
+          high: entry.closed.high,
+          medium: entry.closed.medium,
+          low: entry.closed.low,
+          info: entry.closed.info
+        },
+        prod: entry.prod,
+        formulaUpdated: entry.formulaUpdated,
+        _count: 1
+      };
+    } else {
+      // Subsequent entry - sum findings
+      grouped[key].readyToRetest.critical += entry.readyToRetest.critical;
+      grouped[key].readyToRetest.high += entry.readyToRetest.high;
+      grouped[key].readyToRetest.medium += entry.readyToRetest.medium;
+      grouped[key].readyToRetest.low += entry.readyToRetest.low;
+      grouped[key].readyToRetest.info += entry.readyToRetest.info;
+
+      grouped[key].open.critical += entry.open.critical;
+      grouped[key].open.high += entry.open.high;
+      grouped[key].open.medium += entry.open.medium;
+      grouped[key].open.low += entry.open.low;
+      grouped[key].open.info += entry.open.info;
+
+      grouped[key].closed.critical += entry.closed.critical;
+      grouped[key].closed.high += entry.closed.high;
+      grouped[key].closed.medium += entry.closed.medium;
+      grouped[key].closed.low += entry.closed.low;
+      grouped[key].closed.info += entry.closed.info;
+
+      // Combine PIC VAPT if different
+      if (entry.picVapt && !grouped[key].picVapt.includes(entry.picVapt)) {
+        grouped[key].picVapt += ', ' + entry.picVapt;
+      }
+
+      // Update status to latest (prefer "In Progress" over "Done")
+      if (entry.status === 'In Progress') {
+        grouped[key].status = 'In Progress';
+      }
+
+      // Prod: TRUE if any entry is TRUE
+      if (entry.prod) {
+        grouped[key].prod = true;
+      }
+
+      // Formula Updated: TRUE if any entry is TRUE
+      if (entry.formulaUpdated) {
+        grouped[key].formulaUpdated = true;
+      }
+
+      grouped[key]._count++;
+    }
+  });
+
+  // Convert back to array
+  const result = Object.values(grouped);
+
+  Logger.log('Aggregation: ' + entries.length + ' rows → ' + result.length + ' unique aplikasi');
+
+  return result;
 }
 
 /**
