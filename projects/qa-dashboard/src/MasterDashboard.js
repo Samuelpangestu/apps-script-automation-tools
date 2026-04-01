@@ -150,7 +150,7 @@ function createDashboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   // Cleanup old tabs (including old naming: 'Blockers', 'Scenario Failure')
-  ['Overview','Bugs','Smoke','Failure Scenario','Scenario Failure','Blockers','Coverage','History','_Raw','Config','Credentials'].forEach(name => {
+  ['Overview','Bugs','VAPT','VAPT History','Smoke','Failure Scenario','Scenario Failure','Blockers','Coverage','History','_Raw','Config','Credentials'].forEach(name => {
     const s = ss.getSheetByName(name);
     if (s) ss.deleteSheet(s);
   });
@@ -160,6 +160,8 @@ function createDashboard() {
   buildCredentials(ss);
   buildOverview(ss);
   buildBugs(ss);  // NEW: Bugs tab with historical tracking
+  buildVAPT(ss);  // NEW: VAPT findings tracking
+  buildVAPTHistory(ss);  // NEW: VAPT history for trendline
   buildSmoke(ss);
   buildFailureScenario(ss);  // Uses "Failure Scenario" naming
   buildCoverage(ss);
@@ -201,7 +203,7 @@ function step1_deleteOldSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let deleted = 0;
 
-  ['Overview','Bugs','Smoke','Failure Scenario','Scenario Failure','Blockers','Coverage','History','_Raw','Config','Credentials'].forEach(name => {
+  ['Overview','Bugs','VAPT','VAPT History','Smoke','Failure Scenario','Scenario Failure','Blockers','Coverage','History','_Raw','Config','Credentials'].forEach(name => {
     const s = ss.getSheetByName(name);
     if (s) {
       ss.deleteSheet(s);
@@ -331,6 +333,7 @@ function refreshDashboard() {
 
   writeOverview(ss, allData);
   writeBugs(ss, allData);  // NEW: Write Bugs tab with delta tracking
+  refreshVAPTData();  // NEW: Refresh VAPT findings from source spreadsheet
   writeSmoke(ss, allData);
   writeFailureScenario(ss, allData);
   writeCoverage(ss, allData);
@@ -339,7 +342,7 @@ function refreshDashboard() {
   updateConfig(ss, allData);  // write back PIC + QA Lead from Summary
 
   const ts = 'Last refreshed: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss');
-  ['Overview','Bugs','Smoke'].forEach(name => {
+  ['Overview','Bugs','VAPT','Smoke'].forEach(name => {
     const sh = ss.getSheetByName(name);
     if (sh) sh.getRange(1,1).setValue(ts);
   });
@@ -1482,6 +1485,79 @@ function buildConfig(ss) {
   // Merge all rules including WhatsApp
   const allConfigRules = ws.getConditionalFormatRules();
   ws.setConditionalFormatRules([...allConfigRules, waEnableTrueRule, waEnableFalseRule]);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // VAPT SPREADSHEET SECTION (Kolom V-W, untuk VAPT data source)
+  // ─────────────────────────────────────────────────────────────────────
+
+  const vaptCol = 22; // Start at column V (22)
+
+  // Section header (row 1, merged V1:W1)
+  ws.getRange(1, vaptCol, 1, 2).merge()
+    .setValue('VAPT DATA SOURCE')
+    .setBackground('#EF6C00').setFontColor('#FFFFFF').setFontWeight('bold')
+    .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+
+  // Info row (row 2, merged V2:W2)
+  ws.getRange(2, vaptCol, 1, 2).merge()
+    .setValue('🔒  VAPT Findings dari Ad Hoc VAPT + Regular VAPT (auto-pulled setiap refresh)')
+    .setBackground('#FFF3E0').setFontColor('#E65100').setFontStyle('italic')
+    .setFontSize(8).setHorizontalAlignment('center');
+
+  // Column headers (row 3)
+  const vaptHeaders = [
+    ['VAPT Spreadsheet ID', 320, 'Spreadsheet ID untuk VAPT findings\nContains: Ad Hoc VAPT + Regular VAPT tabs\n\nURL: https://docs.google.com/spreadsheets/d/[ID]/edit'],
+    ['Enable VAPT', 85, 'TRUE = pull VAPT data\nFALSE = skip VAPT refresh']
+  ];
+
+  vaptHeaders.forEach(([h, w, note], i) => {
+    const col = vaptCol + i;
+    const headerCell = ws.getRange(3, col);
+
+    headerCell
+      .setValue(h)
+      .setBackground('#FF6F00').setFontColor('#FFFFFF')
+      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setWrap(true)
+      .setBorder(true, true, true, true, false, false, '#FFB74D', SpreadsheetApp.BorderStyle.SOLID);
+
+    ws.setColumnWidth(col, w);
+    if (note) headerCell.setNote(note);
+  });
+
+  // Data row with default (row 4)
+  ws.getRange(4, vaptCol, 1, 2)
+    .setValues([['17qeErP3VHxN7qcNQqhT6zGLukxZU4OKLmBMbsgsl1Rk', true]])
+    .setBackground('#FFF3E0')
+    .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, false, false, '#FFB74D', SpreadsheetApp.BorderStyle.SOLID);
+
+  ws.getRange(4, vaptCol).setFontFamily('Courier New').setFontSize(8);
+  ws.getRange(4, vaptCol + 1).setHorizontalAlignment('center').setFontWeight('bold');
+
+  // Data validation for Enable VAPT (checkbox) - column W (vaptCol + 1)
+  const dvVAPTEnable = SpreadsheetApp.newDataValidation().requireCheckbox().build();
+  ws.getRange(4, vaptCol + 1).setDataValidation(dvVAPTEnable);
+
+  // Conditional formatting for Enable VAPT checkbox (W4)
+  const vaptEnableRange = ws.getRange(4, vaptCol + 1, 1, 1);
+  const vaptEnableTrueRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied('=$W4=TRUE')
+    .setBackground('#C8E6C9')
+    .setFontColor('#2E7D32')
+    .setRanges([vaptEnableRange])
+    .build();
+  const vaptEnableFalseRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied('=$W4=FALSE')
+    .setBackground('#F5F5F5')
+    .setFontColor('#757575')
+    .setRanges([vaptEnableRange])
+    .build();
+
+  // Merge all rules including VAPT
+  const finalConfigRules = ws.getConditionalFormatRules();
+  ws.setConditionalFormatRules([...finalConfigRules, vaptEnableTrueRule, vaptEnableFalseRule]);
 }
 
 

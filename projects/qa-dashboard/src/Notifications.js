@@ -27,11 +27,11 @@ function sendBlockerNotification() {
 
   const blockerData = getBlockerData_(overview, cfg);
 
-  if (blockerData.totalBlockers === 0 && blockerData.totalProdBugs === 0) {
-    Logger.log('No blockers or PROD bugs found - notification skipped');
+  if (blockerData.totalBlockers === 0 && blockerData.totalProdBugs === 0 && blockerData.vaptBlocker === 0) {
+    Logger.log('No blockers, PROD bugs, or VAPT blockers found - notification skipped');
     SpreadsheetApp.getUi().alert(
       '✅ All Clear!',
-      'Tidak ada Open Blocker atau PROD BUGS.\n\n' +
+      'Tidak ada Open Blocker, PROD BUGS, atau VAPT Blocker.\n\n' +
       'Notification tidak dikirim (tidak ada yang perlu di-alert).',
       SpreadsheetApp.getUi().ButtonSet.OK
     );
@@ -167,6 +167,7 @@ function sendBlockerNotification() {
   msg += '\n📊 Summary:\n';
   msg += '• Total Open Blockers: ' + blockerData.totalBlockers + '\n';
   msg += '• Total PROD BUGS: ' + blockerData.totalProdBugs + '\n';
+  msg += '• VAPT Blocker: ' + blockerData.vaptBlocker + ' (' + blockerData.vaptAppsWithBlockers + ' apps)\n';
   msg += '• Modules with issues: ' + blockerData.modules.length + '\n';
   msg += '• Unique webhooks: ' + Object.keys(webhookGroups).length + '\n';
   msg += '• Unique email groups: ' + Object.keys(emailGroups).length + '\n';
@@ -713,10 +714,85 @@ function getBlockerData_(overview, cfg) {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // FETCH VAPT BLOCKER DATA
+  // ═══════════════════════════════════════════════════════════════════════
+
+  let totalVaptBlockers = 0;
+  let vaptAppsWithBlockers = 0;
+  let vaptCritical = 0;
+  let vaptHigh = 0;
+  let vaptMedium = 0;
+  let vaptApps = [];  // Detail apps with blocker > 0
+
+  const vaptTab = ss.getSheetByName('VAPT');
+  if (vaptTab) {
+    Logger.log('✅ Reading VAPT blocker data from VAPT tab...');
+
+    // Read VAPT blocker from summary section
+    // Row 5, Col 2 = Total Blocker
+    // Row 6, Col 2 = Apps with Blocker
+    totalVaptBlockers = parseInt(vaptTab.getRange(5, 2).getValue()) || 0;
+
+    // Calculate blocker breakdown from detail data (no summary breakdown in new layout)
+    vaptCritical = 0;
+    vaptHigh = 0;
+    vaptMedium = 0;
+
+    // Fetch detail VAPT apps with blockers
+    // NOTE: VAPT tab has 7 columns: Aplikasi, Blocker, Critical, High, Medium, Low, Info
+    // Layout: Row 1-9 = headers/summary, Row 10+ = data (with section headers)
+    const vaptData = vaptTab.getDataRange().getValues();
+
+    for (let i = 10; i < vaptData.length; i++) {  // Start from row 11 (index 10)
+      const aplikasi = String(vaptData[i][0]).trim();  // Col A (index 0) = Aplikasi
+      const blocker = parseInt(vaptData[i][1]) || 0;   // Col B (index 1) = Blocker
+
+      // Skip empty rows, section headers, table headers, or placeholder messages
+      if (!aplikasi || aplikasi === '' || aplikasi.startsWith('═══') || aplikasi.startsWith('▶') || aplikasi === 'Aplikasi') continue;
+
+      // Only include apps with blocker > 0
+      if (blocker > 0) {
+        vaptAppsWithBlockers++;
+
+        const critical = parseInt(vaptData[i][2]) || 0;  // Col C (index 2) = Critical Open
+        const high = parseInt(vaptData[i][3]) || 0;      // Col D (index 3) = High Open
+        const medium = parseInt(vaptData[i][4]) || 0;    // Col E (index 4) = Medium Open
+
+        // Accumulate severity breakdown
+        vaptCritical += critical;
+        vaptHigh += high;
+        vaptMedium += medium;
+
+        vaptApps.push({
+          aplikasi: aplikasi,
+          blocker: blocker,
+          critical: critical,
+          high: high,
+          medium: medium
+        });
+      }
+    }
+
+    Logger.log('VAPT Blocker data: totalBlockers=' + totalVaptBlockers + ', apps=' + vaptAppsWithBlockers + ', crit=' + vaptCritical + ', high=' + vaptHigh + ', med=' + vaptMedium);
+    Logger.log('VAPT Apps with blockers: ' + vaptApps.length);
+  } else {
+    Logger.log('⚠️ VAPT tab not found - skipping VAPT blocker data');
+  }
+
   return {
     modules: modules,
     totalBlockers: totalBlockers,
     totalProdBugs: totalProdBugs,
+    // VAPT BLOCKER DATA
+    vaptBlocker: totalVaptBlockers,
+    vaptAppsWithBlockers: vaptAppsWithBlockers,
+    vaptApps: vaptApps,  // Detail apps with blocker > 0
+    vaptBreakdown: {
+      critical: vaptCritical,
+      high: vaptHigh,
+      medium: vaptMedium
+    },
     timestamp: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss')
   };
 }
@@ -905,8 +981,31 @@ function sendGoogleChatNotification_(webhookUrl, blockerData) {
 
     // Header summary
     message += '📈 *SUMMARY*\n';
-    message += '🐛 Total Bugs: ' + blockerData.totalBlockers + '  |  🚨 PROD: ' + blockerData.totalProdBugs + '\n';
-    message += 'Critical🔴 ' + totalCritical + '  High🟠 ' + totalHigh + '  Medium🟡 ' + totalMedium + '\n\n';
+    message += '🐛 QA Bugs: ' + blockerData.totalBlockers + '  |  🚨 PROD: ' + blockerData.totalProdBugs + '\n';
+
+    // QA Severity (show only non-zero)
+    const qaSevParts = [];
+    if (totalCritical > 0) qaSevParts.push('Critical🟣 ' + totalCritical);
+    if (totalHigh > 0) qaSevParts.push('High🔴 ' + totalHigh);
+    if (totalMedium > 0) qaSevParts.push('Medium🟠 ' + totalMedium);
+    if (qaSevParts.length > 0) {
+      message += '  Severity: ' + qaSevParts.join('  ') + '\n';
+    }
+
+    // VAPT Blocker summary
+    if (blockerData.vaptBlocker > 0) {
+      message += '🔒 VAPT Blocker: *' + blockerData.vaptBlocker + '* (' + blockerData.vaptAppsWithBlockers + ' apps)\n';
+
+      // VAPT Severity (show only non-zero)
+      const vaptSevParts = [];
+      if (blockerData.vaptBreakdown.critical > 0) vaptSevParts.push('Critical🟣 ' + blockerData.vaptBreakdown.critical);
+      if (blockerData.vaptBreakdown.high > 0) vaptSevParts.push('High🔴 ' + blockerData.vaptBreakdown.high);
+      if (blockerData.vaptBreakdown.medium > 0) vaptSevParts.push('Medium🟠 ' + blockerData.vaptBreakdown.medium);
+      if (vaptSevParts.length > 0) {
+        message += '  ' + vaptSevParts.join('  ') + '\n';
+      }
+    }
+    message += '\n';
 
     // Per-submodule breakdown (using blockerData for consistency)
     message += '📋 *BY SUBMODULE:*\n';
@@ -931,6 +1030,30 @@ function sendGoogleChatNotification_(webhookUrl, blockerData) {
 
     message += '\n🔗 <' + dashboardBugsUrl + '|📊 View Dashboard>\n';
     message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+    // ══════════════════════════════════════════════════════════════════════
+    // VAPT BLOCKER DETAIL (if any) - Per aplikasi
+    // ══════════════════════════════════════════════════════════════════════
+    if (blockerData.vaptBlocker > 0) {
+      message += '🔒 *VAPT BLOCKER DETAIL* 🔒\n';
+      message += '━━━━━━━━━━━━━\n\n';
+
+      // List apps with blocker > 0
+      blockerData.vaptApps.forEach(app => {
+        message += app.aplikasi + ': ' + app.blocker + '\n';
+
+        // Show only non-zero severities
+        const appSevParts = [];
+        if (app.critical > 0) appSevParts.push('Critical🟣 ' + app.critical);
+        if (app.high > 0) appSevParts.push('High🔴 ' + app.high);
+        if (app.medium > 0) appSevParts.push('Medium🟠 ' + app.medium);
+        if (appSevParts.length > 0) {
+          message += '   ' + appSevParts.join('  ') + '\n';
+        }
+      });
+
+      message += '\n';
+    }
 
     // ══════════════════════════════════════════════════════════════════════
     // PRODUCTION BUGS SECTION (ALL MODULES) - PRIORITAS PERTAMA
@@ -961,10 +1084,20 @@ function sendGoogleChatNotification_(webhookUrl, blockerData) {
           const highBugs = bugs.filter(b => b.priority === 'High');
           const mediumBugs = bugs.filter(b => b.priority === 'Medium');
 
-          message += '📌 ' + submodulName + ': ' + bugs.length + ' bug' + (bugs.length > 1 ? 's' : '') + ' (Critical🔴 ' + criticalBugs.length + '  High🟠 ' + highBugs.length + '  Medium🟡 ' + mediumBugs.length + ')\n';
+          // Show only non-zero severities
+          const prodSevParts = [];
+          if (criticalBugs.length > 0) prodSevParts.push('Critical🟣 ' + criticalBugs.length);
+          if (highBugs.length > 0) prodSevParts.push('High🔴 ' + highBugs.length);
+          if (mediumBugs.length > 0) prodSevParts.push('Medium🟠 ' + mediumBugs.length);
+
+          message += '📌 ' + submodulName + ': ' + bugs.length + ' bug' + (bugs.length > 1 ? 's' : '');
+          if (prodSevParts.length > 0) {
+            message += ' (' + prodSevParts.join('  ') + ')';
+          }
+          message += '\n';
         });
 
-        message += '<' + moduleData.qatmUrl + '#gid=' + moduleData.bugReportGid + '|📋 View in QATM>\n\n';
+        message += '\n';
       });
     }
 
@@ -1052,8 +1185,11 @@ function sendGoogleChatNotification_(webhookUrl, blockerData) {
     // FOOTER: Dashboard Links (shortened)
     // ══════════════════════════════════════════════════════════════════════
     message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-    message += '🔗 <' + dashboardOverviewUrl + '|📊 Dashboard Overview>  •  <' + dashboardBugsUrl + '|🐛 Bugs Tab>\n';
-    message += '_Automated Daily Report_';
+    message += '🔗 <' + dashboardOverviewUrl + '|📊 Dashboard Overview>  •  <' + dashboardBugsUrl + '|🐛 Bugs Tab>';
+    if (blockerData.vaptBlocker > 0) {
+      message += '  •  <' + dashboardUrl + '|🔒 VAPT Tab>';
+    }
+    message += '\n_Automated Daily Report_';
 
     const payload = {
       text: message
@@ -1120,22 +1256,47 @@ function sendEmailNotification_(recipients, blockerData) {
     body += '<table style="width: 100%; font-size: 14px;">';
     body += '<tr><td><strong>Total Blockers:</strong></td><td><strong style="font-size: 18px; color: #E65100;">' + blockerData.totalBlockers + '</strong></td></tr>';
 
-    // Severity breakdown
-    body += '<tr><td><strong>Severity:</strong></td><td>';
+    // Severity breakdown (show only non-zero)
+    const severityHtml = [];
     if (totalCritical > 0) {
-      body += '<span style="background: #D32F2F; color: white; padding: 2px 8px; border-radius: 3px; font-weight: bold; margin-right: 4px;">🔴 ' + totalCritical + '</span> ';
+      severityHtml.push('<span style="background: #9C27B0; color: white; padding: 2px 8px; border-radius: 3px; font-weight: bold; margin-right: 4px;">🟣 ' + totalCritical + '</span>');
     }
     if (totalHigh > 0) {
-      body += '<span style="background: #FF9800; color: white; padding: 2px 8px; border-radius: 3px; font-weight: bold; margin-right: 4px;">🟠 ' + totalHigh + '</span> ';
+      severityHtml.push('<span style="background: #D32F2F; color: white; padding: 2px 8px; border-radius: 3px; font-weight: bold; margin-right: 4px;">🔴 ' + totalHigh + '</span>');
     }
     if (totalMedium > 0) {
-      body += '<span style="background: #FFC107; color: white; padding: 2px 8px; border-radius: 3px; font-weight: bold;">🟡 ' + totalMedium + '</span>';
+      severityHtml.push('<span style="background: #FF9800; color: white; padding: 2px 8px; border-radius: 3px; font-weight: bold;">🟠 ' + totalMedium + '</span>');
     }
-    body += '</td></tr>';
+    if (severityHtml.length > 0) {
+      body += '<tr><td><strong>Severity:</strong></td><td>' + severityHtml.join(' ') + '</td></tr>';
+    }
 
     if (blockerData.totalProdBugs > 0) {
       body += '<tr><td><strong style="color: #D32F2F;">PROD Bugs:</strong></td><td><span style="background: #D32F2F; color: white; padding: 4px 12px; border-radius: 3px; font-weight: bold; font-size: 18px;">' + blockerData.totalProdBugs + '</span></td></tr>';
     }
+
+    // VAPT Blocker
+    if (blockerData.vaptBlocker > 0) {
+      body += '<tr><td><strong style="color: #EF6C00;">🔒 VAPT Blocker:</strong></td><td><span style="background: #EF6C00; color: white; padding: 4px 12px; border-radius: 3px; font-weight: bold; font-size: 18px;">' + blockerData.vaptBlocker + '</span></td></tr>';
+
+      // VAPT Severity (show only non-zero)
+      const vaptSeverityHtml = [];
+      if (blockerData.vaptBreakdown.critical > 0) {
+        vaptSeverityHtml.push('<span style="background: #9C27B0; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 4px;">🟣 ' + blockerData.vaptBreakdown.critical + '</span>');
+      }
+      if (blockerData.vaptBreakdown.high > 0) {
+        vaptSeverityHtml.push('<span style="background: #D32F2F; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 4px;">🔴 ' + blockerData.vaptBreakdown.high + '</span>');
+      }
+      if (blockerData.vaptBreakdown.medium > 0) {
+        vaptSeverityHtml.push('<span style="background: #FF9800; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">🟠 ' + blockerData.vaptBreakdown.medium + '</span>');
+      }
+      if (vaptSeverityHtml.length > 0) {
+        body += '<tr><td style="padding-left: 20px;">VAPT Severity:</td><td>' + vaptSeverityHtml.join(' ') + '</td></tr>';
+      }
+
+      body += '<tr><td style="padding-left: 20px;">Apps with blocker:</td><td>' + blockerData.vaptAppsWithBlockers + '</td></tr>';
+    }
+
     body += '<tr><td><strong>Modules Affected:</strong></td><td>' + blockerData.modules.length + '</td></tr>';
     body += '<tr><td><strong>Timestamp:</strong></td><td>' + blockerData.timestamp + '</td></tr>';
     body += '</table>';
@@ -1168,9 +1329,40 @@ function sendEmailNotification_(recipients, blockerData) {
       body += '</div>';
     }
 
-    // Modules breakdown
+    // VAPT Apps Detail (if any)
+    if (blockerData.vaptBlocker > 0 && blockerData.vaptApps.length > 0) {
+      body += '<div style="background: #FFF3E0; border-left: 4px solid #EF6C00; padding: 15px; margin: 20px 0;">';
+      body += '<h3 style="color: #EF6C00; margin-top: 0;">🔒 VAPT BLOCKER DETAIL</h3>';
+      body += '<p style="margin: 5px 0 15px 0; color: #666;">🎯 <strong>Target: 0 blocker di semua aplikasi!</strong></p>';
+      body += '<table style="width: 100%; border-collapse: collapse;">';
+
+      blockerData.vaptApps.forEach((app, index) => {
+        const bgColor = index % 2 === 0 ? '#FFFAF0' : '#FFFFFF';
+        body += '<tr style="background: ' + bgColor + ';">';
+        body += '<td style="padding: 8px; border: 1px solid #E0E0E0; font-weight: bold;">' + app.aplikasi + '</td>';
+        body += '<td style="padding: 8px; border: 1px solid #E0E0E0;">' + app.blocker + ' findings</td>';
+        body += '<td style="padding: 8px; border: 1px solid #E0E0E0;">';
+        // Show only non-zero severities
+        if (app.critical > 0) {
+          body += '<span style="background: #9C27B0; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 4px;">🟣 ' + app.critical + '</span> ';
+        }
+        if (app.high > 0) {
+          body += '<span style="background: #D32F2F; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 4px;">🔴 ' + app.high + '</span> ';
+        }
+        if (app.medium > 0) {
+          body += '<span style="background: #FF9800; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">🟠 ' + app.medium + '</span>';
+        }
+        body += '</td>';
+        body += '</tr>';
+      });
+
+      body += '</table>';
+      body += '</div>';
+    }
+
+    // QA Modules breakdown
     body += '<div style="margin: 20px 0;">';
-    body += '<h3 style="color: #424242; border-bottom: 2px solid #1976D2; padding-bottom: 8px;">📦 Modules Breakdown</h3>';
+    body += '<h3 style="color: #424242; border-bottom: 2px solid #1976D2; padding-bottom: 8px;">📦 QA Modules Breakdown</h3>';
 
     blockerData.modules.forEach((module, index) => {
       const bgColor = index % 2 === 0 ? '#F5F5F5' : '#FFFFFF';
@@ -1199,19 +1391,19 @@ function sendEmailNotification_(recipients, blockerData) {
       body += '<tr><td style="width: 40%;"><strong>Submodule:</strong></td><td>' + module.submodule + '</td></tr>';
       body += '<tr><td><strong>Blockers:</strong></td><td><span style="background: #FF9800; color: white; padding: 2px 8px; border-radius: 3px; font-weight: bold;">' + module.blocker + '</span></td></tr>';
 
-      // Severity breakdown
-      if ((module.critical || 0) > 0 || (module.high || 0) > 0 || (module.medium || 0) > 0) {
-        body += '<tr><td><strong>Severity:</strong></td><td>';
-        if ((module.critical || 0) > 0) {
-          body += '<span style="background: #D32F2F; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 4px;">🔴 ' + module.critical + '</span> ';
-        }
-        if ((module.high || 0) > 0) {
-          body += '<span style="background: #FF9800; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 4px;">🟠 ' + module.high + '</span> ';
-        }
-        if ((module.medium || 0) > 0) {
-          body += '<span style="background: #FFC107; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">🟡 ' + module.medium + '</span>';
-        }
-        body += '</td></tr>';
+      // Severity breakdown (show only non-zero)
+      const moduleSeverityHtml = [];
+      if ((module.critical || 0) > 0) {
+        moduleSeverityHtml.push('<span style="background: #9C27B0; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 4px;">🟣 ' + module.critical + '</span>');
+      }
+      if ((module.high || 0) > 0) {
+        moduleSeverityHtml.push('<span style="background: #D32F2F; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 4px;">🔴 ' + module.high + '</span>');
+      }
+      if ((module.medium || 0) > 0) {
+        moduleSeverityHtml.push('<span style="background: #FF9800; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">🟠 ' + module.medium + '</span>');
+      }
+      if (moduleSeverityHtml.length > 0) {
+        body += '<tr><td><strong>Severity:</strong></td><td>' + moduleSeverityHtml.join(' ') + '</td></tr>';
       }
 
       if (module.prodBugs > 0) {
@@ -1277,6 +1469,7 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     const dashboardUrl = ss.getUrl();
     const dashboardBugsUrl = dashboardUrl + '#gid=' + getDashboardBugsGid_(ss);
     const dashboardOverviewUrl = dashboardUrl + '#gid=' + getDashboardOverviewGid_(ss);
+    const dashboardVAPTUrl = dashboardUrl + '#gid=' + getDashboardVAPTGid_(ss);
 
     // Get Web App URL from Script Properties (or fallback to spreadsheet URL)
     const scriptProps = PropertiesService.getScriptProperties();
@@ -1302,14 +1495,58 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
 
     // Summary
     message += '📈 *SUMMARY*\n';
-    message += '🐛 Total Bugs: ' + blockerData.totalBlockers + '\n';
 
-    // Severity breakdown
-    message += 'Severity: ';
-    if (totalCritical > 0) message += 'Critical🔴 ' + totalCritical + '  ';
-    if (totalHigh > 0) message += 'High🟠 ' + totalHigh + '  ';
-    if (totalMedium > 0) message += 'Medium🟡 ' + totalMedium;
-    message += '\n\n';
+    // Count QA apps with blockers
+    const qaAppsWithBlockers = blockerData.modules.filter(m => m.blocker > 0).length;
+    message += 'QA Bugs: ' + blockerData.totalBlockers + ' (' + qaAppsWithBlockers + ' apps)\n';
+
+    // QA Severity breakdown (hide if 0)
+    const qaSeverityParts = [];
+    if (totalCritical > 0) qaSeverityParts.push('Critical🟣 ' + totalCritical);
+    if (totalHigh > 0) qaSeverityParts.push('High🔴 ' + totalHigh);
+    if (totalMedium > 0) qaSeverityParts.push('Medium🟠 ' + totalMedium);
+    if (qaSeverityParts.length > 0) {
+      message += '  Severity: ' + qaSeverityParts.join('  ') + '\n';
+    }
+
+    // VAPT Blocker summary
+    if (blockerData.vaptBlocker > 0) {
+      message += 'VAPT Blocker: ' + blockerData.vaptBlocker + ' (' + blockerData.vaptAppsWithBlockers + ' apps)\n';
+
+      // VAPT Severity breakdown (hide if 0)
+      const vaptSeverityParts = [];
+      if (blockerData.vaptBreakdown.critical > 0) vaptSeverityParts.push('Critical🟣 ' + blockerData.vaptBreakdown.critical);
+      if (blockerData.vaptBreakdown.high > 0) vaptSeverityParts.push('High🔴 ' + blockerData.vaptBreakdown.high);
+      if (blockerData.vaptBreakdown.medium > 0) vaptSeverityParts.push('Medium🟠 ' + blockerData.vaptBreakdown.medium);
+      if (vaptSeverityParts.length > 0) {
+        message += '  Severity: ' + vaptSeverityParts.join('  ') + '\n';
+      }
+    }
+    message += '\n';
+
+    // ══════════════════════════════════════════════════════════════════════
+    // VAPT BLOCKER DETAIL (if any) - Per aplikasi
+    // ══════════════════════════════════════════════════════════════════════
+    if (blockerData.vaptBlocker > 0) {
+      message += '🔒 *VAPT BLOCKER DETAIL* 🔒\n';
+      message += '━━━━━━━━━━━━━\n\n';
+
+      // List apps with blocker > 0
+      blockerData.vaptApps.forEach(app => {
+        message += app.aplikasi + ': ' + app.blocker + '\n';
+
+        // Show only non-zero severities
+        const appSeverityParts = [];
+        if (app.critical > 0) appSeverityParts.push('Critical🟣 ' + app.critical);
+        if (app.high > 0) appSeverityParts.push('High🔴 ' + app.high);
+        if (app.medium > 0) appSeverityParts.push('Medium🟠 ' + app.medium);
+        if (appSeverityParts.length > 0) {
+          message += '  ' + appSeverityParts.join('  ') + '\n';
+        }
+      });
+
+      message += '\n';
+    }
 
     // ══════════════════════════════════════════════════════════════════════
     // PRODUCTION BUGS SECTION (if any) - TOP PRIORITY
@@ -1323,14 +1560,7 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
       blockerData.modules.forEach(module => {
         if (module.prodBugs > 0) {
           message += '*' + module.project + ' - ' + module.module + '*\n';
-          message += '📌 ' + module.submodule + ': *' + module.prodBugs + '* PROD bug(s)\n';
-
-          if (module.qatmUrl) {
-            const gid = getBugReportGidFromQATM_(module.qatmUrl);
-            message += '📋 ' + module.qatmUrl + '#gid=' + gid + '\n';
-            Logger.log('WhatsApp link (PROD): ' + module.qatmUrl + '#gid=' + gid);
-          }
-          message += '\n';
+          message += '📌 ' + module.submodule + ': *' + module.prodBugs + '* PROD bug(s)\n\n';
         }
       });
 
@@ -1338,27 +1568,28 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // ALL MODULES - Blocker Breakdown
+    // QA BLOCKER BUGS - Breakdown per module (same format as VAPT)
     // ══════════════════════════════════════════════════════════════════════
     if (blockerData.totalBlockers > 0) {
-      message += '━━━━━━━━━━━━━\n';
-      message += '⚠️ *BLOCKER BUGS*\n';
+      message += '⚠️ *QA BLOCKER BUGS*\n';
       message += '━━━━━━━━━━━━━\n\n';
 
       blockerData.modules.forEach(module => {
         if (module.blocker > 0 || module.prodBugs > 0) {
-          message += '*' + module.project + ' - ' + module.module + '*\n';
-          message += '📌 ' + module.submodule + '\n';
-          message += '* Blockers: ' + module.blocker + '\n';
+          const moduleName = module.project + ' - ' + module.module + ' (' + module.submodule + ')';
+          message += moduleName + ': ' + module.blocker + '\n';
 
-          // Severity breakdown as bullet points
-          if ((module.critical || 0) > 0) message += '* Critical🔴 ' + module.critical + '\n';
-          if ((module.high || 0) > 0) message += '* High🟠 ' + module.high + '\n';
-          if ((module.medium || 0) > 0) message += '* Medium🟡 ' + module.medium + '\n';
-
-          message += '\n';
+          // Severity breakdown (show only non-zero)
+          const moduleSeverityParts = [];
+          if ((module.critical || 0) > 0) moduleSeverityParts.push('Critical🟣 ' + module.critical);
+          if ((module.high || 0) > 0) moduleSeverityParts.push('High🔴 ' + module.high);
+          if ((module.medium || 0) > 0) moduleSeverityParts.push('Medium🟠 ' + module.medium);
+          if (moduleSeverityParts.length > 0) {
+            message += '  ' + moduleSeverityParts.join('  ') + '\n';
+          }
         }
       });
+      message += '\n';
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -1367,8 +1598,11 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     message += '━━━━━━━━━━━━━\n';
     message += '🔗 *Dashboard Links:*\n';
     message += '📊 Web Dashboard: ' + dashboardWebAppUrl + '\n';
-    message += '📋 Overview Tab: ' + dashboardOverviewUrl + '\n\n';
-    message += '_Automated Daily Report - QA Dashboard_';
+    message += '📋 Overview Tab: ' + dashboardOverviewUrl + '\n';
+    if (blockerData.vaptBlocker > 0) {
+      message += '🔒 VAPT Tab: ' + dashboardVAPTUrl + '\n';
+    }
+    message += '\n_Automated Daily Report - QA Dashboard_';
 
     // Send via Fonnte API
     const url = 'https://api.fonnte.com/send';
@@ -1436,6 +1670,17 @@ function getDashboardBugsGid_(ss) {
   const bugsSheet = ss.getSheetByName('Bugs');
   if (bugsSheet) {
     return bugsSheet.getSheetId();
+  }
+  return '0'; // Default to first sheet
+}
+
+/**
+ * Get GID for Dashboard VAPT tab
+ */
+function getDashboardVAPTGid_(ss) {
+  const vaptSheet = ss.getSheetByName('VAPT');
+  if (vaptSheet) {
+    return vaptSheet.getSheetId();
   }
   return '0'; // Default to first sheet
 }
