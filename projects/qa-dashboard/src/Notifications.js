@@ -1504,7 +1504,7 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
 
     // Count QA apps with blockers
     const qaAppsWithBlockers = blockerData.modules.filter(m => m.blocker > 0).length;
-    message += '◉ QA Bugs: ' + blockerData.totalBlockers + ' (' + qaAppsWithBlockers + ' apps)\n';
+    message += '▬ QA Bugs: ' + blockerData.totalBlockers + ' (' + qaAppsWithBlockers + ' apps)\n';
 
     // QA Severity breakdown (hide if 0)
     const qaSeverityParts = [];
@@ -1539,7 +1539,7 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
 
       // List apps with blocker > 0
       blockerData.vaptApps.forEach(app => {
-        message += '◉ ' + app.aplikasi + ': ' + app.blocker + '\n';
+        message += '▬ ' + app.aplikasi + ': ' + app.blocker + '\n';
 
         // Show only non-zero severities
         const appSeverityParts = [];
