@@ -1184,11 +1184,12 @@ function sendGoogleChatNotification_(webhookUrl, blockerData) {
     // ══════════════════════════════════════════════════════════════════════
     // FOOTER: Dashboard Links (shortened)
     // ══════════════════════════════════════════════════════════════════════
+    // Get Web App URL from Script Properties
+    const scriptProps = PropertiesService.getScriptProperties();
+    const dashboardWebAppUrl = scriptProps.getProperty('WEB_APP_URL') || dashboardUrl;
+
     message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-    message += '🔗 <' + dashboardOverviewUrl + '|📊 Dashboard Overview>  •  <' + dashboardBugsUrl + '|🐛 Bugs Tab>';
-    if (blockerData.vaptBlocker > 0) {
-      message += '  •  <' + dashboardUrl + '|🔒 VAPT Tab>';
-    }
+    message += '🔗 <' + dashboardWebAppUrl + '|📊 Web Dashboard (QA & VAPT)>  •  <' + dashboardOverviewUrl + '|📋 Sheet Overview>  •  <' + dashboardBugsUrl + '|🐛 Sheet Bugs>';
     message += '\n_Automated Daily Report_';
 
     const payload = {
@@ -1429,9 +1430,14 @@ function sendEmailNotification_(recipients, blockerData) {
     body += '</div>';
 
     // Links section
+    // Get Web App URL from Script Properties
+    const scriptProps = PropertiesService.getScriptProperties();
+    const dashboardWebAppUrl = scriptProps.getProperty('WEB_APP_URL') || dashboardUrl;
+
     body += '<div style="background: #E8EAF6; border-left: 4px solid #3F51B5; padding: 15px; margin: 20px 0;">';
     body += '<h3 style="color: #3F51B5; margin-top: 0;">🔗 QUICK LINKS</h3>';
-    body += '<p style="margin: 10px 0;"><a href="' + dashboardUrl + '" style="background: #1976D2; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">📊 View QA Dashboard</a></p>';
+    body += '<p style="margin: 10px 0;"><a href="' + dashboardWebAppUrl + '" style="background: #1976D2; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">📊 Web Dashboard (QA & VAPT)</a></p>';
+    body += '<p style="margin: 10px 0;"><a href="' + dashboardUrl + '" style="color: #1976D2; font-weight: bold;">📋 View Google Sheet Dashboard</a></p>';
     body += '<p style="color: #757575; font-size: 12px; margin: 10px 0;">View individual module bug reports in the "Modules Breakdown" section above</p>';
     body += '</div>';
 
@@ -1597,11 +1603,9 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     // ══════════════════════════════════════════════════════════════════════
     message += '━━━━━━━━━━━━━\n';
     message += '🔗 *Dashboard Links:*\n';
-    message += '📊 Web Dashboard: ' + dashboardWebAppUrl + '\n';
-    message += '📋 Overview Tab: ' + dashboardOverviewUrl + '\n';
-    if (blockerData.vaptBlocker > 0) {
-      message += '🔒 VAPT Tab: ' + dashboardVAPTUrl + '\n';
-    }
+    message += '📊 Web Dashboard: ' + dashboardWebAppUrl + ' (QA & VAPT)\n';
+    message += '📋 Sheet Overview: ' + dashboardOverviewUrl + '\n';
+    message += '🐛 Sheet Bugs: ' + dashboardBugsUrl + '\n';
     message += '\n_Automated Daily Report - QA Dashboard_';
 
     // Send via Fonnte API
@@ -1709,5 +1713,34 @@ function getBugReportGidFromQATM_(qatmUrl) {
   }
 
   return '2'; // Default fallback
+}
+
+/**
+ * Set Web App URL in Script Properties
+ * Run this once after deploying the web app to set the URL
+ *
+ * Usage:
+ * 1. Deploy web app and get URL
+ * 2. Run: setWebAppUrl('https://script.google.com/.../exec')
+ */
+function setWebAppUrl(url) {
+  const scriptProps = PropertiesService.getScriptProperties();
+  scriptProps.setProperty('WEB_APP_URL', url);
+  Logger.log('✅ Web App URL set to: ' + url);
+  Logger.log('This URL will be used in WhatsApp, GChat, and Email notifications');
+}
+
+/**
+ * Get current Web App URL from Script Properties
+ */
+function getWebAppUrl() {
+  const scriptProps = PropertiesService.getScriptProperties();
+  const url = scriptProps.getProperty('WEB_APP_URL');
+  if (url) {
+    Logger.log('Current Web App URL: ' + url);
+  } else {
+    Logger.log('⚠️ Web App URL not set. Run setWebAppUrl() first.');
+  }
+  return url;
 }
 

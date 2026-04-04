@@ -9,7 +9,7 @@
  * Web App entry point - serves HTML page
  * This function is required for Web App deployment
  */
-function doGet() {
+function doGet(e) {
   return HtmlService.createHtmlOutputFromFile('WebApp')
     .setTitle('QA Dashboard')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -587,6 +587,95 @@ function getVAPTHistoryData_(ss) {
   } catch (error) {
     Logger.log('Error reading VAPT History: ' + error.toString());
     return [];
+  }
+}
+
+/**
+ * Get VAPT Dashboard data (for VAPT-specific page)
+ * @returns {Object} VAPT dashboard data
+ */
+function getVAPTDashboardData() {
+  try {
+    const ss = getDashboardSpreadsheet_();
+    const vaptTab = ss.getSheetByName('VAPT');
+
+    if (!vaptTab) {
+      return {
+        error: true,
+        errorMessage: 'VAPT tab not found',
+        summary: { vaptBlocker: 0, vaptCritical: 0, vaptHigh: 0, vaptMedium: 0, lastUpdated: 'No data' },
+        vaptApps: [],
+        vaptHistory: []
+      };
+    }
+
+    // Get VAPT summary and apps data
+    const vaptData = vaptTab.getDataRange().getValues();
+    let vaptBlocker = 0;
+    let vaptCritical = 0;
+    let vaptHigh = 0;
+    let vaptMedium = 0;
+    const vaptApps = [];
+
+    // Skip header rows (first 4 rows)
+    for (let i = 4; i < vaptData.length; i++) {
+      const row = vaptData[i];
+      if (!row[0]) continue;
+
+      const critical = Number(row[2]) || 0;
+      const high = Number(row[3]) || 0;
+      const medium = Number(row[4]) || 0;
+      const low = Number(row[5]) || 0;
+      const total = Number(row[1]) || 0;
+
+      vaptCritical += critical;
+      vaptHigh += high;
+      vaptMedium += medium;
+      vaptBlocker += (critical + high + medium);
+
+      vaptApps.push({
+        aplikasi: row[0],
+        total: total,
+        critical: critical,
+        high: high,
+        medium: medium,
+        low: low
+      });
+    }
+
+    // Get VAPT history
+    const vaptHistory = getVAPTHistoryData_(ss);
+
+    // Serialize history
+    const serializedHistory = vaptHistory.map(row => {
+      return row.map(cell => {
+        if (cell instanceof Date) return cell.toISOString();
+        if (typeof cell === 'number' && !isFinite(cell)) return 0;
+        return cell;
+      });
+    });
+
+    return {
+      summary: {
+        vaptBlocker: vaptBlocker,
+        vaptCritical: vaptCritical,
+        vaptHigh: vaptHigh,
+        vaptMedium: vaptMedium,
+        lastUpdated: new Date().toISOString()
+      },
+      vaptApps: vaptApps,
+      vaptHistory: serializedHistory
+    };
+
+  } catch (error) {
+    Logger.log('Error in getVAPTDashboardData: ' + error.toString());
+    return {
+      error: true,
+      errorMessage: error.message,
+      summary: { vaptBlocker: 0, vaptCritical: 0, vaptHigh: 0, vaptMedium: 0, lastUpdated: 'Error' },
+      vaptApps: [],
+      vaptHistory: []
+    };
   }
 }
 
