@@ -941,21 +941,49 @@
         return;
       }
 
-      // Aggregate by date
+      // Aggregate by date and aplikasi (to avoid duplicate counting)
+      // VAPT History has multiple entries per date (one per application)
+      // We need to get the LATEST entry for each app on each date, then sum
       const dailyData = {};
+      const appLatestPerDay = {}; // Track latest timestamp per app per day
+
       vaptHistoryData.forEach(row => {
         const dateStr = row[0].split('T')[0];
-        if (!dailyData[dateStr]) {
-          dailyData[dateStr] = { critical: 0, high: 0, medium: 0, blocker: 0 };
-        }
-        const critical = Number(row[2]) || 0;
-        const high = Number(row[3]) || 0;
-        const medium = Number(row[4]) || 0;
+        const timestamp = new Date(row[0]).getTime();
+        const appName = row[1]; // Application name
 
-        dailyData[dateStr].critical += critical;
-        dailyData[dateStr].high += high;
-        dailyData[dateStr].medium += medium;
-        dailyData[dateStr].blocker += (critical + high + medium);
+        // Initialize date if not exists
+        if (!dailyData[dateStr]) {
+          dailyData[dateStr] = { apps: {}, critical: 0, high: 0, medium: 0, blocker: 0 };
+          appLatestPerDay[dateStr] = {};
+        }
+
+        // Only keep latest entry for each app on this date
+        if (!appLatestPerDay[dateStr][appName] || timestamp > appLatestPerDay[dateStr][appName]) {
+          // Remove old values if updating
+          if (dailyData[dateStr].apps[appName]) {
+            const oldData = dailyData[dateStr].apps[appName];
+            dailyData[dateStr].critical -= oldData.critical;
+            dailyData[dateStr].high -= oldData.high;
+            dailyData[dateStr].medium -= oldData.medium;
+            dailyData[dateStr].blocker -= oldData.blocker;
+          }
+
+          const critical = Number(row[2]) || 0;
+          const high = Number(row[3]) || 0;
+          const medium = Number(row[4]) || 0;
+          const blocker = critical + high + medium;
+
+          // Store app data
+          dailyData[dateStr].apps[appName] = { critical, high, medium, blocker };
+          appLatestPerDay[dateStr][appName] = timestamp;
+
+          // Add to daily totals
+          dailyData[dateStr].critical += critical;
+          dailyData[dateStr].high += high;
+          dailyData[dateStr].medium += medium;
+          dailyData[dateStr].blocker += blocker;
+        }
       });
 
       const dailyArray = Object.keys(dailyData).sort().map(date => ({
