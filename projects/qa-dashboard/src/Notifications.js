@@ -1493,12 +1493,12 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     const totalHigh = blockerData.modules.reduce((sum, m) => sum + (m.high || 0), 0);
     const totalMedium = blockerData.modules.reduce((sum, m) => sum + (m.medium || 0), 0);
 
-    // Summary
-    message += '📈 *SUMMARY*\n';
+    // Summary with bullet points
+    message += '*SUMMARY*\n';
 
     // Count QA apps with blockers
     const qaAppsWithBlockers = blockerData.modules.filter(m => m.blocker > 0).length;
-    message += 'QA Bugs: ' + blockerData.totalBlockers + ' (' + qaAppsWithBlockers + ' apps)\n';
+    message += '◉ QA Bugs: ' + blockerData.totalBlockers + ' (' + qaAppsWithBlockers + ' apps)\n';
 
     // QA Severity breakdown (hide if 0)
     const qaSeverityParts = [];
@@ -1506,12 +1506,12 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     if (totalHigh > 0) qaSeverityParts.push('High🔴 ' + totalHigh);
     if (totalMedium > 0) qaSeverityParts.push('Medium🟠 ' + totalMedium);
     if (qaSeverityParts.length > 0) {
-      message += '  Severity: ' + qaSeverityParts.join('  ') + '\n';
+      message += '  • Severity: ' + qaSeverityParts.join('  ') + '\n';
     }
 
     // VAPT Blocker summary
     if (blockerData.vaptBlocker > 0) {
-      message += 'VAPT Blocker: ' + blockerData.vaptBlocker + ' (' + blockerData.vaptAppsWithBlockers + ' apps)\n';
+      message += '● VAPT Blocker: ' + blockerData.vaptBlocker + ' (' + blockerData.vaptAppsWithBlockers + ' apps)\n';
 
       // VAPT Severity breakdown (hide if 0)
       const vaptSeverityParts = [];
@@ -1519,7 +1519,7 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
       if (blockerData.vaptBreakdown.high > 0) vaptSeverityParts.push('High🔴 ' + blockerData.vaptBreakdown.high);
       if (blockerData.vaptBreakdown.medium > 0) vaptSeverityParts.push('Medium🟠 ' + blockerData.vaptBreakdown.medium);
       if (vaptSeverityParts.length > 0) {
-        message += '  Severity: ' + vaptSeverityParts.join('  ') + '\n';
+        message += '  • Severity: ' + vaptSeverityParts.join('  ') + '\n';
       }
     }
     message += '\n';
@@ -1528,12 +1528,12 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     // VAPT BLOCKER DETAIL (if any) - Per aplikasi
     // ══════════════════════════════════════════════════════════════════════
     if (blockerData.vaptBlocker > 0) {
-      message += '🔒 *VAPT BLOCKER DETAIL* 🔒\n';
+      message += '*VAPT BLOCKER DETAIL*\n';
       message += '━━━━━━━━━━━━━\n\n';
 
       // List apps with blocker > 0
       blockerData.vaptApps.forEach(app => {
-        message += app.aplikasi + ': ' + app.blocker + '\n';
+        message += '◉ ' + app.aplikasi + ': ' + app.blocker + '\n';
 
         // Show only non-zero severities
         const appSeverityParts = [];
@@ -1541,7 +1541,7 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
         if (app.high > 0) appSeverityParts.push('High🔴 ' + app.high);
         if (app.medium > 0) appSeverityParts.push('Medium🟠 ' + app.medium);
         if (appSeverityParts.length > 0) {
-          message += '  ' + appSeverityParts.join('  ') + '\n';
+          message += '  • ' + appSeverityParts.join('  ') + '\n';
         }
       });
 
@@ -1571,13 +1571,13 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     // QA BLOCKER BUGS - Breakdown per module (same format as VAPT)
     // ══════════════════════════════════════════════════════════════════════
     if (blockerData.totalBlockers > 0) {
-      message += '⚠️ *QA BLOCKER BUGS*\n';
+      message += '*QA BLOCKER BUGS*\n';
       message += '━━━━━━━━━━━━━\n\n';
 
       blockerData.modules.forEach(module => {
         if (module.blocker > 0 || module.prodBugs > 0) {
           const moduleName = module.project + ' - ' + module.module + ' (' + module.submodule + ')';
-          message += moduleName + ': ' + module.blocker + '\n';
+          message += '● ' + moduleName + ': ' + module.blocker + '\n';
 
           // Severity breakdown (show only non-zero)
           const moduleSeverityParts = [];
@@ -1585,7 +1585,7 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
           if ((module.high || 0) > 0) moduleSeverityParts.push('High🔴 ' + module.high);
           if ((module.medium || 0) > 0) moduleSeverityParts.push('Medium🟠 ' + module.medium);
           if (moduleSeverityParts.length > 0) {
-            message += '  ' + moduleSeverityParts.join('  ') + '\n';
+            message += '  • ' + moduleSeverityParts.join('  ') + '\n';
           }
         }
       });
