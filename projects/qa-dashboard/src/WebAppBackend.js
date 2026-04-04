@@ -6,6 +6,16 @@
  */
 
 /**
+ * Web App entry point - serves HTML page
+ * This function is required for Web App deployment
+ */
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('WebApp')
+    .setTitle('QA Dashboard')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/**
  * CONFIGURATION: Dashboard Spreadsheet IDs
  * These are the actual Google Sheets spreadsheet IDs (not Apps Script IDs)
  *
