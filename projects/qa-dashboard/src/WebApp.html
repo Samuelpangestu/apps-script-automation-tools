@@ -106,6 +106,9 @@
         <a href="https://docs.google.com/spreadsheets/d/1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY/edit?gid=1796839997#gid=1796839997" target="_blank" class="btn btn-outline-light btn-sm me-2" title="Open Bugs Tab">
           🐛 Bugs
         </a>
+        <a href="https://docs.google.com/spreadsheets/d/1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY/edit?gid=VAPT#gid=VAPT" target="_blank" class="btn btn-outline-light btn-sm me-2" title="Open VAPT Tab">
+          🔒 VAPT
+        </a>
         <select id="projectFilter" class="form-select form-select-sm me-3" style="width: 250px;">
           <option value="">All Modules</option>
         </select>
@@ -285,6 +288,50 @@
       <!-- Divider -->
       <hr class="section-divider">
 
+      <!-- VAPT Section -->
+      <h4 style="margin-bottom: 20px; color: #333; font-weight: 600;">🔒 VAPT Findings</h4>
+      <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card border-danger">
+            <div class="card-body">
+              <h6 class="card-title">VAPT Blocker</h6>
+              <div class="card-value text-danger" id="vaptBlocker">-</div>
+              <small class="text-danger">🚨 Target: 0</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card border-warning">
+            <div class="card-body">
+              <h6 class="card-title">VAPT Critical</h6>
+              <div class="card-value text-warning" id="vaptCritical">-</div>
+              <small class="text-muted">Severity: Critical</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card border-warning">
+            <div class="card-body">
+              <h6 class="card-title">VAPT High</h6>
+              <div class="card-value" style="color: #ff6b6b;" id="vaptHigh">-</div>
+              <small class="text-muted">Severity: High</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">VAPT Medium</h6>
+              <div class="card-value" style="color: #ffa500;" id="vaptMedium">-</div>
+              <small class="text-muted">Severity: Medium</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <hr class="section-divider">
+
       <!-- Section Title -->
       <h4 style="margin-bottom: 24px; color: #333; font-weight: 600;">📊 Trend Analysis (Last 30 Days)</h4>
 
@@ -316,6 +363,16 @@
           <div class="chart-container">
             <h5 class="chart-title">🔥 Smoke Test Pass Rate Trend (Last 30 Days)</h5>
             <div id="smokeTrendChart" style="height: 350px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row 3: VAPT -->
+      <div class="row mb-4">
+        <div class="col-12 mb-3">
+          <div class="chart-container">
+            <h5 class="chart-title">🔒 VAPT Blocker Trend (Last 30 Days)</h5>
+            <div id="vaptTrendChart" style="height: 350px;"></div>
           </div>
         </div>
       </div>
@@ -484,6 +541,7 @@
         drawExecRateChart(filtered.history);
         drawBugTrendChart(filtered.history);
         drawSmokeTrendChart(filtered.history);
+        drawVaptTrendChart(filtered.vaptHistory || []);
       });
     }
 
@@ -538,6 +596,7 @@
         summary: summary,
         history: filteredHistory,
         bugsTable: filteredBugsTable,
+        vaptHistory: data.vaptHistory || [],
         modules: data.modules
       };
     }
@@ -591,6 +650,12 @@
       document.getElementById('productionBugs').textContent = prodBugs;
       document.getElementById('uatBugs').textContent = uatBugs;
       document.getElementById('devBugs').textContent = devBugs;
+
+      // Update VAPT summary cards
+      document.getElementById('vaptBlocker').textContent = summary.vaptBlocker || 0;
+      document.getElementById('vaptCritical').textContent = summary.vaptCritical || 0;
+      document.getElementById('vaptHigh').textContent = summary.vaptHigh || 0;
+      document.getElementById('vaptMedium').textContent = summary.vaptMedium || 0;
     }
 
     function drawPassRateChart(historyData) {
@@ -860,6 +925,87 @@
 
       // Clear and re-render
       const container = document.getElementById('smokeTrendChart');
+      container.innerHTML = '';
+      const chart = new google.visualization.LineChart(container);
+      chart.draw(data, options);
+    }
+
+    function drawVaptTrendChart(vaptHistoryData) {
+      if (!vaptHistoryData || vaptHistoryData.length === 0) {
+        document.getElementById('vaptTrendChart').innerHTML =
+          '<p class="text-muted text-center">No VAPT data available</p>';
+        return;
+      }
+
+      // VAPT History format: [Timestamp, Total, Critical, High, Medium, Low, Open, In Progress, Fixed, Verified, Closed]
+      // Aggregate by date - SUM blocker per day (Critical + High + Medium)
+      const dailyData = {};
+      vaptHistoryData.forEach(row => {
+        const dateStr = row[0].split('T')[0];
+        if (!dailyData[dateStr]) {
+          dailyData[dateStr] = { critical: 0, high: 0, medium: 0, blocker: 0 };
+        }
+        const critical = Number(row[2]) || 0;
+        const high = Number(row[3]) || 0;
+        const medium = Number(row[4]) || 0;
+
+        dailyData[dateStr].critical += critical;
+        dailyData[dateStr].high += high;
+        dailyData[dateStr].medium += medium;
+        dailyData[dateStr].blocker += (critical + high + medium);
+      });
+
+      const dailyArray = Object.keys(dailyData).sort().map(date => ({
+        date: date,
+        critical: dailyData[date].critical,
+        high: dailyData[date].high,
+        medium: dailyData[date].medium,
+        blocker: dailyData[date].blocker
+      }));
+
+      const last30Days = dailyArray.slice(-30);
+
+      if (last30Days.length === 0) {
+        document.getElementById('vaptTrendChart').innerHTML =
+          '<p class="text-muted text-center">No data available for last 30 days</p>';
+        return;
+      }
+
+      const chartData = [['Date', 'Blocker (Total)', 'Critical', 'High', 'Medium']];
+      last30Days.forEach(day => {
+        const dateParts = day.date.split('-');
+        const dateLabel = dateParts[1] + '/' + dateParts[2];
+        chartData.push([
+          dateLabel,
+          day.blocker,
+          day.critical,
+          day.high,
+          day.medium
+        ]);
+      });
+
+      const data = google.visualization.arrayToDataTable(chartData);
+      const options = {
+        curveType: 'function',
+        legend: { position: 'bottom' },
+        vAxis: {
+          title: 'Findings Count',
+          minValue: 0
+        },
+        hAxis: {
+          title: 'Date'
+        },
+        series: {
+          0: { color: '#dc3545', lineWidth: 3 },  // Blocker - thick red line
+          1: { color: '#6f42c1', lineDashStyle: [4, 4] },  // Critical - dashed purple
+          2: { color: '#ff6b6b', lineDashStyle: [2, 2] },  // High - dashed light red
+          3: { color: '#ffa500', lineDashStyle: [2, 2] }   // Medium - dashed orange
+        },
+        chartArea: { width: '90%', height: '70%' }
+      };
+
+      // Clear and re-render
+      const container = document.getElementById('vaptTrendChart');
       container.innerHTML = '';
       const chart = new google.visualization.LineChart(container);
       chart.draw(data, options);

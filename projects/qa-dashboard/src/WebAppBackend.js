@@ -107,6 +107,15 @@ function getDashboardData() {
       bugsTableData = [];
     }
 
+    let vaptHistoryData = [];
+    try {
+      vaptHistoryData = getVAPTHistoryData_(ss);
+      Logger.log('Got VAPT history data: ' + vaptHistoryData.length + ' rows');
+    } catch (vaptError) {
+      Logger.log('ERROR getting VAPT data (continuing with empty): ' + vaptError.toString());
+      vaptHistoryData = [];
+    }
+
     // Serialize history data (convert Date objects to strings)
     const serializedHistory = historyData.map(row => {
       return row.map(cell => {
@@ -144,11 +153,25 @@ function getDashboardData() {
       }
     }
 
+    // Serialize VAPT history data
+    const serializedVaptHistory = vaptHistoryData.map(row => {
+      return row.map(cell => {
+        if (cell instanceof Date) {
+          return cell.toISOString();
+        }
+        if (typeof cell === 'number' && !isFinite(cell)) {
+          return 0;
+        }
+        return cell;
+      });
+    });
+
     const result = {
       summary: cleanSummary,
       history: serializedHistory,
       modules: modules,
       bugsTable: serializedBugsTable,
+      vaptHistory: serializedVaptHistory,
       timestamp: new Date().toISOString()
     };
 
@@ -169,6 +192,7 @@ function getDashboardData() {
       history: [],
       modules: [],
       bugsTable: [],
+      vaptHistory: [],
       timestamp: new Date().toISOString()
     };
   }
@@ -249,6 +273,36 @@ function getSummaryData_(ss) {
     apiExecRate = apiExecuted / apiTotal;
   }
 
+  // Get VAPT summary data from VAPT tab
+  const vaptTab = ss.getSheetByName('VAPT');
+  let vaptBlocker = 0;
+  let vaptCritical = 0;
+  let vaptHigh = 0;
+  let vaptMedium = 0;
+
+  if (vaptTab) {
+    try {
+      const vaptData = vaptTab.getDataRange().getValues();
+      // Skip header rows (first 4 rows) and aggregate blocker data
+      // VAPT columns: [Aplikasi, Total, Critical, High, Medium, Low, Open, In Progress, Fixed, Verified, Closed]
+      for (let i = 4; i < vaptData.length; i++) {
+        const row = vaptData[i];
+        if (!row[0]) continue; // Skip empty rows
+
+        const critical = Number(row[2]) || 0;
+        const high = Number(row[3]) || 0;
+        const medium = Number(row[4]) || 0;
+
+        vaptCritical += critical;
+        vaptHigh += high;
+        vaptMedium += medium;
+        vaptBlocker += (critical + high + medium);
+      }
+    } catch (vaptError) {
+      Logger.log('Error reading VAPT data: ' + vaptError.toString());
+    }
+  }
+
   const summary = {
     webPassRate: totalRow[12] || 0,        // [12] M: Web Pass% ✅
     webExecRate: webExecRate,              // Calculated from totals
@@ -263,6 +317,10 @@ function getSummaryData_(ss) {
     openBugs: totalRow[4] - (totalRow[7] || 0) || 0,  // Total - Prod = Open (approximation)
     blockerBugs: totalRow[5] || 0,         // [5] F: Blocker ✅
     criticalBugs: totalRow[6] || 0,        // [6] G: Critical ✅
+    vaptBlocker: vaptBlocker,              // VAPT Blocker (Critical + High + Medium)
+    vaptCritical: vaptCritical,            // VAPT Critical
+    vaptHigh: vaptHigh,                    // VAPT High
+    vaptMedium: vaptMedium,                // VAPT Medium
     lastUpdated: getLastRefreshTime_(overview)
   };
 
@@ -380,6 +438,10 @@ function getDefaultSummary_() {
     openBugs: 0,
     blockerBugs: 0,
     criticalBugs: 0,
+    vaptBlocker: 0,
+    vaptCritical: 0,
+    vaptHigh: 0,
+    vaptMedium: 0,
     lastUpdated: 'No data'
   };
 }
@@ -475,6 +537,45 @@ function getBugsTableData_(ss) {
 
   } catch (error) {
     Logger.log('ERROR in getBugsTableData_: ' + error.toString());
+    return [];
+  }
+}
+
+/**
+ * Get VAPT History data from VAPT History tab
+ *
+ * @param {Spreadsheet} ss - Active spreadsheet
+ * @returns {Array} VAPT History data rows
+ */
+function getVAPTHistoryData_(ss) {
+  const vaptHistory = ss.getSheetByName('VAPT History');
+
+  if (!vaptHistory) {
+    Logger.log('VAPT History tab not found');
+    return [];
+  }
+
+  try {
+    // Get all data (skip header row 1-4)
+    const data = vaptHistory.getDataRange().getValues();
+
+    // Filter valid rows (skip empty and header rows)
+    const historyRows = [];
+    for (let i = 4; i < data.length; i++) {
+      const row = data[i];
+      if (!row[0]) continue; // Skip empty timestamp rows
+
+      historyRows.push(row);
+    }
+
+    // Sort by timestamp (newest first)
+    historyRows.sort((a, b) => new Date(b[0]) - new Date(a[0]));
+
+    Logger.log('VAPT History rows loaded: ' + historyRows.length);
+    return historyRows;
+
+  } catch (error) {
+    Logger.log('Error reading VAPT History: ' + error.toString());
     return [];
   }
 }
