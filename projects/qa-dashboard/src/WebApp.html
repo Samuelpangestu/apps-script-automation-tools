@@ -941,48 +941,48 @@
         return;
       }
 
-      // Aggregate by date and aplikasi (to avoid duplicate counting)
-      // VAPT History has multiple entries per date (one per application)
-      // We need to get the LATEST entry for each app on each date, then sum
+      // VAPT History structure:
+      // row[0] = timestamp
+      // row[1] = type ('Ad Hoc', 'Regular', 'Combined')
+      // row[2] = totalFindings
+      // row[3] = critical
+      // row[4] = high
+      // row[5] = medium
+      // row[6] = low
+      // row[7] = info
+      // row[8] = readyToRetest
+      // row[9] = open
+      // row[10] = closed
+      // row[11] = totalApps
+      // row[12] = appsDone
+      // row[13] = appsInProgress
+      // row[14] = prodCount
+
+      // Filter only "Combined" type rows (we don't want Ad Hoc and Regular separately)
+      const combinedRows = vaptHistoryData.filter(row => String(row[1]).trim() === 'Combined');
+
+      if (combinedRows.length === 0) {
+        document.getElementById('vaptTrendChart').innerHTML =
+          '<p class="text-muted text-center">No Combined VAPT data available</p>';
+        return;
+      }
+
+      // Aggregate by date (keep only latest entry per date)
       const dailyData = {};
-      const appLatestPerDay = {}; // Track latest timestamp per app per day
-
-      vaptHistoryData.forEach(row => {
-        const dateStr = row[0].split('T')[0];
+      combinedRows.forEach(row => {
+        const dateStr = row[0].split('T')[0]; // "2026-04-04"
         const timestamp = new Date(row[0]).getTime();
-        const appName = row[1]; // Application name
 
-        // Initialize date if not exists
-        if (!dailyData[dateStr]) {
-          dailyData[dateStr] = { apps: {}, critical: 0, high: 0, medium: 0, blocker: 0 };
-          appLatestPerDay[dateStr] = {};
-        }
-
-        // Only keep latest entry for each app on this date
-        if (!appLatestPerDay[dateStr][appName] || timestamp > appLatestPerDay[dateStr][appName]) {
-          // Remove old values if updating
-          if (dailyData[dateStr].apps[appName]) {
-            const oldData = dailyData[dateStr].apps[appName];
-            dailyData[dateStr].critical -= oldData.critical;
-            dailyData[dateStr].high -= oldData.high;
-            dailyData[dateStr].medium -= oldData.medium;
-            dailyData[dateStr].blocker -= oldData.blocker;
-          }
-
-          const critical = Number(row[2]) || 0;
-          const high = Number(row[3]) || 0;
-          const medium = Number(row[4]) || 0;
-          const blocker = critical + high + medium;
-
-          // Store app data
-          dailyData[dateStr].apps[appName] = { critical, high, medium, blocker };
-          appLatestPerDay[dateStr][appName] = timestamp;
-
-          // Add to daily totals
-          dailyData[dateStr].critical += critical;
-          dailyData[dateStr].high += high;
-          dailyData[dateStr].medium += medium;
-          dailyData[dateStr].blocker += blocker;
+        // Keep only latest timestamp for this date
+        if (!dailyData[dateStr] || timestamp > dailyData[dateStr].timestamp) {
+          dailyData[dateStr] = {
+            date: dateStr,
+            timestamp: timestamp,
+            critical: Number(row[3]) || 0,
+            high: Number(row[4]) || 0,
+            medium: Number(row[5]) || 0,
+            blocker: (Number(row[3]) || 0) + (Number(row[4]) || 0) + (Number(row[5]) || 0)
+          };
         }
       });
 
