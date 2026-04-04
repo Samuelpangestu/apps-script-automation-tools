@@ -85,6 +85,7 @@ function fetchAndProcessVAPTData_(vaptSpreadsheetId) {
 
 /**
  * Fetch Ad Hoc VAPT data (C1:Y100)
+ * Header is at D2 in external sheet
  */
 function fetchAdHocVAPTData_(vaptSs) {
   try {
@@ -97,12 +98,16 @@ function fetchAdHocVAPTData_(vaptSs) {
     const data = sheet.getRange('C1:Y100').getValues();  // C to Y = 23 columns (No, Aplikasi, ..., Prod, Formula Updated)
     const entries = [];
 
-    // Skip header row (row 0)
-    for (let i = 1; i < data.length; i++) {
+    // Skip header rows: row 0 (C1) and row 1 (C2 - where "Aplikasi" header is at D2)
+    for (let i = 2; i < data.length; i++) {
       const row = data[i];
 
       // Skip empty rows (check if Aplikasi is empty)
       if (!row[1] || String(row[1]).trim() === '') continue;
+
+      // Skip header text if somehow still there
+      const aplikasiText = String(row[1]).trim().toLowerCase();
+      if (aplikasiText === 'aplikasi') continue;
 
       // Parse row data
       // Columns: C=No, D=Aplikasi, E=PIC VAPT, F=Scope, G=VAPT Status, H=Report,
@@ -152,6 +157,7 @@ function fetchAdHocVAPTData_(vaptSs) {
 
 /**
  * Fetch Regular VAPT data (C1:AF100)
+ * Header is at C2 in external sheet
  */
 function fetchRegularVAPTData_(vaptSs) {
   try {
@@ -164,12 +170,16 @@ function fetchRegularVAPTData_(vaptSs) {
     const data = sheet.getRange('C1:AF100').getValues();  // C to AF = 30 columns (Aplikasi, ..., Prod, Formula Updated)
     const entries = [];
 
-    // Skip header row (row 0)
-    for (let i = 1; i < data.length; i++) {
+    // Skip header rows: row 0 (C1) and row 1 (C2 - where "Aplikasi" header is)
+    for (let i = 2; i < data.length; i++) {
       const row = data[i];
 
       // Skip empty rows (check if Aplikasi is empty)
       if (!row[0] || String(row[0]).trim() === '') continue;
+
+      // Skip header text if somehow still there
+      const aplikasiText = String(row[0]).trim().toLowerCase();
+      if (aplikasiText === 'aplikasi') continue;
 
       // Parse row data
       // Columns: C=Aplikasi, D=Product Owner, E=VAPT MSSP, F=MSSP Report,
