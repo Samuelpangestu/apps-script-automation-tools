@@ -988,13 +988,25 @@
       });
 
       const data = google.visualization.arrayToDataTable(chartData);
+
+      // Format vAxis to remove thousand separator
+      const formatter = new google.visualization.NumberFormat({
+        groupingSymbol: '', // Remove thousand separator
+        fractionDigits: 0   // No decimal places
+      });
+
+      // Apply formatter to all numeric columns (columns 1-4: Blocker, Critical, High, Medium)
+      for (let i = 1; i <= 4; i++) {
+        formatter.format(data, i);
+      }
+
       const options = {
         curveType: 'function',
         legend: { position: 'bottom' },
         vAxis: {
           title: 'Findings Count',
           minValue: 0,
-          format: 'decimal' // Plain decimal without thousand separator
+          format: '0' // Plain integer format
         },
         hAxis: {
           title: 'Date'
@@ -1005,7 +1017,8 @@
           2: { color: '#ff6b6b', lineDashStyle: [2, 2] },
           3: { color: '#ffa500', lineDashStyle: [2, 2] }
         },
-        chartArea: { width: '90%', height: '70%' }
+        chartArea: { width: '90%', height: '70%' },
+        tooltip: { isHtml: false } // Use default tooltip formatting
       };
 
       const container = document.getElementById('vaptTrendChart');
