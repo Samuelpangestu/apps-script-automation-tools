@@ -523,7 +523,12 @@
     }
 
     function renderDashboard(data) {
+      console.log('📊 renderDashboard() called with currentFilter:', currentFilter);
+      console.log('Original data.summary.vaptBlocker:', data.summary.vaptBlocker);
+
       const filtered = filterDataByProject(data, currentFilter);
+
+      console.log('After filter - filtered.summary.vaptBlocker:', filtered.summary.vaptBlocker);
 
       // Update summary cards
       updateSummaryCards(filtered.summary, filtered.bugsTable);
@@ -656,10 +661,24 @@
       document.getElementById('devBugs').textContent = devBugs;
 
       // Update VAPT cards (from summary - not affected by module filter)
+      console.log('🔍 DEBUG VAPT Summary received:', {
+        vaptBlocker: summary.vaptBlocker,
+        vaptCritical: summary.vaptCritical,
+        vaptHigh: summary.vaptHigh,
+        vaptMedium: summary.vaptMedium
+      });
+
       document.getElementById('vaptBlocker').textContent = summary.vaptBlocker || 0;
       document.getElementById('vaptCritical').textContent = summary.vaptCritical || 0;
       document.getElementById('vaptHigh').textContent = summary.vaptHigh || 0;
       document.getElementById('vaptMedium').textContent = summary.vaptMedium || 0;
+
+      console.log('✅ VAPT cards updated. Current display:', {
+        blockerText: document.getElementById('vaptBlocker').textContent,
+        criticalText: document.getElementById('vaptCritical').textContent,
+        highText: document.getElementById('vaptHigh').textContent,
+        mediumText: document.getElementById('vaptMedium').textContent
+      });
     }
 
     function drawPassRateChart(historyData) {
@@ -945,21 +964,27 @@
       // row[0] = timestamp
       // row[1] = type ('Ad Hoc', 'Regular', 'Combined')
       // row[2] = totalFindings
-      // row[3] = critical
-      // row[4] = high
-      // row[5] = medium
+      // row[3] = critical (total findings, not blocker)
+      // row[4] = high (total findings, not blocker)
+      // row[5] = medium (total findings, not blocker)
       // row[6] = low
       // row[7] = info
       // row[8] = readyToRetest
-      // row[9] = open
+      // row[9] = open (THIS IS THE BLOCKER - open findings needing action!)
       // row[10] = closed
       // row[11] = totalApps
       // row[12] = appsDone
       // row[13] = appsInProgress
       // row[14] = prodCount
+      //
+      // IMPORTANT: For blocker trend, we should use row[9] (Open findings),
+      // NOT row[3]+row[4]+row[5] which are total findings across all statuses
 
       // Filter only "Combined" type rows (we don't want Ad Hoc and Regular separately)
       const combinedRows = vaptHistoryData.filter(row => String(row[1]).trim() === 'Combined');
+
+      console.log('📊 VAPT Chart - Combined rows found:', combinedRows.length);
+      console.log('First 3 combined rows:', combinedRows.slice(0, 3));
 
       if (combinedRows.length === 0) {
         document.getElementById('vaptTrendChart').innerHTML =
@@ -975,16 +1000,25 @@
 
         // Keep only latest timestamp for this date
         if (!dailyData[dateStr] || timestamp > dailyData[dateStr].timestamp) {
+          // IMPORTANT: Use row[9] for blocker (Open findings needing action)
+          // NOT row[3]+row[4]+row[5] which are total findings across all statuses
+          const blocker = Number(row[9]) || 0; // Open findings
+          const critical = Number(row[3]) || 0; // Total critical findings
+          const high = Number(row[4]) || 0;     // Total high findings
+          const medium = Number(row[5]) || 0;   // Total medium findings
+
           dailyData[dateStr] = {
             date: dateStr,
             timestamp: timestamp,
-            critical: Number(row[3]) || 0,
-            high: Number(row[4]) || 0,
-            medium: Number(row[5]) || 0,
-            blocker: (Number(row[3]) || 0) + (Number(row[4]) || 0) + (Number(row[5]) || 0)
+            blocker: blocker,      // Use Open column for blocker count
+            critical: critical,    // Total critical (for reference)
+            high: high,           // Total high (for reference)
+            medium: medium        // Total medium (for reference)
           };
         }
       });
+
+      console.log('📊 VAPT Chart - Daily aggregated data:', dailyData);
 
       const dailyArray = Object.keys(dailyData).sort().map(date => ({
         date: date,

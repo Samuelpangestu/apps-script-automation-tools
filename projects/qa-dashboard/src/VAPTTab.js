@@ -332,6 +332,10 @@ function appendVAPTHistory(ss, vaptData) {
  * Create history row from summary data
  */
 function createHistoryRow_(timestamp, type, summary) {
+  // Calculate blocker (Critical + High + Medium OPEN findings only, not Low/Info)
+  // This matches the blocker definition used in dashboard
+  const blocker = summary.blocker || 0;
+
   return [
     timestamp,
     type,
@@ -342,7 +346,7 @@ function createHistoryRow_(timestamp, type, summary) {
     summary.bySeverity.low || 0,
     summary.bySeverity.info || 0,
     summary.byStatus.readyToRetest || 0,
-    summary.byStatus.open || 0,
+    blocker,  // Use blocker instead of summary.byStatus.open (which includes Low/Info)
     summary.byStatus.closed || 0,
     summary.totalApps || 0,
     summary.byVaptStatus.done || 0,
