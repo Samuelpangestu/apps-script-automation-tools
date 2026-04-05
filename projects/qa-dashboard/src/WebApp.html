@@ -1036,16 +1036,13 @@
         return;
       }
 
-      const chartData = [['Date', 'Blocker (Total)', 'Critical', 'High', 'Medium']];
+      const chartData = [['Date', 'Blocker (Total)']];
       last30Days.forEach(day => {
         const dateParts = day.date.split('-');
         const dateLabel = dateParts[1] + '/' + dateParts[2];
         chartData.push([
           dateLabel,
-          day.blocker,
-          day.critical,
-          day.high,
-          day.medium
+          day.blocker
         ]);
       });
 
@@ -1057,16 +1054,14 @@
         fractionDigits: 0   // No decimal places
       });
 
-      // Apply formatter to all numeric columns (columns 1-4: Blocker, Critical, High, Medium)
-      for (let i = 1; i <= 4; i++) {
-        formatter.format(data, i);
-      }
+      // Apply formatter to blocker column (column 1)
+      formatter.format(data, 1);
 
       const options = {
         curveType: 'function',
-        legend: { position: 'bottom' },
+        legend: { position: 'none' }, // Hide legend since only 1 line
         vAxis: {
-          title: 'Findings Count',
+          title: 'Blocker Count',
           minValue: 0,
           format: '0' // Plain integer format
         },
@@ -1074,12 +1069,9 @@
           title: 'Date'
         },
         series: {
-          0: { color: '#dc3545', lineWidth: 3 },
-          1: { color: '#6f42c1', lineDashStyle: [4, 4] },
-          2: { color: '#ff6b6b', lineDashStyle: [2, 2] },
-          3: { color: '#ffa500', lineDashStyle: [2, 2] }
+          0: { color: '#dc3545', lineWidth: 3 } // Red line for blocker
         },
-        chartArea: { width: '90%', height: '70%' },
+        chartArea: { width: '90%', height: '75%' },
         tooltip: { isHtml: false } // Use default tooltip formatting
       };
 
