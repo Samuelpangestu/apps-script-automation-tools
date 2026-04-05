@@ -226,8 +226,43 @@
       <!-- Divider -->
       <hr class="section-divider">
 
-      <!-- Bug Breakdown Section -->
-      <h4 style="margin-bottom: 20px; color: #333; font-weight: 600;">🐛 Bug Breakdown</h4>
+      <!-- BUG SECTION -->
+      <h4 style="margin-bottom: 20px; color: #333; font-weight: 600;">Bug Management</h4>
+
+      <!-- Production Defects -->
+      <div class="row mb-4">
+        <div class="col-12 mb-3">
+          <div class="chart-container">
+            <h5 class="chart-title">Production Defects (Bugs yang Lolos ke Production & Masih Open)</h5>
+            <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
+              <strong>Keterangan:</strong> Bugs yang ditemukan di Production environment dan masih Open/In Progress.
+              Target: 0 bugs di production. Urutan dari severity tertinggi. Prioritas utama untuk diperbaiki segera.
+            </p>
+            <div class="table-responsive">
+              <table class="table table-sm table-hover" id="productionDefectsTable">
+                <thead class="table-light">
+                  <tr>
+                    <th>Module</th>
+                    <th>Total Prod Bugs</th>
+                    <th>Blocker</th>
+                    <th>Critical</th>
+                    <th>High</th>
+                    <th>Medium</th>
+                    <th>Low</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="productionDefectsTableBody">
+                  <tr><td colspan="8" class="text-center">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bug Breakdown Summary -->
+      <h5 style="margin: 20px 0 15px 0; color: #555; font-weight: 600;">Bug Breakdown by Severity & Environment</h5>
       <div class="row mb-3">
         <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
           <div class="card summary-card border-warning">
@@ -289,7 +324,7 @@
       <hr class="section-divider">
 
       <!-- VAPT Summary Cards -->
-      <h4 style="margin-bottom: 20px; color: #333; font-weight: 600;">🔒 VAPT Security Findings (All Modules)</h4>
+      <h4 style="margin-bottom: 20px; color: #333; font-weight: 600;">VAPT Security Findings (All Modules)</h4>
       <div class="row mb-4">
         <div class="col-md-3 mb-3">
           <div class="card summary-card border-danger">
@@ -333,13 +368,13 @@
       <hr class="section-divider">
 
       <!-- Section Title -->
-      <h4 style="margin-bottom: 24px; color: #333; font-weight: 600;">📊 Trend Analysis (Last 30 Days)</h4>
+      <h4 style="margin-bottom: 24px; color: #333; font-weight: 600;">Trend Analysis (Last 30 Days)</h4>
 
       <!-- Charts Row 1 -->
       <div class="row mb-4">
         <div class="col-lg-6 mb-3">
           <div class="chart-container">
-            <h5 class="chart-title">📈 Pass Rate Trend (Last 30 Days)</h5>
+            <h5 class="chart-title">Pass Rate Trend (Last 30 Days)</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
               <strong>Keterangan:</strong> Biru = Web, Hijau = API. Target: Naik mendekati 100%. Menunjukkan kualitas test case yang pass.
             </p>
@@ -348,7 +383,7 @@
         </div>
         <div class="col-lg-6 mb-3">
           <div class="chart-container">
-            <h5 class="chart-title">📊 Execution Rate Trend (Last 30 Days)</h5>
+            <h5 class="chart-title">Execution Rate Trend (Last 30 Days)</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
               <strong>Keterangan:</strong> Biru = Web, Hijau = API. Target: Selalu 100%. Menunjukkan berapa persen test case yang sudah dijalankan.
             </p>
@@ -361,7 +396,7 @@
       <div class="row mb-4">
         <div class="col-lg-6 mb-3">
           <div class="chart-container">
-            <h5 class="chart-title">🐛 Bug Trend (Last 30 Days)</h5>
+            <h5 class="chart-title">Bug Trend (Last 30 Days)</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
               <strong>Keterangan:</strong> Merah = Blocker, Orange = Critical. Target: Turun ke 0. Blocker & Critical harus segera diperbaiki.
             </p>
@@ -370,7 +405,7 @@
         </div>
         <div class="col-lg-6 mb-3">
           <div class="chart-container">
-            <h5 class="chart-title">🔥 Smoke Test Pass Rate Trend (Last 30 Days)</h5>
+            <h5 class="chart-title">Smoke Test Pass Rate Trend (Last 30 Days)</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
               <strong>Keterangan:</strong> Biru = Web, Hijau = API. Target: Selalu 100%. Smoke test = test dasar yang harus selalu pass.
             </p>
@@ -383,7 +418,7 @@
       <div class="row mb-4">
         <div class="col-12 mb-3">
           <div class="chart-container">
-            <h5 class="chart-title">🔒 VAPT Blocker Trend (Last 30 Days)</h5>
+            <h5 class="chart-title">VAPT Blocker Trend (Last 30 Days)</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
               <strong>Keterangan:</strong> Garis merah = Total blocker findings (Critical + High + Medium yang masih Open). Target: Turun ke 0. Security findings yang harus segera diperbaiki.
             </p>
@@ -399,7 +434,7 @@
       <div class="row mb-4">
         <div class="col-12 mb-3">
           <div class="chart-container">
-            <h5 class="chart-title">📈 Bug Trend - Total & Blocker (Last 30 Days)</h5>
+            <h5 class="chart-title">Bug Trend - Total & Blocker (Last 30 Days)</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
               <strong>Keterangan:</strong> Garis orange = Total bugs, Garis merah = Blocker bugs.
               Target: Kedua garis turun (trend menurun = bagus). Blocker harus selalu 0.
@@ -413,7 +448,7 @@
       <div class="row mb-4">
         <div class="col-12 mb-3">
           <div class="chart-container">
-            <h5 class="chart-title">💊 Module Health Scorecard</h5>
+            <h5 class="chart-title">Module Health Scorecard</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
               <strong>Keterangan:</strong> Health Score = Pass Rate - (Blocker×10) - (Critical×5).
               Merah (<50) = Butuh perhatian urgent, Orange (50-75) = Perlu perbaikan, Hijau (>75) = Sehat. Urutan dari terburuk ke terbaik.
@@ -432,37 +467,6 @@
                 </thead>
                 <tbody id="moduleHealthTableBody">
                   <tr><td colspan="6" class="text-center">Loading...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Charts Row 6: Production Defects -->
-      <div class="row mb-4">
-        <div class="col-12 mb-3">
-          <div class="chart-container">
-            <h5 class="chart-title">🚨 Production Defects (Bugs yang Lolos ke Production & Masih Open)</h5>
-            <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
-              <strong>Keterangan:</strong> Bugs yang ditemukan di Production environment dan masih Open/In Progress.
-              Target: 0 bugs di production. Urutan dari severity tertinggi. Prioritas utama untuk diperbaiki segera.
-            </p>
-            <div class="table-responsive">
-              <table class="table table-sm table-hover" id="productionDefectsTable">
-                <thead class="table-light">
-                  <tr>
-                    <th>Module</th>
-                    <th>Total Prod Bugs</th>
-                    <th>Blocker</th>
-                    <th>Critical</th>
-                    <th>High</th>
-                    <th>Medium</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="productionDefectsTableBody">
-                  <tr><td colspan="7" class="text-center">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1305,7 +1309,7 @@
       tbody.innerHTML = '';
 
       if (!bugsTable || bugsTable.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No data available</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No data available</td></tr>';
         return;
       }
 
@@ -1325,16 +1329,18 @@
           const critical = Number(row[4]) || 0;
           const high = Number(row[5]) || 0;
           const medium = Number(row[6]) || 0;
+          const low = Number(row[7]) || 0;
           const blocker = Number(row[9]) || 0;
 
           // Estimate production bugs by severity (proportional distribution)
-          let prodCritical = 0, prodHigh = 0, prodMedium = 0, prodBlocker = 0;
+          let prodCritical = 0, prodHigh = 0, prodMedium = 0, prodLow = 0, prodBlocker = 0;
 
           if (totalBugs > 0) {
             const ratio = prodBugs / totalBugs;
             prodCritical = Math.round(critical * ratio);
             prodHigh = Math.round(high * ratio);
             prodMedium = Math.round(medium * ratio);
+            prodLow = Math.round(low * ratio);
             prodBlocker = Math.round(blocker * ratio);
           }
 
@@ -1344,13 +1350,14 @@
             blocker: prodBlocker,
             critical: prodCritical,
             high: prodHigh,
-            medium: prodMedium
+            medium: prodMedium,
+            low: prodLow
           });
         }
       });
 
       if (prodDefects.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="color: #4CAF50; font-weight: bold;">✅ Excellent! No bugs in Production</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center" style="color: #4CAF50; font-weight: bold;">✅ Excellent! No bugs in Production</td></tr>';
         return;
       }
 
@@ -1383,6 +1390,7 @@
           <td><span class="badge ${p.critical > 0 ? 'badge-warning' : 'badge-success'}">${p.critical}</span></td>
           <td><span class="badge ${p.high > 0 ? 'badge-warning' : 'badge-success'}">${p.high}</span></td>
           <td>${p.medium}</td>
+          <td>${p.low}</td>
           <td style="background: ${statusBg}; color: ${statusColor}; font-weight: bold;">${statusText}</td>
         `;
 
