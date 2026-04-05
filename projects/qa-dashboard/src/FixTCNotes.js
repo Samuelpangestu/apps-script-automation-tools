@@ -154,29 +154,67 @@ function getQATMSpreadsheetIds_() {
   const data = configSheet.getDataRange().getValues();
   const spreadsheetIds = [];
 
+  Logger.log(`Config tab has ${data.length} rows`);
+
   // Look for QATM spreadsheet IDs in Config
-  // Format expected: Column B contains spreadsheet IDs
-  // Skip header rows (first 2 rows)
-  for (let i = 2; i < data.length; i++) {
+  // Config structure in Dashboard: Project, Modul, Submodul, PIC QA, QATM URL, Bug Report GID
+  // We need to extract spreadsheet IDs from QATM URLs (column E, index 4)
+
+  // Skip header rows (first 4 rows based on Config structure)
+  for (let i = 4; i < data.length; i++) {
     const row = data[i];
 
-    // Column A = Setting name, Column B = Value
-    const settingName = String(row[0] || '').trim();
-    const value = String(row[1] || '').trim();
+    // Skip empty rows
+    if (!row[0]) continue;
 
-    // Skip if not a QATM spreadsheet ID row
-    if (!settingName || !value) continue;
-    if (settingName.toLowerCase().includes('vapt')) continue; // Skip VAPT IDs
-    if (value === 'PASTE_QATM_SPREADSHEET_ID_HERE') continue; // Skip placeholder
+    const project = String(row[0] || '').trim();
+    const qatmUrl = String(row[4] || '').trim(); // Column E = QATM URL
 
-    // Check if value looks like a spreadsheet ID (alphanumeric, length > 30)
-    if (value.length > 30 && /^[a-zA-Z0-9_-]+$/.test(value)) {
-      spreadsheetIds.push(value);
-      Logger.log(`Found QATM ID: ${value} (${settingName})`);
+    // Extract spreadsheet ID from URL
+    // Format: https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit
+    if (qatmUrl && qatmUrl.includes('spreadsheets/d/')) {
+      const match = qatmUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        const id = match[1];
+        spreadsheetIds.push(id);
+        Logger.log(`Found QATM ID: ${id} (Project: ${project})`);
+      }
     }
   }
 
+  Logger.log(`Total QATM spreadsheets found: ${spreadsheetIds.length}`);
   return spreadsheetIds;
+}
+
+/**
+ * Debug function to check Config tab structure
+ */
+function debugConfigStructure() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const configSheet = ss.getSheetByName('Config');
+
+  if (!configSheet) {
+    Logger.log('Config tab not found');
+    return;
+  }
+
+  const data = configSheet.getDataRange().getValues();
+
+  Logger.log('=== CONFIG TAB STRUCTURE ===');
+  Logger.log(`Total rows: ${data.length}`);
+  Logger.log('');
+  Logger.log('First 5 rows:');
+
+  for (let i = 0; i < Math.min(5, data.length); i++) {
+    Logger.log(`Row ${i}: ${JSON.stringify(data[i])}`);
+  }
+
+  Logger.log('');
+  Logger.log('Sample data rows (row 4-8):');
+  for (let i = 4; i < Math.min(9, data.length); i++) {
+    const row = data[i];
+    Logger.log(`Row ${i}: Project="${row[0]}", Modul="${row[1]}", QATM URL="${row[4]}"`);
+  }
 }
 
 /**
