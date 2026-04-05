@@ -6,7 +6,18 @@
  */
 
 /**
- * Broadcast TC_Master notes fix ke semua QATM spreadsheets
+ * Broadcast TC_Master notes fix ke semua QATM spreadsheets (Non-interactive version)
+ * Can be run from triggers or scripts without user interaction
+ * Reads from Config tab untuk dapat list QATM spreadsheet IDs
+ */
+function broadcastFixTCNotesAuto() {
+  Logger.log('🔧 Starting TC_Master notes broadcast fix (auto mode)...');
+  return executeBroadcastFix_();
+}
+
+/**
+ * Broadcast TC_Master notes fix ke semua QATM spreadsheets (Interactive version)
+ * Requires user confirmation via UI
  * Reads from Config tab untuk dapat list QATM spreadsheet IDs
  */
 function broadcastFixTCNotes() {
@@ -14,7 +25,7 @@ function broadcastFixTCNotes() {
   const ui = SpreadsheetApp.getUi();
 
   const response = ui.alert(
-    '🔧 Fix TC_Master Column Notes',
+    'Fix TC_Master Column Notes',
     'Fix ini akan memperbaiki column notes di TC_Master yang tergeser:\n\n' +
     '• Col 1 (No) → TEST CASE ID notes\n' +
     '• Col 2 (SubModul) → MODUL notes\n' +
@@ -31,20 +42,33 @@ function broadcastFixTCNotes() {
     return;
   }
 
-  try {
-    Logger.log('🔧 Starting TC_Master notes broadcast fix...');
+  const result = executeBroadcastFix_();
 
+  // Show results in UI
+  const ui2 = SpreadsheetApp.getUi();
+  ui2.alert('Broadcast Results', result.message, ui2.ButtonSet.OK);
+}
+
+/**
+ * Execute broadcast fix (shared logic for both interactive and non-interactive)
+ * @returns {Object} Result object with success/fail counts and message
+ */
+function executeBroadcastFix_() {
+
+  try {
     // Get QATM spreadsheet IDs from Config
     const spreadsheetIds = getQATMSpreadsheetIds_();
 
     if (spreadsheetIds.length === 0) {
-      ui.alert(
-        'No QATM Spreadsheets Found',
-        'Tidak ada QATM spreadsheet IDs yang ditemukan di Config tab.\n\n' +
-        'Pastikan Config tab sudah disetup dengan benar.',
-        ui.ButtonSet.OK
-      );
-      return;
+      const errorMsg = 'No QATM Spreadsheets Found. Tidak ada QATM spreadsheet IDs yang ditemukan di Config tab.';
+      Logger.log('❌ ' + errorMsg);
+      return {
+        success: false,
+        message: errorMsg,
+        successCount: 0,
+        failCount: 0,
+        errors: [errorMsg]
+      };
     }
 
     Logger.log(`Found ${spreadsheetIds.length} QATM spreadsheet(s) to fix`);
@@ -61,7 +85,9 @@ function broadcastFixTCNotes() {
         const ws = qatmSS.getSheetByName('TC_Master');
 
         if (!ws) {
-          errors.push(`${qatmSS.getName()}: TC_Master tab not found`);
+          const error = `${qatmSS.getName()}: TC_Master tab not found`;
+          errors.push(error);
+          Logger.log('❌ ' + error);
           failCount++;
           return;
         }
@@ -73,13 +99,14 @@ function broadcastFixTCNotes() {
         successCount++;
 
       } catch (e) {
+        const error = `${id}: ${e.message}`;
         Logger.log(`❌ Error on ${id}: ${e.message}`);
-        errors.push(`${id}: ${e.message}`);
+        errors.push(error);
         failCount++;
       }
     });
 
-    // Show results
+    // Build result message
     let message = `Broadcast Complete!\n\n`;
     message += `✅ Success: ${successCount} spreadsheet(s)\n`;
     message += `❌ Failed: ${failCount} spreadsheet(s)`;
@@ -88,17 +115,26 @@ function broadcastFixTCNotes() {
       message += `\n\nErrors:\n${errors.join('\n')}`;
     }
 
-    ui.alert('✅ Broadcast Results', message, ui.ButtonSet.OK);
     Logger.log(message);
 
+    return {
+      success: successCount > 0,
+      message: message,
+      successCount: successCount,
+      failCount: failCount,
+      errors: errors
+    };
+
   } catch (e) {
-    Logger.log('❌ Error in broadcast fix: ' + e.message);
-    ui.alert(
-      '❌ Error',
-      'Gagal apply broadcast fix:\n' + e.message + '\n\n' +
-      'Check Executions log untuk detail.',
-      ui.ButtonSet.OK
-    );
+    const errorMsg = 'Error in broadcast fix: ' + e.message;
+    Logger.log('❌ ' + errorMsg);
+    return {
+      success: false,
+      message: errorMsg,
+      successCount: 0,
+      failCount: 1,
+      errors: [errorMsg]
+    };
   }
 }
 
