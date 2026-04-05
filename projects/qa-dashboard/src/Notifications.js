@@ -1,6 +1,7 @@
 /**
  * notifications.js
  * Send blocker & PROD BUGS notifications via Google Chat & Email
+ * Updated: Changed bullet points from ● to ▬ for consistent formatting
  */
 
 /**
@@ -1517,7 +1518,7 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
 
     // VAPT Blocker summary
     if (blockerData.vaptBlocker > 0) {
-      message += '● VAPT Blocker: ' + blockerData.vaptBlocker + ' (' + blockerData.vaptAppsWithBlockers + ' apps)\n';
+      message += '▬ VAPT Blocker: ' + blockerData.vaptBlocker + ' (' + blockerData.vaptAppsWithBlockers + ' apps)\n';
 
       // VAPT Severity breakdown (hide if 0)
       const vaptSeverityParts = [];
@@ -1583,7 +1584,7 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
       blockerData.modules.forEach(module => {
         if (module.blocker > 0 || module.prodBugs > 0) {
           const moduleName = module.project + ' - ' + module.module + ' (' + module.submodule + ')';
-          message += '● ' + moduleName + ': ' + module.blocker + '\n';
+          message += '▬ ' + moduleName + ': ' + module.blocker + '\n';
 
           // Severity breakdown (show only non-zero)
           const moduleSeverityParts = [];
