@@ -284,6 +284,9 @@ function getSummaryData_(ss) {
   }
 
   // Get VAPT summary data from VAPT tab
+  // IMPORTANT: Read from summary cell B5 (Total Blocker), NOT by aggregating all apps
+  // Row 5, Col 2 (B5): Total Blocker (Combined = Ad Hoc + Regular)
+  // This ensures we get TODAY'S blocker count, not cumulative from all history
   const vaptTab = ss.getSheetByName('VAPT');
   let vaptBlocker = 0;
   let vaptCritical = 0;
@@ -292,10 +295,14 @@ function getSummaryData_(ss) {
 
   if (vaptTab) {
     try {
+      // Read Total Blocker from summary cell B5 (row 5, col 2)
+      vaptBlocker = Number(vaptTab.getRange(5, 2).getValue()) || 0;
+
+      // Calculate breakdown from app rows (starting row 10)
+      // This gives us the severity breakdown for today's blocker
       const vaptData = vaptTab.getDataRange().getValues();
-      // Skip header rows (first 4 rows) and aggregate blocker data
       // VAPT columns: [Aplikasi, Total, Critical, High, Medium, Low, Open, In Progress, Fixed, Verified, Closed]
-      for (let i = 4; i < vaptData.length; i++) {
+      for (let i = 9; i < vaptData.length; i++) { // Row 10 = index 9
         const row = vaptData[i];
         if (!row[0]) continue; // Skip empty rows
 
@@ -306,7 +313,6 @@ function getSummaryData_(ss) {
         vaptCritical += critical;
         vaptHigh += high;
         vaptMedium += medium;
-        vaptBlocker += (critical + high + medium);
       }
     } catch (vaptError) {
       Logger.log('Error reading VAPT data: ' + vaptError.toString());
