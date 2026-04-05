@@ -43,10 +43,10 @@ const JIRA_JQL_ =
   'project = "{P}" AND issuetype = Bug ' +
   'AND "{F}" = "{M}" ' +
   'ORDER BY priority ASC, updated DESC';
-// Custom fields for Feature/Environment/Steps/Expected/Actual/Submodul (per instance)
+// Custom fields for Feature/Environment/Steps/Expected/Actual/Submodul/Screenshot (per instance)
 const JIRA_CUSTOM_FIELDS_ = {
-  'digitalperuri': ',customfield_11090,customfield_10095,customfield_10560,customfield_10561,customfield_10562,customfield_11354',  // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result, Submodul
-  'bgn-peruri': ',customfield_10298,customfield_10291,customfield_10292,customfield_10293,customfield_10294,customfield_10300'     // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result, Submodul
+  'digitalperuri': ',customfield_11090,customfield_10095,customfield_10560,customfield_10561,customfield_10562,customfield_11354,customfield_10179',  // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result, Submodul, Screenshot/Video
+  'bgn-peruri': ',customfield_10298,customfield_10291,customfield_10292,customfield_10293,customfield_10294,customfield_10300,customfield_10296'     // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result, Submodul, Screenshot/Video
 };
 
 // Custom field mappings for accessing fields by instance
@@ -57,7 +57,8 @@ const JIRA_FIELD_MAP_ = {
     steps: 'customfield_10560',
     expected: 'customfield_10561',
     actual: 'customfield_10562',
-    submodul: 'customfield_11354'
+    submodul: 'customfield_11354',
+    screenshot: 'customfield_10179'
   },
   'bgn-peruri': {
     feature: 'customfield_10298',
@@ -65,18 +66,19 @@ const JIRA_FIELD_MAP_ = {
     steps: 'customfield_10292',
     expected: 'customfield_10293',
     actual: 'customfield_10294',
-    submodul: 'customfield_10300'
+    submodul: 'customfield_10300',
+    screenshot: 'customfield_10296'
   }
 };
 
-const JIRA_FIELDS_ = 'summary,description,priority,status,assignee,reporter,resolutiondate,key,created,updated,labels,components,environment';
+const JIRA_FIELDS_ = 'summary,description,priority,status,assignee,reporter,resolutiondate,key,created,updated,labels,components,environment,attachment';
 const BUG_START_   = 5;
 const BC_ = {
   BUG_ID:1,TYPE:2,PRIORITY:3,STATUS:4,FEATURE:5,SUBMODUL:6,
   TITLE:7,DESC:8,ENV:9,STEPS:10,EXP:11,ACT:12,TC:13,REPORTED_BY:14,
-  ASSIGNED:15,DATE_FOUND:16,DATE_FIXED:17,SPRINT:18,LINK:19,JIRA_KEY:20,SYNCED:21,SCREENSHOT:22
+  ASSIGNED:15,DATE_FOUND:16,DATE_FIXED:17,SPRINT:18,LINK:19,NOTES:20,SCREENSHOT:21,JIRA_KEY:22,SYNCED:23
 };
-const BUG_COLS_ = 22;
+const BUG_COLS_ = 23;
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -572,44 +574,34 @@ function _syncMod_(mod, cred, inclStatus) {
   const src   = SpreadsheetApp.openById(mod.id);
   const bugSh = src.getSheetByName('BugReport');
   if (!bugSh) return 'skipped (no BugReport)';
+
+  // Step 1: Clean all existing data (keep header rows 1-4)
+  _cleanBugReportData_(bugSh);
+
+  // Step 2: Fetch bugs from Jira
   const issues = _fetch_(mod.inst, mod.projKey, mod.module, cred);
   if (!issues) return 'failed (fetch error)';
-  const idx = _bugIdx_(bugSh);
+
   const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
-  let ins=0, upd=0, del=0;
   const instUrl = JIRA_INSTANCES_[mod.inst];
+  let ins = 0;
 
-  // Track which Jira issues we're syncing (active bugs)
-  const jiraKeys = new Set();
-
+  // Step 3: Insert all bugs (skip Closed/Won't Fix)
   issues.forEach(iss => {
     const statusName = iss.fields.status && iss.fields.status.name;
     const isClosedStatus = statusName === 'Closed' || statusName === "Won't Fix";
 
-    jiraKeys.add(iss.key);
-
-    // If bug is Closed/Won't Fix, mark for deletion (will be cleaned up below)
+    // Skip closed bugs - we don't want them in the sheet
     if (isClosedStatus) {
-      // Skip sync for closed bugs - will be deleted in cleanup phase
       return;
     }
 
-    // Sync active bugs (not Closed/Won't Fix)
-    if (idx[iss.key]!==undefined) {
-      _upd_(bugSh,idx[iss.key],iss,inclStatus,now,instUrl,mod.inst);
-      upd++;
-    } else {
-      _ins_(bugSh,iss,instUrl,now,mod,mod.inst);
-      ins++;
-    }
+    // Insert all active bugs as new rows
+    _ins_(bugSh, iss, instUrl, now, mod, mod.inst);
+    ins++;
   });
 
-  // Cleanup phase: Remove bugs from sheet that are Closed/Won't Fix in Jira
-  del = _cleanupClosedBugs_(bugSh, issues);
-
-  let msg = ins+' inserted, '+upd+' updated';
-  if (del > 0) msg += ', '+del+' deleted (Closed/Won\'t Fix)';
-  return msg;
+  return ins + ' bugs synced from Jira';
 }
 
 function _fetch_(instKey, projKey, modulName, cred) {
@@ -634,7 +626,7 @@ function _fetch_(instKey, projKey, modulName, cred) {
   // Log JQL & URL untuk debugging (hanya di iterasi pertama)
   Logger.log('');
   Logger.log('══════════════════════════════════════════');
-  Logger.log('🔄 FETCHING BUGS');
+  Logger.log('FETCHING BUGS FROM JIRA');
   Logger.log('══════════════════════════════════════════');
   Logger.log('Instance: ' + instKey);
   Logger.log('Project:  ' + projKey);
@@ -722,58 +714,16 @@ function _fetch_(instKey, projKey, modulName, cred) {
   return all;
 }
 
-function _bugIdx_(sh) {
-  const last=sh.getLastRow(); const idx={};
-  if(last<BUG_START_)return idx;
-  sh.getRange(BUG_START_,BC_.JIRA_KEY,last-BUG_START_+1,1).getValues()
-    .forEach((r,i)=>{const k=String(r[0]).trim();if(k)idx[k]=BUG_START_+i;});
-  return idx;
-}
-
-function _upd_(sh,row,iss,inclStatus,now,instUrl,instKey){
-  const f=iss.fields;
-  const key=iss.key;
-  const fieldMap = JIRA_FIELD_MAP_[instKey] || JIRA_FIELD_MAP_['digitalperuri'];  // Default to digitalperuri
-
-  if(f.summary)   sh.getRange(row,BC_.TITLE).setValue(f.summary);
-  const d=_adf_(f.description); if(d) sh.getRange(row,BC_.DESC).setValue(d);
-
-  // Sync Feature field from Jira
-  const feature = f[fieldMap.feature];
-  if(feature) sh.getRange(row,BC_.FEATURE).setValue(feature);
-
-  // Sync Submodul field from Jira
-  const submodul = _dropdown_(f[fieldMap.submodul]);
-  if(submodul) sh.getRange(row,BC_.SUBMODUL).setValue(submodul);
-
-  // Use field map for custom fields with proper extraction
-  const env = _dropdown_(f[fieldMap.environment]);
-  if(env) sh.getRange(row,BC_.ENV).setValue(env);
-
-  const steps = _adf_(f[fieldMap.steps]);
-  if(steps) sh.getRange(row,BC_.STEPS).setValue(steps);
-
-  const expected = _adf_(f[fieldMap.expected]);
-  if(expected) sh.getRange(row,BC_.EXP).setValue(expected);
-
-  const actual = _adf_(f[fieldMap.actual]);
-  if(actual) sh.getRange(row,BC_.ACT).setValue(actual);
-
-  sh.getRange(row,BC_.TC).setValue('');  // Clear Notes (always empty for Jira synced bugs)
-  const p=_prio_(f.priority&&f.priority.name); if(p) sh.getRange(row,BC_.PRIORITY).setValue(p);
-  const a=f.assignee&&f.assignee.displayName; if(a) sh.getRange(row,BC_.ASSIGNED).setValue(a);
-  const r=f.reporter&&f.reporter.displayName; if(r) sh.getRange(row,BC_.REPORTED_BY).setValue(r);
-  if(f.resolutiondate) sh.getRange(row,BC_.DATE_FIXED).setValue(new Date(f.resolutiondate)).setNumberFormat('yyyy-mm-dd');
-  if(inclStatus){const s=_stat_(f.status&&f.status.name);if(s)sh.getRange(row,BC_.STATUS).setValue(s);}
-
-  // Update Bug ID hyperlink (only if from Jira sync)
-  if(instUrl && key) {
-    const jiraLink = instUrl + '/browse/' + key;
-    sh.getRange(row,BC_.BUG_ID).setFormula('=HYPERLINK("' + jiraLink + '","' + key + '")');
-    sh.getRange(row,BC_.BUG_ID).setFontColor('#1565C0').setFontWeight('bold');
+/**
+ * Clean all data rows from BugReport sheet (keep header rows 1-4)
+ * Simple and fast - delete everything from row 5 onwards
+ */
+function _cleanBugReportData_(sh) {
+  const lastRow = sh.getLastRow();
+  if (lastRow >= BUG_START_) {
+    sh.deleteRows(BUG_START_, lastRow - BUG_START_ + 1);
+    Logger.log('Cleaned ' + (lastRow - BUG_START_ + 1) + ' existing rows from BugReport');
   }
-
-  sh.getRange(row,BC_.SYNCED).setValue(now);
 }
 
 function _ins_(sh,iss,instUrl,now,mod,instKey){
@@ -795,14 +745,16 @@ function _ins_(sh,iss,instUrl,now,mod,instKey){
   row[BC_.EXP-1]      = _adf_(f[fieldMap.expected]);
   row[BC_.ACT-1]      = _adf_(f[fieldMap.actual]);
 
-  row[BC_.TC-1]       = '';  // Notes - dikosongkan
+  row[BC_.NOTES-1]    = '';  // Notes - dikosongkan
   row[BC_.ASSIGNED-1] = (f.assignee&&f.assignee.displayName)||'';
   row[BC_.REPORTED_BY-1] = (f.reporter&&f.reporter.displayName)||'';
   row[BC_.DATE_FOUND-1]= f.created?new Date(f.created):'';
   row[BC_.DATE_FIXED-1]= f.resolutiondate?new Date(f.resolutiondate):'';
-  row[BC_.LINK-1]     = instUrl+'/browse/'+key;
-  row[BC_.JIRA_KEY-1] = key;
-  row[BC_.SYNCED-1]   = now;
+  row[BC_.LINK-1]       = instUrl+'/browse/'+key;
+  // BC_.NOTES already set above (line 806)
+  row[BC_.SCREENSHOT-1] = _extractScreenshots_(iss, instKey) || '';  // Extract screenshot URLs from custom field (Col U)
+  row[BC_.JIRA_KEY-1]   = key;
+  row[BC_.SYNCED-1]     = now;
   const nr=Math.max(sh.getLastRow(),BUG_START_-1)+1;
   sh.getRange(nr,1,1,BUG_COLS_).setValues([row]);
   const bg=(nr-BUG_START_)%2===0?'#F8FBFF':'#FFFFFF';
@@ -822,49 +774,29 @@ function _ins_(sh,iss,instUrl,now,mod,instKey){
 }
 
 /**
- * Cleanup function: Remove bugs from sheet that are Closed/Won't Fix in Jira
- * @param {Sheet} bugSh - BugReport sheet
- * @param {Array} jiraIssues - Array of issues from Jira (includes all statuses)
- * @return {number} Number of rows deleted
+ * Extract screenshot/video URLs from Jira custom field "Screenshot/ Video"
+ * @param {Object} iss - Jira issue object
+ * @param {string} instKey - Jira instance key (digitalperuri or bgn-peruri)
+ * @returns {string} - Screenshot/Video URLs from custom field, or empty string
  */
-function _cleanupClosedBugs_(bugSh, jiraIssues) {
-  const last = bugSh.getLastRow();
-  if (last < BUG_START_) return 0;
+function _extractScreenshots_(iss, instKey) {
+  if (!iss || !iss.fields) return '';
 
-  // Build map of Jira key -> status
-  const jiraStatusMap = {};
-  jiraIssues.forEach(iss => {
-    const key = iss.key;
-    const statusName = iss.fields.status && iss.fields.status.name;
-    jiraStatusMap[key] = statusName;
-  });
+  const fieldMap = JIRA_FIELD_MAP_[instKey] || JIRA_FIELD_MAP_['digitalperuri'];
+  const screenshotFieldId = fieldMap.screenshot;
+  if (!screenshotFieldId) return '';
 
-  // Get all rows from sheet
-  const data = bugSh.getRange(BUG_START_, 1, last - BUG_START_ + 1, BUG_COLS_).getValues();
-  const rowsToDelete = [];
+  const screenshotValue = iss.fields[screenshotFieldId];
+  if (!screenshotValue) return '';
 
-  // Find rows where Jira status is Closed/Won't Fix
-  data.forEach((row, idx) => {
-    const jiraKey = String(row[BC_.JIRA_KEY - 1]).trim();
-
-    if (!jiraKey) return; // Skip rows without Jira key (manual bugs)
-
-    const jiraStatus = jiraStatusMap[jiraKey];
-
-    // If bug exists in Jira and status is Closed/Won't Fix, mark for deletion
-    if (jiraStatus === 'Closed' || jiraStatus === "Won't Fix") {
-      rowsToDelete.push(BUG_START_ + idx);
-    }
-  });
-
-  // Delete rows in reverse order (from bottom to top) to maintain row numbers
-  if (rowsToDelete.length > 0) {
-    rowsToDelete.reverse().forEach(rowNum => {
-      bugSh.deleteRow(rowNum);
-    });
+  let textValue = '';
+  if (typeof screenshotValue === 'string') {
+    textValue = screenshotValue.trim();
+  } else if (screenshotValue && screenshotValue.content) {
+    textValue = _adf_(screenshotValue);
   }
 
-  return rowsToDelete.length;
+  return textValue || '';
 }
 
 
@@ -1066,6 +998,10 @@ function _adf_(adf){
     if(n.type==='bulletList'||n.type==='orderedList')
       return(n.content||[]).map((it,i)=>(n.type==='orderedList'?(i+1)+'. ':' • ')+
         (it.content||[]).map(ex).join('')).join('\n')+'\n';
+    // Handle inlineCard (embedded links with URL in attrs)
+    if(n.type==='inlineCard'&&n.attrs&&n.attrs.url){
+      return n.attrs.url;  // Extract URL from inlineCard
+    }
     // Handle media nodes (images, attachments) - skip them or add placeholder
     if(n.type==='mediaSingle'||n.type==='mediaInline'||n.type==='media'){
       return'[Image]';  // Placeholder for images

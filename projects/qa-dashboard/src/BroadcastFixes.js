@@ -1465,3 +1465,133 @@ function convertADF_(adf) {
     return '';
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// TC_MASTER NOTES FIX
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Broadcast Fix: Apply TC_Master notes fix to all active QATMs
+ * Fixes column notes that are shifted/misaligned in TC_Master tab
+ */
+function broadcastFixTCNotes() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    'Fix TC_Master Column Notes',
+    'Fix ini akan memperbaiki TC_Master column notes yang bergeser/tertukar.\n\n' +
+    'Proses:\n' +
+    '- Read semua QATM yang aktif dari Config\n' +
+    '- Fix notes di header TC_Master (row 2)\n' +
+    '- Notes dipindahkan ke kolom yang benar\n\n' +
+    'Estimasi waktu: 30-60 detik per QATM.\n\n' +
+    'Lanjutkan?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    const cfg = ss.getSheetByName('Config');
+    if (!cfg) {
+      ui.alert('Config tab tidak ditemukan!');
+      return;
+    }
+
+    const cfgData = cfg.getDataRange().getValues();
+    let successCount = 0;
+    let skipCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    Logger.log('Starting Broadcast Fix TC_Master Notes...');
+    Logger.log('══════════════════════════════════════════');
+
+    for (let i = 3; i < cfgData.length; i++) {
+      const active = cfgData[i][0] === true;
+      const project = String(cfgData[i][2]).trim();
+      const modul = String(cfgData[i][3]).trim();
+      const qatmId = String(cfgData[i][6]).trim();
+
+      if (!active || !qatmId || qatmId.length < 10) continue;
+
+      try {
+        Logger.log('Processing ' + (i - 2) + '/' + (cfgData.length - 3) + ': ' + project + ' - ' + modul);
+
+        const qatmSs = SpreadsheetApp.openById(qatmId);
+        const ws = qatmSs.getSheetByName('TC_Master');
+
+        if (!ws) {
+          Logger.log('  TC_Master tab not found - skipping');
+          skipCount++;
+          continue;
+        }
+
+        applyTCNotesFix_(ws);
+        successCount++;
+        Logger.log('  Fixed: ' + qatmSs.getName());
+
+      } catch (e) {
+        Logger.log('  Error: ' + e.message);
+        errorCount++;
+        errors.push(project + ' - ' + modul + ' (' + e.message + ')');
+      }
+    }
+
+    Logger.log('══════════════════════════════════════════');
+    Logger.log('BROADCAST FIX COMPLETE');
+    Logger.log('Success: ' + successCount + ', Skipped: ' + skipCount + ', Errors: ' + errorCount);
+
+    let msg = 'Broadcast Fix TC_Master Notes Complete!\n\n';
+    msg += 'Summary:\n';
+    msg += '- Success: ' + successCount + ' QATM(s)\n';
+    msg += '- Skipped: ' + skipCount + ' QATM(s)\n';
+    msg += '- Errors: ' + errorCount + ' QATM(s)\n';
+
+    if (errors.length > 0) {
+      msg += '\nErrors:\n';
+      errors.forEach(err => msg += '- ' + err + '\n');
+    }
+
+    ui.alert('Broadcast Complete', msg, ui.ButtonSet.OK);
+
+  } catch (e) {
+    ui.alert('Error', 'Error during broadcast: ' + e.message, ui.ButtonSet.OK);
+    Logger.log('Broadcast error: ' + e.message);
+  }
+}
+
+/**
+ * Helper: Apply TC notes fix to a worksheet
+ * Fixes the column notes that are shifted/misaligned
+ * Notes are applied to ROW 2 (header row for data columns)
+ */
+function applyTCNotesFix_(ws) {
+  const correctNotes = [
+    'Row number. Auto-filled when data is entered.',
+    'SubModule — 3rd level in QA hierarchy:\n  Project > Module > SubModule > Feature\n\nSubModule = smallest standalone unit (one app or one domain).\n\nLayered project (e.g. SIPGN):\n  1.1 = Module 1, SubModule 1 (Nutritionist App)\n  1.2 = Module 1, SubModule 2 (Courier App)\n\nFlat project (e.g. INAGOV):\n  Direct name: Talenta, e-Office, SIMPEG\n\nMust be IDENTICAL in TC_Master and API_Master\nfor Dashboard coverage to merge correctly.',
+    'TEST CASE ID\nUnique identifier untuk test case\n\nFORMAT RECOMMENDED:\nTC001, TC002, TC003...\natau TC-LOGIN-001, TC-DASHBOARD-001\n\nPENTING:\n• Harus unique dalam 1 modul\n• Jangan diubah setelah dibuat (untuk traceability)\n• Gunakan format yang konsisten',
+    'Feature — Specific feature or page name.\nExamples: Login Page, Checkout Flow, User Management\nUsed for grouping Coverage per Feature in Summary.',
+    'Priority & Impact:\n\nCRITICAL  → Must PASS before release. FAIL = release BLOCKED.\nHIGH      → Must PASS in same sprint. FAIL = needs PM approval.\nMEDIUM    → Potential blocker. Fix before UAT.\nLOW       → Non-blocker. Fix in next sprint.\nLOWEST    → Nice to have. Optional.\n\nAuto Test Level:\nCritical / High / Medium → Smoke Test\nLow / Lowest             → Regression Test',
+    'Platform: Web / Mobile / Web & Mobile',
+    'Test Type:\n  Positive   = happy path (valid data, expected flow)\n  Negative   = error case (invalid input, rejected action)\n  Edge Case  = boundary condition',
+    'Automation Status:\n  Automated           = script exists and runs\n  To Do               = planned, not yet done\n  Manual              = decided to stay manual\n  Cannot be Automated = technically not possible',
+    'Version: App version when TC was created. e.g. v1.0, v2.3',
+    'Role (RBAC) — The user role executing this scenario.\n\nExamples: Admin, Super Admin, User, Viewer, Operator, Supervisor, Guest\n\nUsed to:\n  • Verify test coverage per role\n  • Confirm access control (RBAC) is correct\n  • Ensure 403 Forbidden for unauthorized roles',
+    'SCENARIO NAMING STANDARD\n\nHappy Path : [Role] Successfully [Verb] [Object]\nNegative   : [Role] Failed to [Verb] [Object] with [Condition]\n\nRules:\n  • Role, Object → Title Case  (Nutritionist, Meal Plan)\n  • Verb → active  (Create, Pick Up, Confirm, Submit)\n  • Do not use: success/succeed, do, perform, process\n\nStandard examples:\n  Nutritionist Successfully Creates Meal Plan\n  Admin Failed to Delete User with Invalid ID\n\n───────────────────────────────────────\nSCENARIO OUTLINE (write here in this column)\nUse when same steps + same outcome type, different data.\nRule: all Examples = Positive only OR Negative only.\n\nNegative example:\nUser Failed to Log In with <invalid_credential>\nExamples:\n- Invalid password\n- Empty password\n- Expired session\n\nPositive example:\nAdmin Successfully Creates User with Role <role>\nExamples:\n- Viewer\n- Operator\n- Supervisor',
+    'Steps / Gherkin Syntax\n\nUse BDD format:\nGiven [initial context]\nWhen [action taken]\nThen [expected outcome]\n\nExample:\nGiven user is on login page\nWhen user enters valid credentials\nAnd clicks login button\nThen user is redirected to dashboard',
+    'Expected Result — What should happen when test passes.\n\nBe specific and measurable:\n  Good: "User sees success message: Account created"\n  Good: "Page loads within 3 seconds"\n  Bad: "It works" (too vague)',
+    '[AUTO] Test Level\nAuto-calculated based on Priority:\n\nPriority = Critical/High/Medium → Smoke Test\nPriority = Low/Lowest → Regression Test\n\nDO NOT edit manually - this is auto-filled by formula.'
+  ];
+
+  ws.getRange(2, 1, 1, correctNotes.length).clearNote();
+
+  for (let col = 1; col <= correctNotes.length; col++) {
+    ws.getRange(2, col).setNote(correctNotes[col - 1]);
+  }
+
+  Logger.log('  All column notes updated (14 columns) at row 2');
+}
