@@ -4,6 +4,9 @@
  * Updated: Changed bullet points from ● to ▬ for consistent formatting
  */
 
+// Latest Web App URL - Update this when deploying new web app version
+const LATEST_WEBAPP_URL = 'https://script.google.com/a/macros/inadigital.co.id/s/AKfycbxym3cABwoaZG20jJeyJ1O1UPiz5gDWpEvHiqv67OqJSgevEsFDrnMxqwpgOyk8VyDU4g/exec';
+
 /**
  * Send blocker notification to Google Chat and Email
  * Run manually for testing or via daily trigger
@@ -1185,9 +1188,9 @@ function sendGoogleChatNotification_(webhookUrl, blockerData) {
     // ══════════════════════════════════════════════════════════════════════
     // FOOTER: Dashboard Links (shortened)
     // ══════════════════════════════════════════════════════════════════════
-    // Get Web App URL from Script Properties
+    // Get Web App URL from Script Properties (fallback to latest)
     const scriptProps = PropertiesService.getScriptProperties();
-    const dashboardWebAppUrl = scriptProps.getProperty('WEB_APP_URL') || dashboardUrl;
+    const dashboardWebAppUrl = scriptProps.getProperty('WEB_APP_URL') || LATEST_WEBAPP_URL;
 
     message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
     message += '🔗 <' + dashboardWebAppUrl + '|📊 Web Dashboard (QA & VAPT)>  •  <' + dashboardOverviewUrl + '|📋 Sheet Overview>  •  <' + dashboardBugsUrl + '|🐛 Sheet Bugs>';
@@ -1431,9 +1434,9 @@ function sendEmailNotification_(recipients, blockerData) {
     body += '</div>';
 
     // Links section
-    // Get Web App URL from Script Properties
+    // Get Web App URL from Script Properties (fallback to latest)
     const scriptProps = PropertiesService.getScriptProperties();
-    const dashboardWebAppUrl = scriptProps.getProperty('WEB_APP_URL') || dashboardUrl;
+    const dashboardWebAppUrl = scriptProps.getProperty('WEB_APP_URL') || LATEST_WEBAPP_URL;
 
     body += '<div style="background: #E8EAF6; border-left: 4px solid #3F51B5; padding: 15px; margin: 20px 0;">';
     body += '<h3 style="color: #3F51B5; margin-top: 0;">🔗 QUICK LINKS</h3>';
@@ -1478,9 +1481,9 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     const dashboardOverviewUrl = dashboardUrl + '#gid=' + getDashboardOverviewGid_(ss);
     const dashboardVAPTUrl = dashboardUrl + '#gid=' + getDashboardVAPTGid_(ss);
 
-    // Get Web App URL from Script Properties (or fallback to spreadsheet URL)
+    // Get Web App URL from Script Properties (fallback to latest)
     const scriptProps = PropertiesService.getScriptProperties();
-    const dashboardWebAppUrl = scriptProps.getProperty('WEB_APP_URL') || dashboardUrl;
+    const dashboardWebAppUrl = scriptProps.getProperty('WEB_APP_URL') || LATEST_WEBAPP_URL;
 
     // Get detailed bug data from QATM BugReport sheets
     const bugDetails = getBugDetailsFromQATM_(blockerData.modules);
@@ -1746,15 +1749,15 @@ function getWebAppUrl() {
 }
 
 /**
- * AUTO SET Web App URL - Current deployment
- * Run this function directly without parameters
+ * AUTO SET Web App URL - Set latest deployment URL to Script Properties
+ * Run this function after deploying new web app version
+ * Optional: Notifications will auto-fallback to LATEST_WEBAPP_URL if not set
  */
 function autoSetWebAppUrl() {
-  const url = 'https://script.google.com/a/macros/inadigital.co.id/s/AKfycbxym3cABwoaZG20jJeyJ1O1UPiz5gDWpEvHiqv67OqJSgevEsFDrnMxqwpgOyk8VyDU4g/exec';
   const scriptProps = PropertiesService.getScriptProperties();
-  scriptProps.setProperty('WEB_APP_URL', url);
-  Logger.log('✅ Web App URL set to: ' + url);
+  scriptProps.setProperty('WEB_APP_URL', LATEST_WEBAPP_URL);
+  Logger.log('Web App URL set to: ' + LATEST_WEBAPP_URL);
   Logger.log('This URL will be used in WhatsApp, GChat, and Email notifications');
-  return url;
+  return LATEST_WEBAPP_URL;
 }
 
