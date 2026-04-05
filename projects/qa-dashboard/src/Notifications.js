@@ -1750,7 +1750,7 @@ function getWebAppUrl() {
  * Run this function directly without parameters
  */
 function autoSetWebAppUrl() {
-  const url = 'https://script.google.com/a/macros/inadigital.co.id/s/AKfycby2xYW-5VJmy-icA-joSGMsQEPyHpsiVqOZ_x3-0uMOkf_IcmR3Y-JWqq6-DLKWI4Ef2A/exec';
+  const url = 'https://script.google.com/a/macros/inadigital.co.id/s/AKfycbxym3cABwoaZG20jJeyJ1O1UPiz5gDWpEvHiqv67OqJSgevEsFDrnMxqwpgOyk8VyDU4g/exec';
   const scriptProps = PropertiesService.getScriptProperties();
   scriptProps.setProperty('WEB_APP_URL', url);
   Logger.log('✅ Web App URL set to: ' + url);

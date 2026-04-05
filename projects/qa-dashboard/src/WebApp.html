@@ -377,36 +377,6 @@
         </div>
       </div>
 
-      <!-- History Table -->
-      <div class="row mb-4">
-        <div class="col-12">
-          <div class="chart-container">
-            <h5 class="chart-title">📋 Recent History (Last 20 Entries)</h5>
-            <div class="table-responsive">
-              <table class="table table-sm table-hover" id="historyTable">
-                <thead class="table-light">
-                  <tr>
-                    <th>Timestamp</th>
-                    <th>Project</th>
-                    <th>Module</th>
-                    <th>Submodule</th>
-                    <th>PIC QA</th>
-                    <th>Web Pass%</th>
-                    <th>API Pass%</th>
-                    <th>Bugs</th>
-                    <th>Blocker</th>
-                    <th>Critical</th>
-                  </tr>
-                </thead>
-                <tbody id="historyTableBody">
-                  <tr><td colspan="10" class="text-center">Loading...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
     </div>
   </div>
 
@@ -523,12 +493,7 @@
     }
 
     function renderDashboard(data) {
-      console.log('📊 renderDashboard() called with currentFilter:', currentFilter);
-      console.log('Original data.summary.vaptBlocker:', data.summary.vaptBlocker);
-
       const filtered = filterDataByProject(data, currentFilter);
-
-      console.log('After filter - filtered.summary.vaptBlocker:', filtered.summary.vaptBlocker);
 
       // Update summary cards
       updateSummaryCards(filtered.summary, filtered.bugsTable);
@@ -536,9 +501,6 @@
       // Update last updated timestamp
       document.getElementById('lastUpdated').textContent =
         'Last updated: ' + formatDateWIB(filtered.summary.lastUpdated);
-
-      // Update history table
-      updateHistoryTable(filtered.history);
 
       // Draw charts - ensure Google Charts is loaded
       google.charts.setOnLoadCallback(function() {
@@ -661,24 +623,10 @@
       document.getElementById('devBugs').textContent = devBugs;
 
       // Update VAPT cards (from summary - not affected by module filter)
-      console.log('🔍 DEBUG VAPT Summary received:', {
-        vaptBlocker: summary.vaptBlocker,
-        vaptCritical: summary.vaptCritical,
-        vaptHigh: summary.vaptHigh,
-        vaptMedium: summary.vaptMedium
-      });
-
       document.getElementById('vaptBlocker').textContent = summary.vaptBlocker || 0;
       document.getElementById('vaptCritical').textContent = summary.vaptCritical || 0;
       document.getElementById('vaptHigh').textContent = summary.vaptHigh || 0;
       document.getElementById('vaptMedium').textContent = summary.vaptMedium || 0;
-
-      console.log('✅ VAPT cards updated. Current display:', {
-        blockerText: document.getElementById('vaptBlocker').textContent,
-        criticalText: document.getElementById('vaptCritical').textContent,
-        highText: document.getElementById('vaptHigh').textContent,
-        mediumText: document.getElementById('vaptMedium').textContent
-      });
     }
 
     function drawPassRateChart(historyData) {
@@ -983,9 +931,6 @@
       // Filter only "Combined" type rows (we don't want Ad Hoc and Regular separately)
       const combinedRows = vaptHistoryData.filter(row => String(row[1]).trim() === 'Combined');
 
-      console.log('📊 VAPT Chart - Combined rows found:', combinedRows.length);
-      console.log('First 3 combined rows:', combinedRows.slice(0, 3));
-
       if (combinedRows.length === 0) {
         document.getElementById('vaptTrendChart').innerHTML =
           '<p class="text-muted text-center">No Combined VAPT data available</p>';
@@ -1017,8 +962,6 @@
           };
         }
       });
-
-      console.log('📊 VAPT Chart - Daily aggregated data:', dailyData);
 
       const dailyArray = Object.keys(dailyData).sort().map(date => ({
         date: date,
@@ -1081,43 +1024,6 @@
       chart.draw(data, options);
     }
 
-    function updateHistoryTable(historyData) {
-      const tbody = document.getElementById('historyTableBody');
-      tbody.innerHTML = '';
-
-      if (historyData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No data available</td></tr>';
-        return;
-      }
-
-      // Get last 20 entries
-      const last20 = historyData.slice(-20).reverse();
-
-      last20.forEach(row => {
-        const tr = document.createElement('tr');
-
-        const fmt = (val) => {
-          if (val === null || val === undefined || val === '') return '-';
-          if (typeof val === 'number' && val < 1) return Math.round(val * 100) + '%';
-          return val;
-        };
-
-        tr.innerHTML = `
-          <td>${formatDateWIB(row[0])}</td>
-          <td>${row[1]}</td>
-          <td>${row[2]}</td>
-          <td>${row[3]}</td>
-          <td>${row[4]}</td>
-          <td>${fmt(row[5])}</td>
-          <td>${fmt(row[7])}</td>
-          <td>${row[14]}</td>
-          <td><span class="badge ${row[16] > 0 ? 'badge-danger' : 'badge-success'}">${row[16]}</span></td>
-          <td><span class="badge ${row[17] > 0 ? 'badge-warning' : 'badge-success'}">${row[17]}</span></td>
-        `;
-
-        tbody.appendChild(tr);
-      });
-    }
   </script>
 </body>
 </html>

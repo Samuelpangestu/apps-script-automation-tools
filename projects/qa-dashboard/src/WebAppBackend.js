@@ -298,7 +298,6 @@ function getSummaryData_(ss) {
       // Read Total Blocker from summary cell B5 (row 5, col 2)
       const b5Value = vaptTab.getRange(5, 2).getValue();
       vaptBlocker = Number(b5Value) || 0;
-      Logger.log('🔍 DEBUG: VAPT cell B5 value = ' + b5Value + ', converted to number = ' + vaptBlocker);
 
       // Calculate breakdown from app rows (starting row 10)
       // This gives us the severity breakdown for today's blocker
