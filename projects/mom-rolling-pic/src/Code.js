@@ -1,13 +1,15 @@
 // ============================================================
-// STANDUP MOM ROLLER v2
-// Fitur: Random Rolling, Google Chat, Email, MOM Docs
+// STANDUP MOM ROLLER v3
+// Fitur: Random Rolling, Google Chat, Email, WhatsApp (Fonnte), MOM Docs
+// Pre-Meeting Reminders: WhatsApp notification before meeting
 // Jadwal: Senin, Rabu, Jumat
-// Update: Hapus WhatsApp, fix MOM Doc creation
+// Update: Add WhatsApp reminder + Update Harian tracking sheet
 // ============================================================
 
-var SHEET_TIM    = "Tim";
-var SHEET_JADWAL = "Jadwal";
-var SHEET_CONFIG = "Config";
+var SHEET_TIM     = "Tim";
+var SHEET_JADWAL  = "Jadwal";
+var SHEET_CONFIG  = "Config";
+var SHEET_UPDATE  = "Update Harian";
 
 
 // ============================================================
@@ -20,6 +22,7 @@ function onOpen() {
     .addItem("2. Aktifkan Trigger Otomatis", "setupTrigger")
     .addSeparator()
     .addItem("Test Rolling Sekarang", "rollAssignment")
+    .addItem("Test WhatsApp Reminder", "testWhatsAppReminder")
     .addItem("Test Buat MOM Doc Saja", "testCreateDoc")
     .addItem("Cek Folder ID", "cekFolderId")
     .addSeparator()
@@ -69,6 +72,30 @@ function setupSheets() {
               .setHorizontalAlignment("center");
   sheetJadwal.autoResizeColumns(1, 6);
 
+  // Sheet: Update Harian (NEW)
+  var sheetUpdate = ss.getSheetByName(SHEET_UPDATE);
+  if (!sheetUpdate) { sheetUpdate = ss.insertSheet(SHEET_UPDATE); }
+  sheetUpdate.clearContents();
+  sheetUpdate.clearFormats();
+
+  var updateHeader = sheetUpdate.getRange("A1:I1");
+  updateHeader.setValues([["Nama", "Email", "Selesai Kemarin", "Akan Dikerjakan", "Bug Report", "Status Bug (Prod/Stg/Dev)", "Test Exec Status", "Update Jira", "Last Update"]]);
+  updateHeader.setFontWeight("bold")
+              .setBackground("#f9ab00")
+              .setFontColor("white")
+              .setHorizontalAlignment("center")
+              .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+
+  sheetUpdate.setColumnWidth(1, 150);  // Nama
+  sheetUpdate.setColumnWidth(2, 200);  // Email
+  sheetUpdate.setColumnWidth(3, 180);  // Selesai Kemarin
+  sheetUpdate.setColumnWidth(4, 180);  // Akan Dikerjakan
+  sheetUpdate.setColumnWidth(5, 150);  // Bug Report
+  sheetUpdate.setColumnWidth(6, 120);  // Status Bug
+  sheetUpdate.setColumnWidth(7, 120);  // Test Exec
+  sheetUpdate.setColumnWidth(8, 100);  // Update Jira
+  sheetUpdate.setColumnWidth(9, 140);  // Last Update
+
   // Sheet: Config
   var sheetConfig = ss.getSheetByName(SHEET_CONFIG);
   if (!sheetConfig) { sheetConfig = ss.insertSheet(SHEET_CONFIG); }
@@ -76,21 +103,30 @@ function setupSheets() {
   sheetConfig.clearFormats();
 
   var configData = [
-    ["Google Chat Webhook URL",          "PASTE_WEBHOOK_URL_DISINI"],
-    ["Email CC (pisahkan dengan koma)",  "manager@email.com"],
-    ["Google Meet Link Recurring",       "https://meet.google.com/xxx-xxxx-xxx"],
-    ["Nama Tim",                         "QE INADigital"],
-    ["Jam Notifikasi (angka saja)",      "8"],
-    ["Google Drive Folder ID untuk MOM", "PASTE_FOLDER_ID_DISINI"]
+    ["Google Chat Webhook URL",            "PASTE_WEBHOOK_URL_DISINI"],
+    ["Email CC (pisahkan dengan koma)",    "manager@email.com"],
+    ["Google Meet Link Recurring",         "https://meet.google.com/xxx-xxxx-xxx"],
+    ["Nama Tim",                           "QE INADigital"],
+    ["Jam Notifikasi (angka saja)",        "8"],
+    ["Google Drive Folder ID untuk MOM",   "PASTE_FOLDER_ID_DISINI"],
+    ["WhatsApp Group ID (atau kosongkan)", ""],
+    ["Fonnte Token",                       ""],
+    ["Reminder (menit sebelum meeting)",   "30"]
   ];
 
-  sheetConfig.getRange("A1:B6").setValues(configData);
-  sheetConfig.getRange("A1:A6").setFontWeight("bold").setBackground("#f8f9fa");
-  sheetConfig.getRange("A1:B6").setBorder(
+  sheetConfig.getRange("A1:B9").setValues(configData);
+  sheetConfig.getRange("A1:A9").setFontWeight("bold").setBackground("#f8f9fa");
+  sheetConfig.getRange("A1:B9").setBorder(
     true, true, true, true, true, true,
     "#e0e0e0", SpreadsheetApp.BorderStyle.SOLID
   );
-  sheetConfig.autoResizeColumns(1, 2);
+  sheetConfig.setColumnWidth(1, 280);
+  sheetConfig.setColumnWidth(2, 350);
+
+  // Add notes for new config
+  sheetConfig.getRange("A7").setNote("WhatsApp Group ID (format: 120363xxx@g.us)\nKosongkan jika kirim individual ke setiap anggota tim");
+  sheetConfig.getRange("A8").setNote("Token API dari Fonnte.com");
+  sheetConfig.getRange("A9").setNote("Berapa menit sebelum meeting untuk kirim reminder WhatsApp\nContoh: 30 = reminder 30 menit sebelum");
 
   // Hapus sheet WhatsApp Log jika ada
   var sheetWA = ss.getSheetByName("WhatsApp Log");
@@ -100,21 +136,28 @@ function setupSheets() {
     "Setup Selesai!",
     "Langkah selanjutnya:\n\n" +
     "1. Isi data tim di sheet 'Tim' (Nama & Email)\n" +
-    "2. Lengkapi sheet 'Config'\n" +
+    "2. Lengkapi sheet 'Config' (termasuk WhatsApp config baru)\n" +
     "3. Klik menu > Aktifkan Trigger Otomatis\n\n" +
-    "Tips ambil Folder ID Google Drive:\n" +
-    "Buka folder di Drive > lihat URL > salin ID setelah /folders/",
+    "Fitur Baru v3:\n" +
+    "- WhatsApp reminder sebelum meeting\n" +
+    "- Sheet 'Update Harian' untuk tracking pre-meeting\n" +
+    "- MOM Doc auto-filled dari sheet Update Harian\n\n" +
+    "Tips:\n" +
+    "- Folder ID: Buka folder di Drive > lihat URL > salin ID setelah /folders/\n" +
+    "- WhatsApp Group ID: Format 120363xxx@g.us\n" +
+    "- Fonnte Token: Daftar di fonnte.com",
     ui.ButtonSet.OK
   );
 }
 
 
 // ============================================================
-// SETUP TRIGGER
+// SETUP TRIGGER - 2 TRIGGERS (Pre-Meeting + Meeting Time)
 // ============================================================
 function setupTrigger() {
   var ui = SpreadsheetApp.getUi();
 
+  // Delete all existing triggers
   var triggers = ScriptApp.getProjectTriggers();
   for (var i = 0; i < triggers.length; i++) {
     ScriptApp.deleteTrigger(triggers[i]);
@@ -123,19 +166,58 @@ function setupTrigger() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheetConfig = ss.getSheetByName(SHEET_CONFIG);
   var jamNotif = parseInt(sheetConfig.getRange("B5").getValue()) || 8;
+  var reminderMinutes = parseInt(sheetConfig.getRange("B9").getValue()) || 30;
 
+  // Calculate reminder time (meeting time - reminder minutes)
+  // Example: Meeting at 11:00 (hour 11), reminder 30 min before = trigger at 10:30
+  var reminderHour = jamNotif;
+  var reminderMinute = 0;
+
+  if (reminderMinutes >= 60) {
+    reminderHour = jamNotif - Math.floor(reminderMinutes / 60);
+    reminderMinute = 60 - (reminderMinutes % 60);
+  } else {
+    if (reminderMinutes > 0) {
+      reminderHour = jamNotif - 1;
+      reminderMinute = 60 - reminderMinutes;
+    }
+  }
+
+  // Normalize if reminder hour is negative (e.g., meeting at 8:00, reminder 120 min = 6:00)
+  if (reminderHour < 0) {
+    reminderHour = 23 + reminderHour;
+  }
+
+  // TRIGGER 1: Pre-Meeting Reminder (WhatsApp to all team)
+  ScriptApp.newTrigger("sendPreMeetingReminder")
+    .timeBased()
+    .everyDays(1)
+    .atHour(reminderHour)
+    .nearMinute(reminderMinute)
+    .create();
+
+  // TRIGGER 2: Rolling at meeting time (create MOM doc + notify)
   ScriptApp.newTrigger("rollAssignment")
     .timeBased()
     .everyDays(1)
     .atHour(jamNotif)
     .create();
 
+  var reminderTime = (reminderHour < 10 ? "0" : "") + reminderHour + ":" + (reminderMinute < 10 ? "0" : "") + reminderMinute;
+  var meetingTime = (jamNotif < 10 ? "0" : "") + jamNotif + ":00";
+
   ui.alert(
     "Trigger Aktif!",
     "Rolling otomatis berjalan setiap:\n" +
-    "- Senin jam " + jamNotif + ":00\n" +
-    "- Rabu jam " + jamNotif + ":00\n" +
-    "- Jumat jam " + jamNotif + ":00\n\n" +
+    "- Senin, Rabu, Jumat\n\n" +
+    "JADWAL TRIGGER:\n" +
+    "1. Pre-Meeting Reminder (WhatsApp): " + reminderTime + "\n" +
+    "   - Kirim reminder ke tim\n" +
+    "   - Tim isi 'Update Harian' sheet\n\n" +
+    "2. Meeting Time (Rolling): " + meetingTime + "\n" +
+    "   - Random pick PIC\n" +
+    "   - Buat MOM Doc (auto-filled)\n" +
+    "   - Kirim Google Chat + Email\n\n" +
     "(Hari lain otomatis di-skip)",
     ui.ButtonSet.OK
   );
@@ -143,7 +225,118 @@ function setupTrigger() {
 
 
 // ============================================================
-// MAIN FUNCTION
+// PRE-MEETING REMINDER (WhatsApp)
+// ============================================================
+function sendPreMeetingReminder() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var today = new Date();
+  var day   = today.getDay();
+
+  // Hanya Senin(1), Rabu(3), Jumat(5)
+  if (day !== 1 && day !== 3 && day !== 5) {
+    Logger.log("Bukan hari standup (" + day + "), skip pre-meeting reminder.");
+    return;
+  }
+
+  // Ambil Config
+  var sheetConfig  = ss.getSheetByName(SHEET_CONFIG);
+  var configValues = sheetConfig.getRange("B1:B9").getValues();
+  var meetLink     = configValues[2][0].toString();
+  var timName      = configValues[3][0].toString();
+  var jamNotif     = parseInt(configValues[4][0]) || 8;
+  var waGroupId    = configValues[6][0].toString().trim();
+  var fontteToken  = configValues[7][0].toString().trim();
+  var reminderMin  = parseInt(configValues[8][0]) || 30;
+
+  // Check WhatsApp config
+  if (!fontteToken || fontteToken === "") {
+    Logger.log("Fonnte Token tidak diset, skip WhatsApp reminder.");
+    return;
+  }
+
+  // Ambil Data Tim
+  var sheetTim = ss.getSheetByName(SHEET_TIM);
+  var lastRow  = sheetTim.getLastRow();
+
+  if (lastRow < 2) {
+    Logger.log("Data tim kosong.");
+    return;
+  }
+
+  var timData  = sheetTim.getRange(2, 1, lastRow - 1, 2).getValues();
+  var timAktif = [];
+  for (var i = 0; i < timData.length; i++) {
+    if (timData[i][0].toString().trim() !== "" && timData[i][1].toString().trim() !== "") {
+      timAktif.push(timData[i]);
+    }
+  }
+
+  if (timAktif.length === 0) {
+    Logger.log("Tidak ada anggota aktif.");
+    return;
+  }
+
+  // Prepare Update Harian sheet - clear and populate with team data
+  var sheetUpdate = ss.getSheetByName(SHEET_UPDATE);
+  if (!sheetUpdate) {
+    Logger.log("Sheet 'Update Harian' tidak ditemukan.");
+    return;
+  }
+
+  // Clear data (keep header)
+  if (sheetUpdate.getLastRow() > 1) {
+    sheetUpdate.getRange(2, 1, sheetUpdate.getLastRow() - 1, 9).clear();
+  }
+
+  // Populate with team members
+  var updateData = [];
+  for (var i = 0; i < timAktif.length; i++) {
+    updateData.push([timAktif[i][0], timAktif[i][1], "", "", "", "", "", "", ""]);
+  }
+  sheetUpdate.getRange(2, 1, updateData.length, 9).setValues(updateData);
+
+  // Format Tanggal
+  var hariArr   = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+  var hariNama  = hariArr[day];
+  var tanggal   = Utilities.formatDate(today, "Asia/Jakarta", "dd/MM/yyyy");
+  var waktu     = (jamNotif < 10 ? "0" : "") + jamNotif + ":00";
+
+  // Build WhatsApp message
+  var sheetUrl = ss.getUrl() + "#gid=" + sheetUpdate.getSheetId();
+
+  var message = "*REMINDER: Standup Meeting in " + reminderMin + " minutes*\n\n";
+  message += "*Tim:* " + timName + "\n";
+  message += "*Meeting:* " + hariNama + ", " + tanggal + " at " + waktu + " WIB\n";
+  message += "*Link:* " + meetLink + "\n\n";
+  message += "━━━━━━━━━━━━━━━\n\n";
+  message += "*ACTION REQUIRED: Please update your status NOW*\n\n";
+  message += "Update 'Update Harian' sheet dengan 6 items:\n\n";
+  message += "1. Selesai Kemarin (What was completed)\n";
+  message += "2. Akan Dikerjakan (What will be done today)\n";
+  message += "3. Bug Report (Bug IDs or summary)\n";
+  message += "4. Status Bug (Prod/Stg/Dev)\n";
+  message += "5. Test Exec Status (% complete, blocked)\n";
+  message += "6. Update Jira (Ticket IDs updated)\n\n";
+  message += "Link Sheet: " + sheetUrl + "\n\n";
+  message += "_Ini akan mempersingkat waktu meeting. Terima kasih!_";
+
+  // Send WhatsApp
+  if (waGroupId && waGroupId.includes("@g.us")) {
+    // Send to group
+    sendWhatsApp_(fontteToken, waGroupId, message);
+    Logger.log("WhatsApp reminder sent to group: " + waGroupId);
+  } else {
+    // Send individual messages to each team member
+    // Extract phone numbers from email (or use separate phone column if available)
+    // For now, send to all via personal message (need phone numbers)
+    Logger.log("WhatsApp Group ID tidak diset. Untuk individual messages, perlu tambah kolom nomor HP di sheet Tim.");
+    Logger.log("Message yang akan dikirim:\n" + message);
+  }
+}
+
+
+// ============================================================
+// MAIN FUNCTION - ROLL ASSIGNMENT (Enhanced with Update Harian data)
 // ============================================================
 function rollAssignment() {
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
@@ -158,7 +351,7 @@ function rollAssignment() {
 
   // Ambil Config
   var sheetConfig  = ss.getSheetByName(SHEET_CONFIG);
-  var configValues = sheetConfig.getRange("B1:B6").getValues();
+  var configValues = sheetConfig.getRange("B1:B9").getValues();
   var gchatWebhook = configValues[0][0].toString();
   var emailCC      = configValues[1][0].toString();
   var meetLink     = configValues[2][0].toString();
@@ -187,11 +380,41 @@ function rollAssignment() {
     return;
   }
 
-  // Random Pick
-  var randomIdx = Math.floor(Math.random() * timAktif.length);
-  var picData   = timAktif[randomIdx];
+  // Get yesterday's PIC to exclude from today's pool
+  var sheetJadwal = ss.getSheetByName(SHEET_JADWAL);
+  var lastJadwalRow = sheetJadwal.getLastRow();
+  var yesterdayPIC = null;
+
+  if (lastJadwalRow >= 2) {
+    var lastPIC = sheetJadwal.getRange(lastJadwalRow, 3).getValue().toString().trim();
+    if (lastPIC) {
+      yesterdayPIC = lastPIC;
+      Logger.log("Yesterday's PIC: " + yesterdayPIC);
+    }
+  }
+
+  // Filter tim aktif - exclude yesterday's PIC
+  var availablePool = [];
+  for (var i = 0; i < timAktif.length; i++) {
+    var nama = timAktif[i][0].toString().trim();
+    if (nama !== yesterdayPIC) {
+      availablePool.push(timAktif[i]);
+    }
+  }
+
+  // If all team members have been PIC recently, reset pool
+  if (availablePool.length === 0) {
+    Logger.log("All team members already PIC recently - resetting pool");
+    availablePool = timAktif;
+  }
+
+  // Random Pick from available pool
+  var randomIdx = Math.floor(Math.random() * availablePool.length);
+  var picData   = availablePool[randomIdx];
   var namaPIC   = picData[0].toString().trim();
   var emailPIC  = picData[1].toString().trim();
+
+  Logger.log("Selected PIC: " + namaPIC + " (from pool of " + availablePool.length + " candidates)");
 
   // Format Tanggal
   var hariArr   = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
@@ -199,15 +422,26 @@ function rollAssignment() {
   var tanggal   = Utilities.formatDate(today, "Asia/Jakarta", "dd/MM/yyyy");
   var sesiLabel = hariNama + ", " + tanggal;
 
-  // Generate MOM Doc DULU sebelum kirim notif
-  var docUrl = createMOMDoc(namaPIC, sesiLabel, tanggal, hariNama, meetLink, timName, folderId);
+  // Read Update Harian data
+  var updateData = readUpdateHarian_();
+
+  // Get ALL team members for MOM doc (not just who filled Update Harian)
+  var allTeamMembers = [];
+  for (var i = 0; i < timAktif.length; i++) {
+    allTeamMembers.push({
+      nama: timAktif[i][0].toString().trim(),
+      email: timAktif[i][1].toString().trim()
+    });
+  }
+
+  // Generate MOM Doc with all team members + update data
+  var docUrl = createMOMDoc(namaPIC, sesiLabel, tanggal, hariNama, meetLink, timName, folderId, allTeamMembers, updateData);
 
   if (!docUrl) {
     Logger.log("PERINGATAN: MOM Doc gagal dibuat. Notifikasi tetap dikirim tanpa link doc.");
   }
 
   // Simpan ke History (termasuk link doc)
-  var sheetJadwal = ss.getSheetByName(SHEET_JADWAL);
   sheetJadwal.appendRow([tanggal, hariNama, namaPIC, emailPIC, docUrl || "Gagal dibuat", new Date()]);
 
   // Kirim Notifikasi
@@ -227,14 +461,56 @@ function rollAssignment() {
 
 
 // ============================================================
-// BUILD PESAN - Google Chat
+// READ UPDATE HARIAN DATA
+// ============================================================
+function readUpdateHarian_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetUpdate = ss.getSheetByName(SHEET_UPDATE);
+
+  if (!sheetUpdate) {
+    Logger.log("Sheet Update Harian tidak ditemukan.");
+    return [];
+  }
+
+  var lastRow = sheetUpdate.getLastRow();
+  if (lastRow < 2) {
+    Logger.log("Sheet Update Harian kosong.");
+    return [];
+  }
+
+  // Read all data (skip header row 1)
+  var data = sheetUpdate.getRange(2, 1, lastRow - 1, 9).getValues();
+  var result = [];
+
+  for (var i = 0; i < data.length; i++) {
+    var nama = data[i][0].toString().trim();
+    if (nama === "") continue;
+
+    result.push({
+      nama:          nama,
+      email:         data[i][1].toString().trim(),
+      selesai:       data[i][2].toString().trim(),
+      akanDikerjakan: data[i][3].toString().trim(),
+      bugReport:     data[i][4].toString().trim(),
+      statusBug:     data[i][5].toString().trim(),
+      testExec:      data[i][6].toString().trim(),
+      updateJira:    data[i][7].toString().trim()
+    });
+  }
+
+  return result;
+}
+
+
+// ============================================================
+// BUILD PESAN - Google Chat (with mention)
 // ============================================================
 function buildChatMessage(namaPIC, sesiLabel, meetLink, timName, docUrl) {
   var lines = [
     "ROLLING MOM STANDUP - " + timName,
     "",
     "Sesi    : " + sesiLabel,
-    "PIC MOM : " + namaPIC,
+    "PIC MOM : <users/all> " + namaPIC,  // Mention in Google Chat
     "Meet    : " + meetLink
   ];
 
@@ -270,6 +546,54 @@ function sendGoogleChat(webhookUrl, pesan) {
     Logger.log("Google Chat terkirim");
   } catch (e) {
     Logger.log("Gagal kirim Google Chat: " + e.message);
+  }
+}
+
+
+// ============================================================
+// KIRIM - WhatsApp (Fonnte API)
+// ============================================================
+function sendWhatsApp_(fontteToken, target, message) {
+  try {
+    var url = 'https://api.fonnte.com/send';
+
+    var payload = {
+      target: target,
+      message: message
+    };
+
+    var options = {
+      method: 'post',
+      headers: {
+        'Authorization': fontteToken
+      },
+      payload: payload,
+      muteHttpExceptions: true
+    };
+
+    var response = UrlFetchApp.fetch(url, options);
+    var responseCode = response.getResponseCode();
+    var responseText = response.getContentText();
+
+    Logger.log('WhatsApp Response Code: ' + responseCode);
+    Logger.log('WhatsApp Response: ' + responseText);
+
+    if (responseCode === 200) {
+      var data = JSON.parse(responseText);
+      if (data.status) {
+        Logger.log('WhatsApp sent successfully to: ' + target);
+        return true;
+      } else {
+        Logger.log('WhatsApp send failed: ' + data.reason);
+        return false;
+      }
+    } else {
+      Logger.log('WhatsApp API error: ' + responseCode + ' - ' + responseText);
+      return false;
+    }
+  } catch (e) {
+    Logger.log('WhatsApp send exception: ' + e.message);
+    return false;
   }
 }
 
@@ -356,9 +680,9 @@ function sendEmail(emailTo, emailCC, namaPIC, sesiLabel, meetLink, timName, docU
 
 
 // ============================================================
-// CREATE MOM GOOGLE DOC
+// CREATE MOM GOOGLE DOC (Simple Narrative Format)
 // ============================================================
-function createMOMDoc(namaPIC, sesiLabel, tanggal, hariNama, meetLink, timName, folderId) {
+function createMOMDoc(namaPIC, sesiLabel, tanggal, hariNama, meetLink, timName, folderId, allTeamMembers, updateData) {
   try {
     // Buat doc di root dulu (paling aman)
     var docName = "MOM Standup - " + hariNama + " " + tanggal + " - PIC " + namaPIC;
@@ -407,27 +731,71 @@ function createMOMDoc(namaPIC, sesiLabel, tanggal, hariNama, meetLink, timName, 
 
     body.appendParagraph("");
 
-    // SECTION 1: Update Harian
+    // SECTION 1: Update Harian (Simple Narrative Format)
     var s1 = body.appendParagraph("1. UPDATE HARIAN PER ANGGOTA");
     s1.setHeading(DocumentApp.ParagraphHeading.HEADING2);
     s1.editAsText().setForegroundColor("#1e8e3e").setBold(true);
 
-    body.appendParagraph("Isi update masing-masing anggota di bawah ini:")
-        .editAsText().setItalic(true).setForegroundColor("#9e9e9e").setFontSize(9);
+    var reminderText = body.appendParagraph(
+      "Isi untuk setiap anggota (3 essentials + reminder):\n" +
+      "• Kemarin: Apa yang sudah selesai\n" +
+      "• Hari Ini: Apa yang akan dikerjakan\n" +
+      "• Notes: Bug report, Status bug (Prod/Stg/Dev), Test exec status, Update Jira (jika ada)"
+    );
+    reminderText.editAsText().setItalic(true).setForegroundColor("#9e9e9e").setFontSize(9);
 
-    var updateRows = [["No", "Nama Anggota", "Kemarin (Sudah Dikerjakan)", "Hari Ini (Akan Dikerjakan)", "Blocker / Kendala"]];
-    for (var u = 1; u <= 15; u++) {
-      updateRows.push([u.toString(), "", "", "", ""]);
+    body.appendParagraph("");
+
+    // Create update data map for quick lookup
+    var updateMap = {};
+    if (updateData && updateData.length > 0) {
+      for (var u = 0; u < updateData.length; u++) {
+        updateMap[updateData[u].nama] = updateData[u];
+      }
     }
 
-    var updateTable = body.appendTable(updateRows);
-    styleTableHeader(updateTable, "#1a73e8");
-    updateTable.setBorderColor("#e0e0e0");
-    updateTable.setColumnWidth(0, 25);
-    updateTable.setColumnWidth(1, 100);
-    updateTable.setColumnWidth(2, 155);
-    updateTable.setColumnWidth(3, 155);
-    updateTable.setColumnWidth(4, 120);
+    // Iterate through ALL team members (from Tab Tim)
+    for (var i = 0; i < allTeamMembers.length; i++) {
+      var member = allTeamMembers[i];
+      var nama = member.nama;
+      var prefilledData = updateMap[nama];  // Check if they filled Update Harian
+
+      // Member name (bold)
+      var namaPara = body.appendParagraph(nama);
+      namaPara.editAsText().setBold(true).setFontSize(11).setForegroundColor("#1a73e8");
+
+      // Kemarin (pre-filled if available)
+      var kemarinText = "Kemarin: ";
+      if (prefilledData && prefilledData.selesai) {
+        kemarinText += prefilledData.selesai;
+      }
+      body.appendParagraph(kemarinText).editAsText().setFontSize(10);
+
+      // Hari Ini (pre-filled if available)
+      var hariIniText = "Hari Ini: ";
+      if (prefilledData && prefilledData.akanDikerjakan) {
+        hariIniText += prefilledData.akanDikerjakan;
+      }
+      body.appendParagraph(hariIniText).editAsText().setFontSize(10);
+
+      // Notes (combine all optional fields, or leave blank for PIC to fill)
+      var notesText = "Notes: ";
+      var notesParts = [];
+
+      if (prefilledData) {
+        if (prefilledData.bugReport) notesParts.push("Bug: " + prefilledData.bugReport);
+        if (prefilledData.statusBug) notesParts.push("Status: " + prefilledData.statusBug);
+        if (prefilledData.testExec) notesParts.push("Test: " + prefilledData.testExec);
+        if (prefilledData.updateJira) notesParts.push("Jira: " + prefilledData.updateJira);
+      }
+
+      if (notesParts.length > 0) {
+        notesText += notesParts.join(" | ");
+      }
+
+      body.appendParagraph(notesText).editAsText().setFontSize(10).setForegroundColor("#5f6368");
+      body.appendParagraph("");  // Spacing between members
+    }
 
     body.appendParagraph("");
 
@@ -500,7 +868,7 @@ function createMOMDoc(namaPIC, sesiLabel, tanggal, hariNama, meetLink, timName, 
     body.appendHorizontalRule();
 
     var footerP = body.appendParagraph(
-      "Dokumen dibuat otomatis oleh Standup Roller | " + sesiLabel + " | PIC: " + namaPIC
+      "Dokumen dibuat otomatis oleh Standup Roller v3 | " + sesiLabel + " | PIC: " + namaPIC
     );
     footerP.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
     footerP.editAsText().setForegroundColor("#bdbdbd").setItalic(true).setFontSize(8);
@@ -556,6 +924,19 @@ function styleTableHeader(table, bgColor) {
 
 
 // ============================================================
+// TEST - WhatsApp Reminder
+// ============================================================
+function testWhatsAppReminder() {
+  sendPreMeetingReminder();
+  SpreadsheetApp.getUi().alert(
+    "Test WhatsApp Reminder",
+    "WhatsApp reminder test selesai.\n\nCek execution log untuk detail.",
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+}
+
+
+// ============================================================
 // TEST - Buat MOM Doc saja (tanpa tunggu hari standup)
 // ============================================================
 function testCreateDoc() {
@@ -572,12 +953,15 @@ function testCreateDoc() {
   var hariNama  = hariArr[today.getDay()];
   var sesiLabel = hariNama + ", " + tanggal + " (TEST)";
 
-  var url = createMOMDoc("Test PIC", sesiLabel, tanggal, hariNama, meetLink, timName, folderId);
+  // Read test data from Update Harian
+  var updateData = readUpdateHarian_();
+
+  var url = createMOMDoc("Test PIC", sesiLabel, tanggal, hariNama, meetLink, timName, folderId, updateData);
 
   SpreadsheetApp.getUi().alert(
     url ? "MOM Doc Berhasil Dibuat!" : "Gagal Membuat MOM Doc",
     url
-      ? "Doc berhasil dibuat!\n\nLink: " + url + "\n\nCek juga folder Google Drive kamu."
+      ? "Doc berhasil dibuat dengan data dari 'Update Harian' sheet!\n\nLink: " + url + "\n\nCek juga folder Google Drive kamu."
       : "Gagal membuat doc.\n\nCara debug:\n1. Buka Apps Script\n2. Klik 'Executions' di menu kiri\n3. Lihat error message di log",
     SpreadsheetApp.getUi().ButtonSet.OK
   );
