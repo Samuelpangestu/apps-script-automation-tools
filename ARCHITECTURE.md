@@ -32,70 +32,169 @@
 - **Spokes:** Individual QATM (QA Test Management) modules per project/module
 - **External:** Jira (bug tracking system)
 
-### Core Components
+### Core Components - End-to-End Flow
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                     QA PORTFOLIO DASHBOARD                        │
-│   (1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY)                │
-│                                                                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   Overview   │  │     Bugs     │  │     VAPT     │          │
-│  │  (KPI Cards) │  │  (Tracking)  │  │  (Security)  │          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-│                                                                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │    Smoke     │  │   History    │  │   Coverage   │          │
-│  │  (Critical)  │  │  (Timeline)  │  │  (Progress)  │          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-│                                                                   │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │                     Config Sheet                          │   │
-│  │  • Module registry (Active/Inactive)                      │   │
-│  │  • Jira Sync configuration                                │   │
-│  │  • Spreadsheet IDs for QATM modules                       │   │
-│  │  • Notification config (WhatsApp, Email, Google Chat)     │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└────────┬──────────────────────────────────┬───────────────┬──────┘
-         │                                  │               │
-         │ refreshDashboard()               │               │
-         │ pullModuleData()                 │               │
-         │                                  │               │ refreshVAPTData()
-         │                                  │               │ fetchAndProcessVAPTData_()
-         │                                  │               │
-┌────────▼─────────┐            ┌──────────▼──────────┐   │
-│  QATM Module 1   │            │  QATM Module N      │   │
-│  (Project A)     │            │  (Project Z)        │   │
-│                  │            │                     │   │
-│ • TC_Master      │            │ • TC_Master         │   │
-│ • TC_Execution   │            │ • TC_Execution      │   │
-│ • API_Master     │            │ • API_Master        │   │
-│ • API_Execution  │            │ • API_Execution     │   │
-│ • BugReport      │            │ • BugReport         │   │
-│ • Summary        │            │ • Summary           │   │
-│ • Appendix       │            │ • Appendix          │   │
-└────────┬─────────┘            └──────────┬──────────┘   │
-         │                                 │               │
-         │ syncJiraBugs()                  │               │
-         │ updateStatus()                  │               │
-         │                                 │               │
-┌────────▼─────────────────────────────────▼─────────┐    │
-│                      JIRA                           │    │
-│  • Bug tracking                                     │    │
-│  • Status sync (Open → Fixed → Verified → Closed)  │    │
-│  • Priority management                              │    │
-└─────────────────────────────────────────────────────┘    │
-                                                            │
-                        ┌───────────────────────────────────▼────────┐
-                        │      VAPT SOURCE SPREADSHEET              │
-                        │  (17qeErP3VHxN7qcNQqhT6zGLukxZU4OKLmBM...) │
-                        │                                            │
-                        │  • Ad Hoc VAPT (security findings)        │
-                        │  • Regular VAPT (scheduled assessments)   │
-                        │  • Severity: Critical, High, Medium, Low  │
-                        │  • Status: Open, Ready to Retest, Closed  │
-                        └────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         📊 DATA SOURCES                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────┐                    ┌─────────────────────────┐
+        │      JIRA        │                    │  VAPT SOURCE SHEET      │
+        │ digitalperuri    │                    │  (External Security)    │
+        │                  │                    │                         │
+        │ • Bug Tracking   │                    │ • Ad Hoc VAPT           │
+        │ • Status Updates │                    │ • Regular VAPT          │
+        │ • Priority Mgmt  │                    │ • Per-app findings      │
+        └────────┬─────────┘                    └────────┬────────────────┘
+                 │                                       │
+                 │ syncAllJiraBugs()                    │ refreshVAPTData()
+                 │ (Every 1 hour)                       │ (On dashboard refresh)
+                 │                                       │
+                 ▼                                       ▼
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         🗂️ QATM MODULES (Spokes)                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ┌────────────────┐      ┌────────────────┐      ┌────────────────┐
+    │  QATM Module 1 │      │  QATM Module 2 │ ...  │  QATM Module N │
+    │  SIPGN - 0     │      │  SIPGN - 1     │      │  PENJAMINAN    │
+    │                │      │                │      │                │
+    │ • TC_Master    │      │ • TC_Master    │      │ • TC_Master    │
+    │ • TC_Execution │      │ • TC_Execution │      │ • TC_Execution │
+    │ • API_Master   │      │ • API_Master   │      │ • API_Master   │
+    │ • API_Exec     │      │ • API_Exec     │      │ • API_Exec     │
+    │ • BugReport ◄──┼──────┼─ Jira writes   │      │ • BugReport    │
+    │ • Summary      │      │ • Summary      │      │ • Summary      │
+    │ • Appendix     │      │ • Appendix     │      │ • Appendix     │
+    └────────┬───────┘      └────────┬───────┘      └────────┬───────┘
+             │                       │                       │
+             │        pullModuleData() - Read all modules    │
+             └───────────────────────┼───────────────────────┘
+                                     │
+                                     ▼
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│            📊 QA PORTFOLIO DASHBOARD (Hub & Aggregator)                      │
+│               (1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY)                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ┌──────────────────────────────────────────────────────────────────────┐
+    │                      DASHBOARD TABS                                   │
+    │                                                                       │
+    │  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐       │
+    │  │ Overview  │  │   Bugs    │  │   VAPT    │  │   Smoke   │       │
+    │  │ (KPI Sum) │  │ (Aggr.)   │  │ (Security)│  │ (Critical)│       │
+    │  └───────────┘  └───────────┘  └───────────┘  └───────────┘       │
+    │                                                                       │
+    │  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐       │
+    │  │  History  │  │  Coverage │  │  Failure  │  │   Config  │       │
+    │  │ (Timeline)│  │ (Progress)│  │ (Analysis)│  │ (Settings)│       │
+    │  └───────────┘  └───────────┘  └───────────┘  └───────────┘       │
+    │                                                                       │
+    │  📋 Config Sheet (Row 4+):                                           │
+    │     • Module registry (Active/Inactive)                              │
+    │     • Spreadsheet IDs for QATM modules                               │
+    │     • Jira Sync config (Instance, Project, API Token)                │
+    │     • Notification config (Webhook, Email, WhatsApp, Schedule)       │
+    └──────────────────────────────────────────────────────────────────────┘
+
+                   refreshDashboard() → Aggregate all data
+                                │
+                                ▼
+
+    ┌──────────────────────────────────────────────────────────────────────┐
+    │                    AGGREGATED METRICS                                 │
+    │                                                                       │
+    │  • Total Bugs: 67 (Critical: 2, High: 5, Medium: 29)                │
+    │  • QA Blocker: 36 bugs (Medium-Critical, not Closed)                │
+    │  • PROD Bugs: 8 bugs (Production environment)                        │
+    │  • VAPT Blocker: 21 findings (8 apps with security issues)          │
+    │  • Pass Rate: Web 92%, API 85%                                       │
+    │  • Coverage: 1,234 test cases executed                               │
+    └──────────────────────────────────────────────────────────────────────┘
+                                │
+                                │ sendBlockerNotification()
+                                │ (Triggered by schedule or manual)
+                                │
+                                ▼
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   📢 NOTIFICATION SYSTEM (Multi-Channel)                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                    getBlockerData_() → Build notification payload
+                                │
+                                ├─────────────────┬─────────────────┐
+                                │                 │                 │
+                                ▼                 ▼                 ▼
+
+        ┌───────────────────┐  ┌────────────────┐  ┌──────────────────┐
+        │   GOOGLE CHAT     │  │     EMAIL      │  │    WHATSAPP      │
+        │                   │  │                │  │                  │
+        │ • Per-webhook     │  │ • Per-recipient│  │ • GLOBAL group   │
+        │ • Markdown format │  │ • HTML styled  │  │ • Plain text     │
+        │ • <users/all>     │  │ • Emergency    │  │ • Fonnte API     │
+        │   mention         │  │   protocol     │  │                  │
+        │ • Hyperlinks      │  │ • Severity     │  │ • Emoji bullets  │
+        │                   │  │   badges       │  │                  │
+        └─────────┬─────────┘  └───────┬────────┘  └────────┬─────────┘
+                  │                    │                     │
+                  │                    │                     │
+                  ▼                    ▼                     ▼
+
+        ┌───────────────────┐  ┌────────────────┐  ┌──────────────────┐
+        │  Google Chat      │  │   Gmail        │  │  WhatsApp Group  │
+        │  Spaces/Rooms     │  │   Recipients   │  │  120363xxx@g.us  │
+        │                   │  │                │  │                  │
+        │ POST /v1/spaces/  │  │ MailApp.send() │  │ POST fonnte.com  │
+        │ .../messages      │  │                │  │ /send            │
+        └───────────────────┘  └────────────────┘  └──────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         📱 DELIVERY CONFIRMATION                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ✅ Notifications Sent!
+    • Google Chat: 3 message(s) → Webhook 1, 2, 3
+    • Email: 2 message(s) → manager@..., team@...
+    • WhatsApp: 1 message(s) → QA Group
+
+    📊 Summary:
+    • Total Open Blockers: 36
+    • Total PROD BUGS: 8 🚨
+    • VAPT Blocker: 21 (8 apps)
+    • Modules with issues: 9
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         🌐 WEB DASHBOARD (Optional)                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    User access via: https://script.google.com/.../exec
+                                │
+                                ▼
+    ┌──────────────────────────────────────────────────────────────────────┐
+    │  Web App (HTML/CSS/JS)                                                │
+    │  • Interactive charts (Google Charts)                                 │
+    │  • Module filter dropdown                                             │
+    │  • Real-time metrics                                                  │
+    │  • Bug breakdown by severity/environment                              │
+    │  • VAPT blocker trends                                                │
+    │  • Module Health Scorecard                                            │
+    │  • Production Defects table                                           │
+    └──────────────────────────────────────────────────────────────────────┘
+
+                    doGet() → WebAppBackend.js → Render HTML
+                    getModuleData() → Read Dashboard tabs → JSON
 ```
+
+**Key Flows:**
+
+1. **Data Collection** (Hourly): JIRA → syncAllJiraBugs() → QATM BugReport sheets
+2. **Dashboard Refresh** (Manual/Scheduled): QATM Modules → pullModuleData() → Dashboard Bugs/VAPT tabs
+3. **Notification Trigger** (Scheduled): Dashboard tabs → getBlockerData_() → Multi-channel delivery
+4. **Web Access** (On-demand): User → Web App → Dashboard data → Interactive UI
 
 ---
 
@@ -104,41 +203,293 @@
 ### System Layers
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      PRESENTATION LAYER                          │
-├─────────────────────────────────────────────────────────────────┤
-│  • Google Sheets UI (tabs, charts, conditional formatting)      │
-│  • Web App UI (HTML/CSS/JS served via doGet/doPost)            │
-│  • Custom menus (onOpen triggers)                               │
-│  • Data validation dropdowns                                     │
-└───────────────────────────────┬─────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                      🎨 PRESENTATION LAYER                            │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  ┌─────────────────────┐  ┌──────────────────────────────────────┐  │
+│  │  Google Sheets UI   │  │       Web App UI                     │  │
+│  │                     │  │                                      │  │
+│  │  • Dashboard tabs   │  │  • HTML/CSS/JS frontend              │  │
+│  │  • Charts           │  │  • Google Charts integration         │  │
+│  │  • Conditional fmt  │  │  • Module filter dropdown            │  │
+│  │  • Custom menus     │  │  • Real-time metrics display         │  │
+│  │  • Data validation  │  │  • Responsive design                 │  │
+│  └─────────────────────┘  └──────────────────────────────────────┘  │
+│                                                                       │
+└───────────────────────────────┬───────────────────────────────────────┘
                                 │
-┌───────────────────────────────▼─────────────────────────────────┐
-│                      APPLICATION LAYER                           │
-├─────────────────────────────────────────────────────────────────┤
-│  Dashboard Scripts:                                              │
-│  • MasterDashboard.js  - Main orchestrator                      │
-│  • BugsTab.js          - Bug aggregation & delta tracking       │
-│  • VAPTTab.js          - VAPT findings dashboard builder        │
-│  • VAPTDataFetch.js    - Fetch/process VAPT data               │
-│  • JiraSync.js         - Jira integration                       │
-│  • Notifications.js    - WhatsApp/Email/GChat alerts            │
-│  • VAPTBroadcast.js    - Bulk update utility                    │
-│  • WebAppBackend.js    - Web dashboard API                      │
-│                                                                  │
-│  QATM Scripts:                                                   │
-│  • MasterQATCM.js      - Template generator                     │
-│  • AddHeaderNotes.js   - Documentation helper                   │
-└───────────────────────────────┬─────────────────────────────────┘
+                                │ User Actions / HTTP Requests
                                 │
-┌───────────────────────────────▼─────────────────────────────────┐
-│                        DATA LAYER                                │
-├─────────────────────────────────────────────────────────────────┤
-│  • Google Sheets (structured data storage)                      │
-│  • Script Properties (configuration, credentials)               │
-│  • Cache Service (temporary data, 6 hour TTL)                   │
-│  • External APIs (Jira REST API)                                │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────▼───────────────────────────────────────┐
+│                      ⚙️ APPLICATION LAYER                              │
+├────────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│  🔄 DATA COLLECTION & SYNC:                                           │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  JiraSync.js - Jira REST API integration                        │ │
+│  │  • syncAllJiraBugs() - Fetch bugs from Jira (hourly trigger)   │ │
+│  │  • Parse & map: Bug ID, Priority, Status, Environment          │ │
+│  │  • Update QATM BugReport sheets (match by Bug ID)              │ │
+│  │  • Authentication: Basic Auth (email + API token)              │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                        │
+│  📊 DASHBOARD AGGREGATION:                                            │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  MasterDashboard.js - Main orchestrator                         │ │
+│  │  • refreshDashboard() - Pull data from all QATM modules        │ │
+│  │  • getModuleList_() - Read Config sheet (Active modules)       │ │
+│  │  • pullModuleData_() - Extract metrics from each QATM          │ │
+│  │  • Write tabs: Overview, Bugs, Smoke, Coverage, History        │ │
+│  │                                                                  │ │
+│  │  BugsTab.js - Bug aggregation & delta tracking                 │ │
+│  │  • writeBugs() - Aggregate bugs by module                      │ │
+│  │  • Calculate delta vs previous refresh (Δ Total, Δ Blocker)    │ │
+│  │  • Color coding: Green=down, Red=up                            │ │
+│  │                                                                  │ │
+│  │  VAPTDataFetch.js - VAPT security findings                     │ │
+│  │  • refreshVAPTData() - Fetch from external VAPT spreadsheet    │ │
+│  │  • fetchAdHocVAPTData_() + fetchRegularVAPTData_()            │ │
+│  │  • processVAPTData_() - Combine & calculate blocker count     │ │
+│  │                                                                  │ │
+│  │  VAPTTab.js - VAPT dashboard builder                           │ │
+│  │  • writeVAPT() - Write VAPT blocker data to tab                │ │
+│  │  • appendVAPTHistory() - Timeline for trend analysis           │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                        │
+│  📢 NOTIFICATION SYSTEM:                                              │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  Notifications.js - Multi-channel alert system                  │ │
+│  │  • sendBlockerNotification() - Main entry point                │ │
+│  │  • getBlockerData_() - Read Bugs + VAPT tabs, calculate totals│ │
+│  │  • Group modules by webhook/email for aggregation              │ │
+│  │                                                                  │ │
+│  │  CHANNEL-SPECIFIC FUNCTIONS:                                    │ │
+│  │  • sendGoogleChatNotification_() - POST to webhook             │ │
+│  │    Format: Markdown with <users/all> mention + hyperlinks      │ │
+│  │                                                                  │ │
+│  │  • sendEmailNotification_() - MailApp.sendEmail()              │ │
+│  │    Format: HTML with styled tables, severity badges            │ │
+│  │    Emergency protocol if PROD bugs > 0                          │ │
+│  │                                                                  │ │
+│  │  • sendWhatsAppNotification_() - POST to Fonnte API            │ │
+│  │    Format: Plain text with emoji bullets, WhatsApp-friendly    │ │
+│  │    Authentication: Fonnte token in header                       │ │
+│  │                                                                  │ │
+│  │  SCHEDULING:                                                     │ │
+│  │  • setupDailyBlockerNotification() - Configure triggers        │ │
+│  │    Support: Single time (9), Multiple (9,14,18), Interval (4h) │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                        │
+│  🌐 WEB APP BACKEND:                                                  │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  WebAppBackend.js - REST-like API for Web Dashboard            │ │
+│  │  • doGet() - Serve HTML page                                   │ │
+│  │  • getModuleData() - Return JSON with dashboard data           │ │
+│  │  • getVAPTData() - Return JSON with VAPT findings              │ │
+│  │  • Filter by module if specified in query params               │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                        │
+│  🛠️ UTILITIES:                                                        │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  VAPTBroadcast.js - Bulk update utility (Legacy)                │ │
+│  │  MasterQATCM.js - QATM template generator                       │ │
+│  │  AddHeaderNotes.js - Documentation helper                       │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                        │
+└───────────────────────────────┬────────────────────────────────────────┘
+                                │
+                                │ Data Read/Write Operations
+                                │
+┌───────────────────────────────▼────────────────────────────────────────┐
+│                      💾 DATA LAYER                                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  📄 GOOGLE SHEETS (Primary Data Store):                                │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │  Dashboard Spreadsheet (Hub):                                     │ │
+│  │  • Overview tab - Portfolio KPIs                                  │ │
+│  │  • Bugs tab - Aggregated bug metrics with delta tracking         │ │
+│  │  • VAPT tab - Security findings blocker tracking                 │ │
+│  │  • Smoke tab - Critical test results                             │ │
+│  │  • History tab - Timeline of metrics (append-only)               │ │
+│  │  • VAPT History tab - VAPT blocker trends                        │ │
+│  │  • Config tab - Module registry + notification config            │ │
+│  │  • Credentials tab - Jira auth tokens                            │ │
+│  │                                                                    │ │
+│  │  QATM Spreadsheets (Spokes - per module):                        │ │
+│  │  • Summary tab - Module-level KPIs                               │ │
+│  │  • TC_Master + TC_Execution - Web/Mobile test cases             │ │
+│  │  • API_Master + API_Execution - API test cases                   │ │
+│  │  • BugReport tab - Bug tracking (synced from Jira)              │ │
+│  │  • Appendix tab - Documentation & workflow guide                 │ │
+│  │                                                                    │ │
+│  │  VAPT Source Spreadsheet (External):                             │ │
+│  │  • Ad Hoc VAPT tab - Ad-hoc security assessments                │ │
+│  │  • Regular VAPT tab - Scheduled security tests                   │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+│  🔐 SCRIPT PROPERTIES (Persistent Config):                            │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │  • WEB_APP_URL - Latest Web App deployment URL                   │ │
+│  │  • JIRA_CREDENTIALS - API tokens (encrypted)                     │ │
+│  │  • NOTIFICATION_STATE - Last notification timestamp              │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+│  ⚡ CACHE SERVICE (Temporary Data - 6 hour TTL):                      │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │  • Module list cache (avoid re-reading Config)                   │ │
+│  │  • VAPT data cache (reduce external spreadsheet reads)           │ │
+│  │  • Aggregated metrics cache (for Web App performance)            │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+│  🌐 EXTERNAL APIs:                                                     │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │  Jira REST API:                                                   │ │
+│  │  • https://digitalperuri.atlassian.net/rest/api/3/search         │ │
+│  │  • Authentication: Basic Auth (email + API token)                │ │
+│  │  • Response: JSON with bug data                                   │ │
+│  │                                                                    │ │
+│  │  Fonnte WhatsApp API:                                             │ │
+│  │  • https://api.fonnte.com/send                                   │ │
+│  │  • Authentication: API Key in Authorization header               │ │
+│  │  • Response: JSON with delivery status                            │ │
+│  │                                                                    │ │
+│  │  Google Chat Webhook:                                             │ │
+│  │  • https://chat.googleapis.com/v1/spaces/.../messages            │ │
+│  │  • Authentication: None (webhook URL is secret)                  │ │
+│  │  • Response: JSON with message ID                                 │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### End-to-End Data Flow Timeline
+
+```
+TIME: T0 (Hourly - Jira Sync)
+────────────────────────────────────────────────────────────
+[Trigger] Time-based trigger fires every 1 hour
+
+↓ syncAllJiraBugs()
+├─ Read Dashboard Config sheet
+├─ FOR EACH module with Jira Sync = TRUE:
+│  ├─ Fetch bugs from Jira API
+│  ├─ Parse: Bug ID, Priority, Status, Environment
+│  └─ Write to QATM BugReport sheet (update or insert)
+└─ Log: "Synced N bugs from M modules"
+
+
+TIME: T1 (Manual/Scheduled - Dashboard Refresh)
+────────────────────────────────────────────────────────────
+[Trigger] User runs refreshDashboard() OR scheduled trigger
+
+↓ getModuleList_()
+└─ Read Dashboard Config sheet → Get ACTIVE modules
+
+↓ FOR EACH ACTIVE module:
+├─ pullModuleData_(module)
+│  ├─ Open QATM spreadsheet by ID
+│  ├─ Read Summary tab → Extract KPIs
+│  ├─ Read BugReport tab → Count bugs by priority/environment
+│  └─ Return moduleData object
+│
+├─ Aggregate metrics across all modules
+└─ Write to Dashboard tabs:
+   ├─ Overview (portfolio KPIs)
+   ├─ Bugs (with delta tracking)
+   ├─ Smoke (critical tests)
+   ├─ Coverage (test progress)
+   └─ History (append timeline)
+
+↓ refreshVAPTData()
+├─ Open external VAPT spreadsheet
+├─ fetchAdHocVAPTData_() → Read Ad Hoc VAPT tab
+├─ fetchRegularVAPTData_() → Read Regular VAPT tab
+├─ processVAPTData_() → Combine & calculate blocker per app
+└─ Write to Dashboard:
+   ├─ VAPT tab (blocker tracking)
+   └─ VAPT History (append timeline)
+
+Result: Dashboard tabs updated with latest data
+
+
+TIME: T2 (Scheduled - Notification Trigger)
+────────────────────────────────────────────────────────────
+[Trigger] setupDailyBlockerNotification() scheduled trigger
+          Example: Daily at 9:00, 14:00, 18:00
+
+↓ sendBlockerNotification()
+├─ Read Config sheet → Get notification config per module
+│
+├─ getBlockerData_()
+│  ├─ Read Dashboard Overview tab
+│  ├─ Read Dashboard Bugs tab → Aggregate QA Blocker + PROD bugs
+│  ├─ Read Dashboard VAPT tab → Aggregate VAPT Blocker
+│  └─ Return blockerData:
+│     {
+│       modules: [...],           // Per-module breakdown
+│       totalBlockers: 36,
+│       totalProdBugs: 8,
+│       vaptBlocker: 21,
+│       vaptApps: [...],
+│       timestamp: "2026-04-06 14:59:53"
+│     }
+│
+├─ Check if notification needed
+│  └─ Skip if totalBlockers=0 AND totalProdBugs=0 AND vaptBlocker=0
+│
+└─ IF blockers exist:
+   │
+   ├─ Group modules by webhook → {webhookUrl: [modules]}
+   ├─ Group modules by email → {emailList: [modules]}
+   └─ Get GLOBAL WhatsApp config
+   │
+   ├─ FOR EACH Google Chat webhook:
+   │  ├─ Build message (Markdown format)
+   │  └─ sendGoogleChatNotification_(webhook, blockerData)
+   │     └─ POST to webhook URL → Deliver to Google Chat Space
+   │
+   ├─ FOR EACH Email recipient group:
+   │  ├─ Build HTML email (styled tables)
+   │  └─ sendEmailNotification_(emailList, blockerData)
+   │     └─ MailApp.sendEmail() → Deliver via Gmail
+   │
+   └─ IF WhatsApp enabled:
+      ├─ Build plain text message (WhatsApp format)
+      └─ sendWhatsAppNotification_(groupId, blockerData)
+         └─ POST to Fonnte API → Deliver to WhatsApp Group
+
+Result: Notifications delivered to all channels
+
+
+TIME: T3 (On-Demand - Web Dashboard Access)
+────────────────────────────────────────────────────────────
+[Trigger] User opens Web App URL in browser
+
+↓ doGet()
+├─ Serve WebApp.html (HTML/CSS/JS frontend)
+└─ Return HTTP response with HTML page
+
+↓ Frontend JavaScript loads
+├─ Call getModuleData() → Fetch dashboard data
+│  ├─ Read Dashboard tabs (Overview, Bugs, History, VAPT)
+│  ├─ Read Config sheet → Module list
+│  └─ Return JSON response
+│
+├─ Parse JSON → Build data structures
+│
+├─ Render UI:
+│  ├─ Summary cards (KPIs)
+│  ├─ Bug breakdown by severity/environment
+│  ├─ VAPT blocker tracking
+│  ├─ Google Charts (trends)
+│  ├─ Module Health Scorecard table
+│  └─ Production Defects table
+│
+└─ Enable module filter dropdown
+
+Result: Interactive web dashboard displayed
 ```
 
 ---
