@@ -1761,3 +1761,233 @@ function autoSetWebAppUrl() {
   return LATEST_WEBAPP_URL;
 }
 
+/**
+ * MENU: WhatsApp - Get Groups
+ * Get list of WhatsApp groups from Fonnte API
+ * Shows group IDs in a dialog for easy copy-paste to Config sheet
+ */
+function menuTestGetGroups() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const cfg = ss.getSheetByName('Config');
+
+  if (!cfg) {
+    SpreadsheetApp.getUi().alert('❌ Config tab not found');
+    return;
+  }
+
+  // Get Fonnte Token from Config row 4, col T (column 20)
+  const fontteToken = String(cfg.getRange(4, 20).getValue()).trim();
+
+  if (!fontteToken) {
+    SpreadsheetApp.getUi().alert(
+      '❌ Fonnte Token Missing\n\n' +
+      'Please set Fonnte Token in Config sheet:\n' +
+      'Row 4, Column T (Fonnte Token)'
+    );
+    return;
+  }
+
+  try {
+    // Call Fonnte API to get device info (includes groups)
+    const url = 'https://api.fonnte.com/get-devices';
+
+    const options = {
+      method: 'post',
+      headers: {
+        'Authorization': fontteToken
+      },
+      muteHttpExceptions: true
+    };
+
+    Logger.log('Fetching WhatsApp groups from Fonnte API...');
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    const responseText = response.getContentText();
+
+    Logger.log('Response Code: ' + responseCode);
+    Logger.log('Response: ' + responseText);
+
+    if (responseCode !== 200) {
+      SpreadsheetApp.getUi().alert(
+        '❌ API Error\n\n' +
+        'Response Code: ' + responseCode + '\n' +
+        'Response: ' + responseText
+      );
+      return;
+    }
+
+    const data = JSON.parse(responseText);
+
+    // Format response for display
+    let message = '📱 WHATSAPP DEVICES & GROUPS\n\n';
+
+    if (data.device && data.device.length > 0) {
+      data.device.forEach((device, index) => {
+        message += '════════════════════════════\n';
+        message += 'DEVICE ' + (index + 1) + ':\n';
+        message += '• Name: ' + (device.name || 'N/A') + '\n';
+        message += '• Number: ' + (device.device || 'N/A') + '\n';
+        message += '• Status: ' + (device.status || 'N/A') + '\n\n';
+
+        // Get groups for this device
+        if (device.groups && device.groups.length > 0) {
+          message += 'GROUPS (' + device.groups.length + '):\n';
+          device.groups.forEach(group => {
+            message += '  • ' + group.name + '\n';
+            message += '    ID: ' + group.id + '\n';
+          });
+        } else {
+          message += 'GROUPS: None found\n';
+        }
+        message += '\n';
+      });
+
+      message += '════════════════════════════\n\n';
+      message += '💡 TIP:\n';
+      message += 'Copy Group ID (format: 120363xxx@g.us)\n';
+      message += 'Paste to Config sheet Row 4, Col S';
+
+    } else {
+      message = '❌ No devices found\n\n' +
+                'Raw Response:\n' + responseText;
+    }
+
+    SpreadsheetApp.getUi().alert(message);
+
+  } catch (e) {
+    Logger.log('❌ Error: ' + e.message);
+    Logger.log('Stack: ' + e.stack);
+    SpreadsheetApp.getUi().alert(
+      '❌ Error getting WhatsApp groups\n\n' +
+      'Error: ' + e.message + '\n\n' +
+      'Check Execution log for details'
+    );
+  }
+}
+
+/**
+ * MENU: WhatsApp - Send Test
+ * Send test message to configured WhatsApp group
+ */
+function menuTestSendToGroup() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const cfg = ss.getSheetByName('Config');
+
+  if (!cfg) {
+    SpreadsheetApp.getUi().alert('❌ Config tab not found');
+    return;
+  }
+
+  // Get WhatsApp config from Config row 4
+  const whatsappGroupId = String(cfg.getRange(4, 19).getValue()).trim(); // S4 = Group ID
+  const fontteToken = String(cfg.getRange(4, 20).getValue()).trim();      // T4 = Token
+  const whatsappEnabled = cfg.getRange(4, 21).getValue() === true;        // U4 = Enable
+
+  // Validate config
+  if (!fontteToken) {
+    SpreadsheetApp.getUi().alert(
+      '❌ Fonnte Token Missing\n\n' +
+      'Please set Fonnte Token in Config sheet:\n' +
+      'Row 4, Column T (Fonnte Token)'
+    );
+    return;
+  }
+
+  if (!whatsappGroupId || !whatsappGroupId.includes('@g.us')) {
+    SpreadsheetApp.getUi().alert(
+      '❌ WhatsApp Group ID Missing or Invalid\n\n' +
+      'Please set Group ID in Config sheet:\n' +
+      'Row 4, Column S (WhatsApp Group ID)\n\n' +
+      'Format: 120363xxx@g.us\n\n' +
+      'Use "WhatsApp: Get Groups" menu to find your group ID'
+    );
+    return;
+  }
+
+  if (!whatsappEnabled) {
+    const response = SpreadsheetApp.getUi().alert(
+      '⚠️ WhatsApp Disabled\n\n' +
+      'WhatsApp notifications are currently DISABLED.\n' +
+      'Row 4, Column U = unchecked\n\n' +
+      'Do you want to send test message anyway?',
+      SpreadsheetApp.getUi().ButtonSet.YES_NO
+    );
+
+    if (response !== SpreadsheetApp.getUi().Button.YES) {
+      return;
+    }
+  }
+
+  try {
+    // Build test message
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    const message =
+      '🧪 *TEST MESSAGE*\n' +
+      '📅 ' + timestamp + '\n' +
+      '━━━━━━━━━━━━━\n\n' +
+      '✅ WhatsApp notification is working!\n\n' +
+      'This is a test message from QA Portfolio Dashboard.\n\n' +
+      '📊 Dashboard: ' + ss.getUrl() + '\n\n' +
+      '_Sent via Fonnte API_';
+
+    // Send via Fonnte API
+    const url = 'https://api.fonnte.com/send';
+
+    const payload = {
+      target: whatsappGroupId,
+      message: message
+    };
+
+    const options = {
+      method: 'post',
+      headers: {
+        'Authorization': fontteToken
+      },
+      payload: payload,
+      muteHttpExceptions: true
+    };
+
+    Logger.log('Sending test message to: ' + whatsappGroupId);
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    const responseText = response.getContentText();
+
+    Logger.log('Response Code: ' + responseCode);
+    Logger.log('Response: ' + responseText);
+
+    if (responseCode === 200) {
+      const data = JSON.parse(responseText);
+
+      if (data.status) {
+        SpreadsheetApp.getUi().alert(
+          '✅ Test Message Sent!\n\n' +
+          'WhatsApp notification sent successfully to:\n' +
+          whatsappGroupId + '\n\n' +
+          'Check your WhatsApp group for the test message.'
+        );
+      } else {
+        SpreadsheetApp.getUi().alert(
+          '❌ Send Failed\n\n' +
+          'Reason: ' + (data.reason || 'Unknown error') + '\n\n' +
+          'Response: ' + responseText
+        );
+      }
+    } else {
+      SpreadsheetApp.getUi().alert(
+        '❌ API Error\n\n' +
+        'Response Code: ' + responseCode + '\n' +
+        'Response: ' + responseText
+      );
+    }
+
+  } catch (e) {
+    Logger.log('❌ Error: ' + e.message);
+    Logger.log('Stack: ' + e.stack);
+    SpreadsheetApp.getUi().alert(
+      '❌ Error sending test message\n\n' +
+      'Error: ' + e.message + '\n\n' +
+      'Check Execution log for details'
+    );
+  }
+}
+
