@@ -828,6 +828,358 @@ const url = `https://${instance}.atlassian.net/rest/api/3/search?jql=${jql}&maxR
 
 ---
 
+## 📢 Notification System Architecture
+
+### Overview
+
+The notification system provides automated alerts for QA bugs and VAPT security findings through multiple channels: WhatsApp (Fonnte), Email (Gmail), and Google Chat. Notifications are triggered on schedule or manually, aggregating data from Dashboard tabs.
+
+**Key Components:**
+- **Data Source:** Dashboard Bugs tab + VAPT tab (aggregated from all QATM modules)
+- **Trigger:** Time-based (configurable: hourly, daily, custom schedule)
+- **Channels:** WhatsApp (Fonnte API), Email (MailApp), Google Chat (Webhook)
+- **Config:** Per-module notification settings in Config sheet (columns L-U)
+
+### End-to-End Notification Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    STAGE 1: DATA COLLECTION                          │
+└─────────────────────────────────────────────────────────────────────┘
+
+[JIRA]
+  │
+  │ 1. Jira Sync Trigger (Every 1 hour)
+  ▼
+syncAllJiraBugs()
+  │
+  ├─► Read Config sheet
+  │    └─ Get modules with Jira Sync = TRUE
+  │
+  ├─► FOR EACH MODULE:
+  │    ├─ Fetch bugs from Jira API
+  │    │   └─ GET /rest/api/3/search?jql=project=XXX
+  │    │
+  │    ├─ Parse response:
+  │    │   ├─ Bug ID (TEST-123)
+  │    │   ├─ Summary, Priority, Status
+  │    │   ├─ Environment (Production/UAT/Dev)
+  │    │   └─ Custom fields
+  │    │
+  │    └─► Write to QATM BugReport sheet
+  │         ├─ Match by Bug ID (update if exists)
+  │         └─ Add new bugs
+  │
+  └─► Log sync results
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                STAGE 2: DASHBOARD AGGREGATION                        │
+└─────────────────────────────────────────────────────────────────────┘
+
+refreshDashboard()
+  │
+  ├─► Read Config sheet
+  │    └─ Get all ACTIVE modules
+  │
+  ├─► FOR EACH MODULE:
+  │    ├─ Open QATM spreadsheet
+  │    ├─ Read BugReport sheet
+  │    │   ├─ Count bugs by priority (Critical, High, Medium, Low)
+  │    │   ├─ Count bugs by environment (Prod, UAT, Dev)
+  │    │   ├─ Calculate blocker count (Medium-Critical, not Closed)
+  │    │   └─ Calculate PROD bugs (Environment = Production)
+  │    │
+  │    └─► Aggregate to Dashboard Bugs tab
+  │         └─ Columns: Project, Modul, Submodul, Total, Critical, High,
+  │            Medium, Low, Blocker, Dev, UAT, Prod
+  │
+  ├─► Fetch VAPT data (refreshVAPTData)
+  │    ├─ Read external VAPT spreadsheet
+  │    ├─ Combine Ad Hoc + Regular VAPT
+  │    ├─ Calculate blocker count per app (Medium-Critical Open)
+  │    └─► Write to Dashboard VAPT tab
+  │
+  └─► Update Overview summary metrics
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                 STAGE 3: NOTIFICATION TRIGGER                        │
+└─────────────────────────────────────────────────────────────────────┘
+
+[TIME-BASED TRIGGER] or [MANUAL TRIGGER]
+  │
+  │ setupDailyBlockerNotification()
+  │ - Schedule options:
+  │   • Single: 9 (daily at 9:00)
+  │   • Multiple: 9,14,18 (3x per day)
+  │   • Interval: 4h (every 4 hours)
+  │
+  ▼
+sendBlockerNotification()
+  │
+  ├─► Read Config sheet
+  │    ├─ Get modules with notifications enabled
+  │    └─ Get notification config per module:
+  │         ├─ Google Chat Webhook (col L)
+  │         ├─ Email recipients (col O)
+  │         └─ Enable flags (col N, P)
+  │
+  ├─► Read Dashboard Overview + Bugs + VAPT tabs
+  │    └─ getBlockerData_(overview, cfg)
+  │         ├─ Read Bugs tab data (all modules)
+  │         ├─ Read VAPT tab data (all apps)
+  │         ├─ Calculate totals:
+  │         │   ├─ Total QA Blocker count
+  │         │   ├─ Total PROD bugs count
+  │         │   ├─ Total VAPT Blocker count
+  │         │   └─ Per-module breakdown
+  │         │
+  │         └─ Return blockerData object:
+  │              {
+  │                modules: [...],         // Per-module bug data
+  │                totalBlockers: N,
+  │                totalProdBugs: N,
+  │                vaptBlocker: N,
+  │                vaptApps: [...],        // VAPT detail per app
+  │                vaptBreakdown: {...},   // Severity counts
+  │                timestamp: "..."
+  │              }
+  │
+  ├─► Check if notification needed
+  │    └─ Skip if: totalBlockers = 0 AND totalProdBugs = 0 AND vaptBlocker = 0
+  │
+  └─► If blockers exist, send notifications
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                  STAGE 4: MULTI-CHANNEL DELIVERY                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+[GROUP BY WEBHOOK/EMAIL]
+  │
+  ├─► Group modules by Google Chat Webhook
+  │    └─ {webhookUrl: [module1, module2, ...]}
+  │
+  ├─► Group modules by Email recipients
+  │    └─ {emailList: [module1, module2, ...]}
+  │
+  └─► Get GLOBAL WhatsApp config (row 4, col S-U)
+
+[SEND NOTIFICATIONS IN PARALLEL]
+  │
+  ├─► Google Chat (Per Webhook)
+  │    │
+  │    FOR EACH webhookUrl:
+  │      │
+  │      ├─ Build plain text message (Google Chat markdown)
+  │      │   ├─ Header: "📊 DAILY BUG REPORT"
+  │      │   ├─ Summary section:
+  │      │   │   ├─ QA Bugs: N (X apps) + severity breakdown
+  │      │   │   └─ VAPT Blocker: N (X apps) + severity breakdown
+  │      │   │
+  │      │   ├─ VAPT Blocker Detail (if any)
+  │      │   │   └─ List apps with blocker > 0
+  │      │   │
+  │      │   ├─ Production Bugs section (if any)
+  │      │   │   └─ <users/all> mention + per-module breakdown
+  │      │   │
+  │      │   ├─ QA Blocker Bugs section
+  │      │   │   └─ Per-module breakdown with severity
+  │      │   │
+  │      │   └─ Footer: Dashboard links (Web App, Sheet)
+  │      │
+  │      ├─ Send to Google Chat webhook
+  │      │   └─ POST https://chat.googleapis.com/v1/spaces/.../messages
+  │      │
+  │      └─ Log result
+  │
+  ├─► Email (Per Recipient Group)
+  │    │
+  │    FOR EACH emailList:
+  │      │
+  │      ├─ Build HTML email
+  │      │   ├─ Header (red if PROD bugs, orange if blockers)
+  │      │   ├─ Summary section (table with severity badges)
+  │      │   ├─ VAPT Apps Detail (if any)
+  │      │   ├─ Alert message (emergency protocol if PROD bugs)
+  │      │   ├─ QA Modules breakdown (styled tables)
+  │      │   ├─ Priority levels explanation
+  │      │   └─ Quick links section
+  │      │
+  │      ├─ Send via MailApp.sendEmail()
+  │      │   └─ Subject: "🚨🚨 URGENT PROD BUGS" or "🚨 QA BLOCKER ALERT"
+  │      │
+  │      └─ Log result
+  │
+  └─► WhatsApp (GLOBAL - Single Group)
+       │
+       IF whatsappEnabled AND groupId valid:
+         │
+         ├─ Build plain text message (WhatsApp markdown)
+         │   ├─ Header: "📊 *DAILY BUG REPORT*"
+         │   ├─ Summary section (▬ bullets)
+         │   ├─ VAPT Blocker Detail (if any)
+         │   ├─ Production Bugs section (if any)
+         │   ├─ QA Blocker Bugs section
+         │   └─ Footer: Dashboard links
+         │
+         ├─ Send to Fonnte API
+         │   └─ POST https://api.fonnte.com/send
+         │        {
+         │          target: "120363xxx@g.us",
+         │          message: "...",
+         │          Authorization: fontteToken
+         │        }
+         │
+         └─ Log result
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                     STAGE 5: CONFIRMATION                            │
+└─────────────────────────────────────────────────────────────────────┘
+
+Show Alert Dialog:
+  │
+  └─ "📤 Notifications Sent!
+      ✅ Google Chat: N message(s) sent
+      ✅ Email: N message(s) sent
+      ✅ WhatsApp: N message(s) sent
+
+      📊 Summary:
+      • Total Open Blockers: N
+      • Total PROD BUGS: N
+      • VAPT Blocker: N (X apps)
+      • Modules with issues: N"
+```
+
+### Notification Configuration
+
+**Config Sheet Structure (Row 4+):**
+
+| Column | Field | Type | Description |
+|--------|-------|------|-------------|
+| L | Google Chat Webhook | STRING | Webhook URL from Google Chat Space |
+| M | Schedule | STRING | "9", "9,14,18", or "4h" (interval) |
+| N | Enable Chat | BOOLEAN | ☑ TRUE to send Google Chat notifications |
+| O | Email Recipients | STRING | Comma-separated emails |
+| P | Enable Email | BOOLEAN | ☑ TRUE to send Email notifications |
+| S (row 4) | WhatsApp Group ID | STRING | Format: 120363xxx@g.us (GLOBAL) |
+| T (row 4) | Fonnte Token | STRING | API token from Fonnte (GLOBAL) |
+| U (row 4) | Enable WhatsApp | BOOLEAN | ☑ TRUE to send WhatsApp notifications (GLOBAL) |
+
+**Schedule Format Examples:**
+- `9` → Daily at 9:00
+- `9,14,18` → 3x per day (9:00, 14:00, 18:00)
+- `4h` → Every 4 hours (supports: 1h, 2h, 4h, 6h, 8h, 12h)
+
+**Notification Strategy:**
+- **Per-Module (Google Chat, Email):** Each module can have different webhooks/emails
+- **GLOBAL (WhatsApp):** Single WhatsApp group receives all notifications
+- **Aggregation:** Multiple modules with same webhook/email receive 1 combined message
+
+### Message Format Comparison
+
+**Google Chat (Markdown with hyperlinks):**
+```
+📊 *DAILY BUG REPORT*
+━━━━━━━━━━━━━
+
+SUMMARY
+▬ QA Bugs: 67 (10 apps)
+  • Severity: Critical🟣 5  High🔴 8  Medium🟠 54
+▬ VAPT Blocker: 20 (7 apps)
+  • Severity: High🔴 3  Medium🟠 17
+
+🚨🚨🚨 *PRODUCTION BUGS* 🚨🚨🚨
+<users/all>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+*SIPGN - 4*
+📌 AI Surveillance: *2* PROD bug(s)
+
+⚠️ *URGENT - IMMEDIATE ACTION REQUIRED!*
+
+...
+
+🔗 <https://script.google.com/.../exec|📊 Web Dashboard (QA & VAPT)>
+```
+
+**Email (HTML with styled tables):**
+- Red/Orange header based on severity
+- Styled summary table with severity badges
+- Alert box with emergency protocol (if PROD bugs)
+- Per-module breakdown with color coding
+- Quick links section with buttons
+
+**WhatsApp (Plain text, WhatsApp-friendly):**
+```
+📊 *DAILY BUG REPORT*
+📅 2026-04-06 14:59:53
+━━━━━━━━━━━━━
+
+SUMMARY
+▬ QA Bugs: 67 (10 apps)
+  • Severity: Critical🟣 5  High🔴 8  Medium🟠 54
+▬ VAPT Blocker: 20 (7 apps)
+  • Severity: High🔴 3  Medium🟠 17
+
+...
+
+━━━━━━━━━━━━━
+🔗 *Dashboard Links:*
+📊 Web Dashboard: https://script.google.com/.../exec (QA & VAPT)
+📋 Sheet Overview: https://docs.google.com/...
+🐛 Sheet Bugs: https://docs.google.com/...
+
+_Automated Daily Report - QA Dashboard_
+```
+
+### Error Handling & Retry Logic
+
+**Notification Failures:**
+```javascript
+// Each channel has independent error handling
+try {
+  sendGoogleChatNotification_(webhookUrl, blockerData);
+} catch (e) {
+  Logger.log('❌ Google Chat notification failed: ' + e.message);
+  // Continue with other channels
+}
+```
+
+**Common Failure Scenarios:**
+1. **Google Chat:** Invalid webhook URL, space deleted
+2. **Email:** Invalid email address, quota exceeded (MailApp: 100/day)
+3. **WhatsApp:** Invalid group ID, expired token, rate limit
+
+**No Retry:** System does NOT retry failed notifications (to avoid spam)
+
+**Logging:** All results logged to Apps Script Execution log
+
+### Web App URL Management
+
+**Problem:** Notifications need latest Web App deployment URL
+
+**Solution:** Script Properties (persistent storage)
+
+**Setup:**
+```javascript
+// Run once after deploying new Web App version
+function autoSetWebAppUrl() {
+  const LATEST_WEBAPP_URL = 'https://script.google.com/.../exec';
+  PropertiesService.getScriptProperties()
+    .setProperty('WEB_APP_URL', LATEST_WEBAPP_URL);
+}
+```
+
+**Usage in Notifications:**
+```javascript
+// Notifications.js reads from Script Properties
+const scriptProps = PropertiesService.getScriptProperties();
+const dashboardWebAppUrl = scriptProps.getProperty('WEB_APP_URL') || LATEST_WEBAPP_URL;
+```
+
+**Fallback:** If property not set, fallback to `LATEST_WEBAPP_URL` constant (line 8)
+
+---
+
 ## 🎨 Common Patterns
 
 ### Pattern 1: Safe Sheet Access
