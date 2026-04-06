@@ -1,7 +1,7 @@
 # 🏗️ System Architecture - QA Test Management & Dashboard
 
-**Last Updated:** March 31, 2026
-**Version:** 2.0 (with VAPT Integration)
+**Last Updated:** April 6, 2026
+**Version:** 2.1 (VAPT External Source Integration)
 
 > Complete architectural documentation for QA Test Management System and Portfolio Dashboard. This document serves as the single source of truth for understanding system design, data flows, and integration patterns.
 
@@ -35,53 +35,66 @@
 ### Core Components
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    QA PORTFOLIO DASHBOARD                        │
-│  (1lHO8yKyqKs1_n5GV1m-SJMACLS95Jc7yy6dM_ItyT-l_-GdmkGQk3OIO)   │
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │   Overview   │  │     Bugs     │  │    Smoke     │         │
-│  │  (KPI Cards) │  │  (Tracking)  │  │  (Critical)  │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-│                                                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │   History    │  │   Coverage   │  │   Failure    │         │
-│  │  (Timeline)  │  │  (Progress)  │  │  (Analysis)  │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │                    Config Sheet                           │  │
-│  │  • Module registry (Active/Inactive)                     │  │
-│  │  • Jira Sync configuration                               │  │
-│  │  • Spreadsheet IDs for QATM modules                      │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└────────────────────┬─────────────────────────────────────┬─────┘
-                     │                                     │
-                     │ refreshDashboard()                  │
-                     │ pullModuleData()                    │
-                     │                                     │
-          ┌──────────▼──────────┐              ┌──────────▼──────────┐
-          │  QATM Module 1      │              │  QATM Module N      │
-          │  (Project A)        │              │  (Project Z)        │
-          │                     │              │                     │
-          │  • TC_Master        │              │  • TC_Master        │
-          │  • TC_Execution     │              │  • TC_Execution     │
-          │  • API_Master       │              │  • API_Master       │
-          │  • API_Execution    │              │  • API_Execution    │
-          │  • BugReport        │              │  • BugReport        │
-          │  • Summary          │              │  • Summary          │
-          │  • Appendix         │              │  • Appendix         │
-          └──────────┬──────────┘              └──────────┬──────────┘
-                     │                                     │
-                     │ syncJiraBugs()                     │
-                     │ updateStatus()                      │
-                     │                                     │
-          ┌──────────▼─────────────────────────────────────▼─────────┐
-          │                      JIRA                                  │
-          │  • Bug tracking                                           │
-          │  • Status sync (Open → Fixed → Verified → VAPT → Closed) │
-          │  • Priority management                                     │
-          └───────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                     QA PORTFOLIO DASHBOARD                        │
+│   (1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY)                │
+│                                                                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │   Overview   │  │     Bugs     │  │     VAPT     │          │
+│  │  (KPI Cards) │  │  (Tracking)  │  │  (Security)  │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+│                                                                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │    Smoke     │  │   History    │  │   Coverage   │          │
+│  │  (Critical)  │  │  (Timeline)  │  │  (Progress)  │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                     Config Sheet                          │   │
+│  │  • Module registry (Active/Inactive)                      │   │
+│  │  • Jira Sync configuration                                │   │
+│  │  • Spreadsheet IDs for QATM modules                       │   │
+│  │  • Notification config (WhatsApp, Email, Google Chat)     │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└────────┬──────────────────────────────────┬───────────────┬──────┘
+         │                                  │               │
+         │ refreshDashboard()               │               │
+         │ pullModuleData()                 │               │
+         │                                  │               │ refreshVAPTData()
+         │                                  │               │ fetchAndProcessVAPTData_()
+         │                                  │               │
+┌────────▼─────────┐            ┌──────────▼──────────┐   │
+│  QATM Module 1   │            │  QATM Module N      │   │
+│  (Project A)     │            │  (Project Z)        │   │
+│                  │            │                     │   │
+│ • TC_Master      │            │ • TC_Master         │   │
+│ • TC_Execution   │            │ • TC_Execution      │   │
+│ • API_Master     │            │ • API_Master        │   │
+│ • API_Execution  │            │ • API_Execution     │   │
+│ • BugReport      │            │ • BugReport         │   │
+│ • Summary        │            │ • Summary           │   │
+│ • Appendix       │            │ • Appendix          │   │
+└────────┬─────────┘            └──────────┬──────────┘   │
+         │                                 │               │
+         │ syncJiraBugs()                  │               │
+         │ updateStatus()                  │               │
+         │                                 │               │
+┌────────▼─────────────────────────────────▼─────────┐    │
+│                      JIRA                           │    │
+│  • Bug tracking                                     │    │
+│  • Status sync (Open → Fixed → Verified → Closed)  │    │
+│  • Priority management                              │    │
+└─────────────────────────────────────────────────────┘    │
+                                                            │
+                        ┌───────────────────────────────────▼────────┐
+                        │      VAPT SOURCE SPREADSHEET              │
+                        │  (17qeErP3VHxN7qcNQqhT6zGLukxZU4OKLmBM...) │
+                        │                                            │
+                        │  • Ad Hoc VAPT (security findings)        │
+                        │  • Regular VAPT (scheduled assessments)   │
+                        │  • Severity: Critical, High, Medium, Low  │
+                        │  • Status: Open, Ready to Retest, Closed  │
+                        └────────────────────────────────────────────┘
 ```
 
 ---
@@ -106,9 +119,12 @@
 │  Dashboard Scripts:                                              │
 │  • MasterDashboard.js  - Main orchestrator                      │
 │  • BugsTab.js          - Bug aggregation & delta tracking       │
+│  • VAPTTab.js          - VAPT findings dashboard builder        │
+│  • VAPTDataFetch.js    - Fetch/process VAPT data               │
 │  • JiraSync.js         - Jira integration                       │
-│  • Notifications.js    - WhatsApp/Email alerts                  │
+│  • Notifications.js    - WhatsApp/Email/GChat alerts            │
 │  • VAPTBroadcast.js    - Bulk update utility                    │
+│  • WebAppBackend.js    - Web dashboard API                      │
 │                                                                  │
 │  QATM Scripts:                                                   │
 │  • MasterQATCM.js      - Template generator                     │
@@ -136,9 +152,12 @@
 **Core Files:**
 - `MasterDashboard.js` - Main orchestrator, dashboard builder
 - `BugsTab.js` - Bug metrics aggregation with historical tracking
+- `VAPTTab.js` - VAPT findings dashboard builder
+- `VAPTDataFetch.js` - Fetch and process VAPT data from external source
 - `JiraSync.js` - Jira integration and bug synchronization
 - `Notifications.js` - Alert system (WhatsApp, Email, Google Chat)
 - `VAPTBroadcast.js` - Bulk operations for VAPT workflow updates
+- `WebAppBackend.js` - Web dashboard API backend
 
 **Key Functions:**
 
@@ -147,11 +166,23 @@
 refreshDashboard()
   ├─ getModuleList_(ss)              // Read Config sheet
   ├─ pullModuleData_(mod)            // Extract data from each QATM
+  ├─ refreshVAPTData()               // NEW: Fetch VAPT data from external source
   ├─ writeOverview(ss, allData)      // KPI cards
   ├─ writeBugs(ss, allData)          // Bug tracking with delta
+  ├─ writeVAPT(ss, vaptData)         // NEW: VAPT findings with blocker tracking
   ├─ writeSmoke(ss, allData)         // Critical test results
   ├─ writeCoverage(ss, allData)      // Test coverage metrics
-  └─ appendHistory(ss, allData)      // Historical timeline
+  ├─ appendHistory(ss, allData)      // Historical timeline
+  └─ appendVAPTHistory(ss, vaptData) // NEW: VAPT historical timeline
+
+// VAPT data refresh (NEW)
+refreshVAPTData()
+  ├─ fetchAndProcessVAPTData_()      // Fetch from VAPT spreadsheet
+  │   ├─ fetchAdHocVAPTData_()       // Ad Hoc VAPT findings
+  │   ├─ fetchRegularVAPTData_()     // Regular VAPT findings
+  │   └─ processVAPTData_()          // Combine and calculate metrics
+  ├─ writeVAPT(ss, vaptData)         // Write to VAPT tab
+  └─ appendVAPTHistory(ss, vaptData) // Append to history
 
 // Jira integration
 syncAndRefresh()
@@ -166,11 +197,13 @@ syncAndRefresh()
 |-----|---------|------------------|
 | **Overview** | Portfolio-level KPIs | On refresh (manual) |
 | **Bugs** | Bug metrics with delta tracking | On refresh |
+| **VAPT** | Security findings blocker tracking | On refresh |
 | **Smoke** | Critical smoke test results | On refresh |
 | **Coverage** | Test coverage progress | On refresh |
 | **Failure Scenario** | Failed test analysis | On refresh |
 | **History** | Timeline of metrics | Append-only |
-| **Config** | Module registry | Manual edit |
+| **VAPT History** | Timeline of VAPT blocker trends | Append-only |
+| **Config** | Module registry & notification config | Manual edit |
 | **Credentials** | Jira auth config | Manual edit |
 | **_Raw** | Debug data dump | On refresh |
 
@@ -308,7 +341,59 @@ FOR EACH MODULE:
         └─ Add new bugs if not exists
 ```
 
-### Flow 3: VAPT Workflow Broadcast
+### Flow 3: VAPT Data Refresh (Pull from External Source)
+
+```
+TRIGGER: refreshDashboard() → refreshVAPTData()
+   │
+   ▼
+Read Config
+   │
+   ├─► Get VAPT Spreadsheet ID (external source)
+   │
+   ▼
+Open VAPT Spreadsheet
+   │
+   ├─► fetchAdHocVAPTData_(vaptSs)
+   │    ├─ Read "Ad Hoc VAPT" tab (C1:Y100)
+   │    ├─ Skip header rows (1-2)
+   │    ├─ Extract data:
+   │    │   ├─ Aplikasi (application name)
+   │    │   ├─ Severity breakdown (Critical, High, Medium, Low, Info)
+   │    │   ├─ Status (Open, Ready to Retest, Closed)
+   │    │   └─ Production status
+   │    └─ Return array of findings
+   │
+   ├─► fetchRegularVAPTData_(vaptSs)
+   │    ├─ Read "Regular VAPT" tab (same structure)
+   │    └─ Return array of findings
+   │
+   ▼
+Process and Combine Data
+   │
+   ├─► processVAPTData_(adHocData, regularData)
+   │    ├─ Group by Aplikasi
+   │    ├─ Aggregate severity counts
+   │    ├─ Calculate blocker count (Medium-Critical Open)
+   │    ├─ Combine Ad Hoc + Regular findings
+   │    └─ Return processed dataset
+   │
+   ▼
+Write to Dashboard
+   │
+   ├─► writeVAPT(ss, vaptData)
+   │    ├─ Clear VAPT tab data rows
+   │    ├─ Write summary metrics (Total blocker, Apps with blocker)
+   │    ├─ Write detail table per aplikasi
+   │    └─ Apply conditional formatting (red for blocker > 0)
+   │
+   └─► appendVAPTHistory(ss, vaptData)
+        ├─ Read current date
+        ├─ Append row: [Date, Total Blocker, Ad Hoc Count, Regular Count]
+        └─ Update VAPT chart data range
+```
+
+### Flow 4: VAPT Workflow Broadcast (Legacy)
 
 ```
 TRIGGER: Manual run broadcastVAPTStatusUpdate()
@@ -436,7 +521,103 @@ if (status !== 'Closed' && status !== "Won't Fix" &&
 
 ---
 
-## 🔒 VAPT Workflow Integration
+## 🔒 VAPT Integration
+
+### Overview
+
+The VAPT (Vulnerability Assessment & Penetration Testing) integration provides centralized security findings tracking in the QA Portfolio Dashboard. This system pulls data from an external VAPT spreadsheet containing both Ad Hoc and Regular VAPT assessment results.
+
+**Key Features:**
+- Automated data fetch from external VAPT source spreadsheet
+- Combined view of Ad Hoc + Regular VAPT findings
+- Blocker tracking (Medium-Critical Open findings)
+- Per-application severity breakdown (Critical, High, Medium, Low, Info)
+- Historical trending with VAPT History timeline
+- Integration with notifications (WhatsApp, Email, Google Chat)
+
+### VAPT Data Source
+
+**External Spreadsheet:** `17qeErP3VHxN7qcNQqhT6zGLukxZU4OKLmBMbsgsl1Rk`
+
+**Tabs:**
+- **Ad Hoc VAPT:** Security findings from ad-hoc assessments (C1:Y100)
+- **Regular VAPT:** Scheduled/routine VAPT results (same structure)
+
+**Data Structure:**
+| Column | Field | Description |
+|--------|-------|-------------|
+| C | No | Entry number |
+| D | Aplikasi | Application name |
+| E-I | Severity | Critical, High, Medium, Low, Info counts |
+| J-N | Status | Open, Ready to Retest, Closed counts |
+| O | Production | Production status flag |
+
+### VAPT Blocker Definition
+
+**VAPT Blocker = Medium-Critical Open findings**
+
+```javascript
+// Blocker calculation
+const blocker = (criticalOpen + highOpen + mediumOpen) || 0;
+
+// Only count "Open" status, not "Ready to Retest" or "Closed"
+```
+
+**Target:** 0 VAPT blocker across all applications before production release
+
+### VAPT Dashboard Tab Structure
+
+**Summary Section (Rows 1-9):**
+- Last refresh timestamp
+- Total Blocker count (all apps combined)
+- Apps with Blocker count
+- Breakdown: Ad Hoc vs Regular VAPT
+
+**Detail Table (Rows 10+):**
+- Per-application severity breakdown
+- Columns: Aplikasi | Blocker | Critical | High | Medium | Low | Info
+- Conditional formatting: Red background if blocker > 0
+- Target reminder: "🎯 Target: 0 blocker di semua aplikasi!"
+
+**VAPT History Tab:**
+- Timeline of blocker trends (append-only)
+- Columns: Date | Total Blocker | Ad Hoc Count | Regular Count
+- Used for trend charts in Web App dashboard
+
+### Integration with Notifications
+
+VAPT blocker data is included in all notification channels:
+
+**WhatsApp / Email / Google Chat Format:**
+```
+📊 DAILY BUG REPORT
+━━━━━━━━━━━━━
+
+SUMMARY
+▬ QA Bugs: 67 (10 apps)
+  • Severity: Critical🟣 5  High🔴 8  Medium🟠 54
+▬ VAPT Blocker: 20 (7 apps)
+  • Severity: High🔴 3  Medium🟠 17
+
+VAPT BLOCKER DETAIL
+━━━━━━━━━━━━━
+
+▬ Fleet Management Mobile: 5
+  • High🔴 1  Medium🟠 4
+▬ Dialur: 5
+  • High🔴 2  Medium🟠 3
+...
+```
+
+**Notification Logic:**
+- Include if `vaptBlocker > 0`
+- Show total blocker count + apps affected
+- Show severity breakdown (hide zero counts)
+- List detail per application with blocker > 0
+
+---
+
+## 🔒 VAPT Workflow Integration (Legacy)
 
 ### Bug Status Lifecycle (with VAPT)
 
@@ -507,11 +688,14 @@ const STATUS_COLORS = {
 |------|-------|---------|---------------|
 | **MasterDashboard.js** | 2000+ | Main orchestrator | `refreshDashboard()`, `pullModuleData_()`, `getModuleList_()` |
 | **BugsTab.js** | 500 | Bug aggregation with delta | `writeBugs()`, `collectBugsFromModules_()` |
+| **VAPTTab.js** | 500 | VAPT dashboard builder | `buildVAPT()`, `writeVAPT()`, `appendVAPTHistory()` |
+| **VAPTDataFetch.js** | 400 | VAPT data fetch & process | `refreshVAPTData()`, `fetchAdHocVAPTData_()`, `fetchRegularVAPTData_()`, `processVAPTData_()` |
 | **JiraSync.js** | 2000+ | Jira integration | `syncAllJiraBugs()`, `_getBlockerData_()` |
-| **Notifications.js** | 1500 | Alert system | `sendWhatsAppNotification()`, `sendEmailReport()` |
-| **VAPTBroadcast.js** | 900 | Bulk update utility | `broadcastVAPTStatusUpdate()`, `broadcastFixNoteAndAppendix()` |
-| **WebApp.html** | 31KB | Web dashboard UI | HTML/CSS/JS frontend |
-| **WebAppBackend.js** | 14KB | Web API backend | `doGet()`, `getModuleData()` |
+| **Notifications.js** | 1750 | Alert system (WhatsApp, Email, GChat) | `sendWhatsAppNotification_()`, `sendEmailNotification_()`, `sendGoogleChatNotification_()` |
+| **VAPTBroadcast.js** | 900 | Bulk update utility (Legacy) | `broadcastVAPTStatusUpdate()`, `broadcastFixNoteAndAppendix()` |
+| **WebApp.html** | 31KB | Web dashboard UI | HTML/CSS/JS frontend with VAPT charts |
+| **WebAppBackend.js** | 14KB | Web API backend | `doGet()`, `getModuleData()`, `getVAPTData()` |
+| **InitVAPT.js** | 200 | VAPT initialization | `initVAPTConfig()` |
 | **BroadcastFixes.js** | 500 | Legacy broadcast utils | (Deprecated) |
 
 ### Template (`projects/qa-test-management/src/`)
@@ -919,11 +1103,12 @@ function testJiraConnection() {
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **2.0** | 2026-03-31 | Added VAPT workflow integration |
+| **2.1** | 2026-04-06 | VAPT external source integration: VAPTTab.js, VAPTDataFetch.js, automated blocker tracking from external VAPT spreadsheet, notification integration |
+| **2.0** | 2026-03-31 | Added VAPT workflow integration (Bug status lifecycle) |
 | **1.5** | 2026-03-17 | Added dual environment support (Testing + Production) |
 | **1.0** | 2026-02-27 | Initial architecture documentation |
 
 ---
 
 **Maintained by:** QA Team @ INA Digital
-**Last Review:** March 31, 2026
+**Last Review:** April 6, 2026
