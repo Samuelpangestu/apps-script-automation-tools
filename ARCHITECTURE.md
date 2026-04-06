@@ -27,10 +27,19 @@
 ## 🎯 System Overview
 
 ### Architecture Pattern
-**Hub-and-Spoke Model**
+**Hub-and-Spoke Model with External Data Sources**
+
 - **Hub:** QA Portfolio Dashboard (centralized aggregator)
+  - Aggregates QA bugs from all QATM modules
+  - Aggregates VAPT findings from external source (direct)
+
 - **Spokes:** Individual QATM (QA Test Management) modules per project/module
-- **External:** Jira (bug tracking system)
+  - Each module tracks test cases and bugs
+  - BugReport sheets synced from Jira
+
+- **External Data Sources:**
+  - **Jira:** Bug tracking system → Syncs to QATM BugReport sheets
+  - **VAPT Spreadsheet:** Security findings → Direct to Dashboard VAPT tab (⚠️ NOT via QATM)
 
 ### Core Components - End-to-End Flow
 
@@ -39,22 +48,23 @@
 │                         📊 DATA SOURCES                                      │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-        ┌──────────────────┐                    ┌─────────────────────────┐
-        │      JIRA        │                    │  VAPT SOURCE SHEET      │
-        │ digitalperuri    │                    │  (External Security)    │
-        │                  │                    │                         │
-        │ • Bug Tracking   │                    │ • Ad Hoc VAPT           │
-        │ • Status Updates │                    │ • Regular VAPT          │
-        │ • Priority Mgmt  │                    │ • Per-app findings      │
-        └────────┬─────────┘                    └────────┬────────────────┘
-                 │                                       │
-                 │ syncAllJiraBugs()                    │ refreshVAPTData()
-                 │ (Every 1 hour)                       │ (On dashboard refresh)
-                 │                                       │
-                 ▼                                       ▼
+            ┌──────────────────┐                 ┌─────────────────────────┐
+            │      JIRA        │                 │  VAPT SOURCE SHEET      │
+            │ digitalperuri    │                 │  (External Security)    │
+            │                  │                 │                         │
+            │ • Bug Tracking   │                 │ • Ad Hoc VAPT           │
+            │ • Status Updates │                 │ • Regular VAPT          │
+            │ • Priority Mgmt  │                 │ • Per-app findings      │
+            └────────┬─────────┘                 └────────┬────────────────┘
+                     │                                    │
+                     │ syncAllJiraBugs()                  │
+                     │ (Every 1 hour)                     │
+                     │                                    │
+                     ▼                                    │
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         🗂️ QATM MODULES (Spokes)                            │
+│                      (QA Test Management - Bug Tracking)                     │
 └─────────────────────────────────────────────────────────────────────────────┘
 
     ┌────────────────┐      ┌────────────────┐      ┌────────────────┐
@@ -73,19 +83,33 @@
              │        pullModuleData() - Read all modules    │
              └───────────────────────┼───────────────────────┘
                                      │
-                                     ▼
+                                     │
+                     ┌───────────────┴──────────────────┐
+                     │                                  │
+                     ▼                                  │
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │            📊 QA PORTFOLIO DASHBOARD (Hub & Aggregator)                      │
 │               (1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY)                │
 └─────────────────────────────────────────────────────────────────────────────┘
+                     ▲                                  ▲
+                     │ QA Data Flow                     │ VAPT Data Flow
+                     │ (from QATM)                      │ (DIRECT from VAPT Source)
+                     │                                  │
+                     │ pullModuleData()                 │ refreshVAPTData()
+                     │ • Read BugReport                 │ • fetchAdHocVAPTData_()
+                     │ • Aggregate bugs                 │ • fetchRegularVAPTData_()
+                     │ • Calculate blocker              │ • processVAPTData_()
+                     │                                  │
+                     └──────────────────────────────────┘
 
     ┌──────────────────────────────────────────────────────────────────────┐
     │                      DASHBOARD TABS                                   │
     │                                                                       │
     │  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐       │
     │  │ Overview  │  │   Bugs    │  │   VAPT    │  │   Smoke   │       │
-    │  │ (KPI Sum) │  │ (Aggr.)   │  │ (Security)│  │ (Critical)│       │
+    │  │ (KPI Sum) │  │ (QA Aggr.)│  │ (Security)│  │ (Critical)│       │
+    │  │           │  │ ◄─ QATM   │  │ ◄─ DIRECT │  │           │       │
     │  └───────────┘  └───────────┘  └───────────┘  └───────────┘       │
     │                                                                       │
     │  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐       │
@@ -93,14 +117,22 @@
     │  │ (Timeline)│  │ (Progress)│  │ (Analysis)│  │ (Settings)│       │
     │  └───────────┘  └───────────┘  └───────────┘  └───────────┘       │
     │                                                                       │
+    │  ┌─────────────┐                                                     │
+    │  │ VAPT History│  ◄─ VAPT Timeline (append-only)                    │
+    │  │  (Timeline) │                                                     │
+    │  └─────────────┘                                                     │
+    │                                                                       │
     │  📋 Config Sheet (Row 4+):                                           │
-    │     • Module registry (Active/Inactive)                              │
+    │     • Module registry (Active/Inactive) - FOR QATM ONLY             │
     │     • Spreadsheet IDs for QATM modules                               │
     │     • Jira Sync config (Instance, Project, API Token)                │
     │     • Notification config (Webhook, Email, WhatsApp, Schedule)       │
+    │     • VAPT Source Spreadsheet ID (External - NOT in QATM)           │
     └──────────────────────────────────────────────────────────────────────┘
 
                    refreshDashboard() → Aggregate all data
+                   • QA Bugs: From QATM modules
+                   • VAPT Findings: Direct from external spreadsheet
                                 │
                                 ▼
 
@@ -191,10 +223,21 @@
 
 **Key Flows:**
 
+**DUAL INDEPENDENT DATA STREAMS:**
+
+**QA Flow (via QATM Modules):**
 1. **Data Collection** (Hourly): JIRA → syncAllJiraBugs() → QATM BugReport sheets
-2. **Dashboard Refresh** (Manual/Scheduled): QATM Modules → pullModuleData() → Dashboard Bugs/VAPT tabs
-3. **Notification Trigger** (Scheduled): Dashboard tabs → getBlockerData_() → Multi-channel delivery
-4. **Web Access** (On-demand): User → Web App → Dashboard data → Interactive UI
+2. **Dashboard Refresh** (Manual/Scheduled): QATM Modules → pullModuleData() → Dashboard Bugs tab
+
+**VAPT Flow (Direct to Dashboard):**
+3. **VAPT Refresh** (On Dashboard Refresh): VAPT Source Spreadsheet → refreshVAPTData() → Dashboard VAPT tab
+   - ⚠️ **IMPORTANT:** VAPT data does NOT go through QATM modules!
+   - Direct read from external VAPT spreadsheet
+   - No QATM module involvement
+
+**Notification & Access:**
+4. **Notification Trigger** (Scheduled): Dashboard tabs (Bugs + VAPT) → getBlockerData_() → Multi-channel delivery
+5. **Web Access** (On-demand): User → Web App → Dashboard data → Interactive UI
 
 ---
 
@@ -876,10 +919,16 @@ if (status !== 'Closed' && status !== "Won't Fix" &&
 
 ### Overview
 
-The VAPT (Vulnerability Assessment & Penetration Testing) integration provides centralized security findings tracking in the QA Portfolio Dashboard. This system pulls data from an external VAPT spreadsheet containing both Ad Hoc and Regular VAPT assessment results.
+The VAPT (Vulnerability Assessment & Penetration Testing) integration provides centralized security findings tracking in the QA Portfolio Dashboard. This system pulls data **directly from an external VAPT spreadsheet** containing both Ad Hoc and Regular VAPT assessment results.
+
+**⚠️ IMPORTANT: VAPT Data Flow**
+- VAPT data flows **DIRECTLY** from external VAPT spreadsheet to Dashboard VAPT tab
+- **Does NOT go through QATM modules** (unlike QA bugs which flow through QATM BugReport sheets)
+- Separate and independent from QA bug tracking workflow
+- No Jira integration for VAPT (VAPT source is standalone spreadsheet)
 
 **Key Features:**
-- Automated data fetch from external VAPT source spreadsheet
+- Automated data fetch from external VAPT source spreadsheet (no QATM intermediate)
 - Combined view of Ad Hoc + Regular VAPT findings
 - Blocker tracking (Medium-Critical Open findings)
 - Per-application severity breakdown (Critical, High, Medium, Low, Info)
