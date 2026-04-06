@@ -51,80 +51,80 @@
         ┌──────────────────┐                    ┌─────────────────────────┐
         │      JIRA        │                    │  VAPT SOURCE SHEET      │
         │ digitalperuri    │                    │  (External Security)    │
-        │                  │                    │                         │
-        │ • Bug Tracking   │                    │ • Ad Hoc VAPT           │
-        │ • Status Updates │                    │ • Regular VAPT          │
-        │ • Priority Mgmt  │                    │ • Per-app findings      │
-        └────────┬─────────┘                    └────────┬────────────────┘
-                 │                                       │
-                 │ syncAllJiraBugs()                    │ refreshVAPTData()
-                 │ (Every 1 hour)                       │ (On dashboard refresh)
-                 │                                       │ ⚠️  DIRECT - Skip QATM
-                 ▼                                       │
-                                                         │
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         🗂️ QATM MODULES (Spokes)                            │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-    ┌────────────────┐      ┌────────────────┐      ┌────────────────┐
-    │  QATM Module 1 │      │  QATM Module 2 │ ...  │  QATM Module N │
-    │  SIPGN - 0     │      │  SIPGN - 1     │      │  PENJAMINAN    │
-    │                │      │                │      │                │
-    │ • TC_Master    │      │ • TC_Master    │      │ • TC_Master    │
-    │ • TC_Execution │      │ • TC_Execution │      │ • TC_Execution │
-    │ • API_Master   │      │ • API_Master   │      │ • API_Master   │
-    │ • API_Exec     │      │ • API_Exec     │      │ • API_Exec     │
-    │ • BugReport ◄──┼──────┼─ Jira writes   │      │ • BugReport    │
-    │ • Summary      │      │ • Summary      │      │ • Summary      │
-    │ • Appendix     │      │ • Appendix     │      │ • Appendix     │
-    └────────┬───────┘      └────────┬───────┘      └────────┬───────┘
-             │                       │                       │
-             │        pullModuleData() - Read all modules    │
-             └───────────────────────┼───────────────────────┘
-                                     │
-                                     ▼
-                        ┌─────────────────────────┐
-                        │                         │
-                        │                         │
-┌─────────────────────────────────────────────────────────────────────────────┐
-│            📊 QA PORTFOLIO DASHBOARD (Hub & Aggregator)                      │
-│               (1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY)                │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-    ┌──────────────────────────────────────────────────────────────────────┐
-    │                      DASHBOARD TABS                                   │
-    │                                                                       │
-    │  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐       │
-    │  │ Overview  │  │   Bugs    │  │   VAPT    │  │   Smoke   │       │
-    │  │ (KPI Sum) │  │ ◄─ QATM   │  │ ◄─ DIRECT │  │ (Critical)│       │
-    │  └───────────┘  └───────────┘  └───────────┘  └───────────┘       │
-    │                                      ▲                                │
-    │  ┌───────────┐  ┌───────────┐      │         ┌───────────┐       │
-    │  │  History  │  │  Coverage │      │         │  Failure  │       │
-    │  │ (Timeline)│  │ (Progress)│      │         │ (Analysis)│       │
-    │  └───────────┘  └───────────┘      │         └───────────┘       │
-    │                                      │                                │
-    │  📋 Config Sheet (Row 4+):          │                                │
+        │                  │                    │                         │─────────┐
+        │ • Bug Tracking   │                    │ • Ad Hoc VAPT           │         │
+        │ • Status Updates │                    │ • Regular VAPT          │         │
+        │ • Priority Mgmt  │                    │ • Per-app findings      │         │            
+        └────────┬─────────┘                    └─────────────────────────┘         │
+                 │                                                                  │
+                 │ syncAllJiraBugs()                                                │ refreshVAPTData()
+                 │ (Every 1 hour)                                                   │ (On dashboard refresh)
+                 │                                                                  │
+                 ▼                                                                  │
+                                                                                    │ 
+┌─────────────────────────────────────────────────────────────────────────────┐     │  
+│                         🗂️ QATM MODULES (Spokes)                            │     │
+└─────────────────────────────────────────────────────────────────────────────┘     │
+                                                                                    │
+    ┌────────────────┐      ┌────────────────┐      ┌────────────────┐              │
+    │  QATM Module 1 │      │  QATM Module 2 │ ...  │  QATM Module N │              │
+    │  SIPGN - 0     │      │  SIPGN - 1     │      │  PENJAMINAN    │              │
+    │                │      │                │      │                │              │
+    │ • TC_Master    │      │ • TC_Master    │      │ • TC_Master    │              │
+    │ • TC_Execution │      │ • TC_Execution │      │ • TC_Execution │              │
+    │ • API_Master   │      │ • API_Master   │      │ • API_Master   │              │
+    │ • API_Exec     │      │ • API_Exec     │      │ • API_Exec     │              │
+    │ • BugReport ◄──┼──────┼─ Jira writes   │      │ • BugReport    │              │
+    │ • Summary      │      │ • Summary      │      │ • Summary      │              │
+    │ • Appendix     │      │ • Appendix     │      │ • Appendix     │              │
+    └────────┬───────┘      └────────┬───────┘      └────────┬───────┘              │
+             │                       │                       │                      │
+             │        pullModuleData() - Read all modules    │                      │
+             └───────────────────────┼───────────────────────┘                      │
+                                     │                                              │
+                                     ▼                                              │
+                        ┌─────────────────────────┐                                 │                               
+                        │                         │                                 │
+                        │                         │                                 │
+┌─────────────────────────────────────────────────────────────────────────────┐     │
+│            📊 QA PORTFOLIO DASHBOARD (Hub & Aggregator)                     │     │
+│               (1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY)                │     │
+└─────────────────────────────────────────────────────────────────────────────┘     │
+                                                                                    │
+    ┌──────────────────────────────────────────────────────────────────────┐        │
+    │                      DASHBOARD TABS                                  │        │
+    │                                                                      │        │
+    │  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐          │        │
+    │  │ Overview  │  │   Bugs    │  │   VAPT    │  │   Smoke   │          │◄───────|
+    │  │ (KPI Sum) │  │ ◄─ QATM   │  │ ◄─ DIRECT │  │ (Critical)│          │
+    │  └───────────┘  └───────────┘  └───────────┘  └───────────┘          │
+    │                                    ▲                                 │
+    │  ┌───────────┐  ┌───────────┐      │         ┌───────────┐           │
+    │  │  History  │  │  Coverage │      │         │  Failure  │           │
+    │  │ (Timeline)│  │ (Progress)│      │         │ (Analysis)│           │
+    │  └───────────┘  └───────────┘      │         └───────────┘           │
+    │                                    │                                 │
+    │  📋 Config Sheet (Row 4+):         │                                 │
     │     • Module registry (Active/Inactive)                              │
     │     • Spreadsheet IDs for QATM modules                               │
     │     • Jira Sync config (Instance, Project, API Token)                │
     │     • Notification config (Webhook, Email, WhatsApp, Schedule)       │
     └──────────────────────────────────────┼───────────────────────────────┘
-                                            │
-                                            │
-                                            └─────────────────────────┐
-                                                                      │
+                                           │
+                                           │
+                                           └─────────────────────────┐
+                                                                     │
                  refreshDashboard() → Aggregate all data             │
-                                  │                                   │
-                                  ▼                                   │
-
+                                  │                                  │
+                                  ▼                                  │
+                                                                     │
     ┌──────────────────────────────────────────────────────────────────────┐
-    │                    AGGREGATED METRICS                                 │
-    │                                                                       │
-    │  • Total Bugs: 67 (Critical: 2, High: 5, Medium: 29)                │
-    │  • QA Blocker: 36 bugs (Medium-Critical, not Closed)                │
+    │                    AGGREGATED METRICS                                │
+    │                                                                      │
+    │  • Total Bugs: 67 (Critical: 2, High: 5, Medium: 29)                 │
+    │  • QA Blocker: 36 bugs (Medium-Critical, not Closed)                 │
     │  • PROD Bugs: 8 bugs (Production environment)                        │
-    │  • VAPT Blocker: 21 findings (8 apps with security issues)          │
+    │  • VAPT Blocker: 21 findings (8 apps with security issues)           │
     │  • Pass Rate: Web 92%, API 85%                                       │
     │  • Coverage: 1,234 test cases executed                               │
     └──────────────────────────────────────────────────────────────────────┘
@@ -135,7 +135,7 @@
                                   ▼
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                   📢 NOTIFICATION SYSTEM (Multi-Channel)                     │
+│                   📢 NOTIFICATION SYSTEM (Multi-Channel)                    │
 └─────────────────────────────────────────────────────────────────────────────┘
 
                     getBlockerData_() → Build notification payload
@@ -167,7 +167,7 @@
         └───────────────────┘  └────────────────┘  └──────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         📱 DELIVERY CONFIRMATION                             │
+│                         📱 DELIVERY CONFIRMATION                            │
 └─────────────────────────────────────────────────────────────────────────────┘
 
     ✅ Notifications Sent!
@@ -182,21 +182,21 @@
     • Modules with issues: 9
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         🌐 WEB DASHBOARD (Optional)                          │
+│                         🌐 WEB DASHBOARD (Optional)                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 
     User access via: https://script.google.com/.../exec
                                   │
                                   ▼
     ┌──────────────────────────────────────────────────────────────────────┐
-    │  Web App (HTML/CSS/JS)                                                │
-    │  • Interactive charts (Google Charts)                                 │
-    │  • Module filter dropdown                                             │
-    │  • Real-time metrics                                                  │
-    │  • Bug breakdown by severity/environment                              │
-    │  • VAPT blocker trends                                                │
-    │  • Module Health Scorecard                                            │
-    │  • Production Defects table                                           │
+    │  Web App (HTML/CSS/JS)                                               │
+    │  • Interactive charts (Google Charts)                                │
+    │  • Module filter dropdown                                            │
+    │  • Real-time metrics                                                 │
+    │  • Bug breakdown by severity/environment                             │
+    │  • VAPT blocker trends                                               │
+    │  • Module Health Scorecard                                           │
+    │  • Production Defects table                                          │
     └──────────────────────────────────────────────────────────────────────┘
 
                     doGet() → WebAppBackend.js → Render HTML
