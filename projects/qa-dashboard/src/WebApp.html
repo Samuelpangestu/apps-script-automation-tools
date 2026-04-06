@@ -1213,7 +1213,8 @@
       const tbody = document.getElementById('moduleHealthTableBody');
       tbody.innerHTML = '';
 
-      if (!bugsTable || bugsTable.length === 0 || !historyData || historyData.length === 0) {
+      // Only require historyData - bugsTable is optional (0 bugs is valid!)
+      if (!historyData || historyData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No data available</td></tr>';
         return;
       }
@@ -1240,18 +1241,20 @@
         }
       });
 
-      // Aggregate bugs by module
-      bugsTable.forEach(row => {
-        const project = String(row[0]).trim();
-        const modul = String(row[1]).trim();
-        const moduleKey = `${project} - ${modul}`;
+      // Aggregate bugs by module (if available)
+      if (bugsTable && bugsTable.length > 0) {
+        bugsTable.forEach(row => {
+          const project = String(row[0]).trim();
+          const modul = String(row[1]).trim();
+          const moduleKey = `${project} - ${modul}`;
 
-        if (moduleData[moduleKey]) {
-          moduleData[moduleKey].totalBugs = Number(row[3]) || 0;      // Total Bugs (col 4)
-          moduleData[moduleKey].criticalBugs = Number(row[4]) || 0;   // Critical (col 5)
-          moduleData[moduleKey].blockerBugs = Number(row[9]) || 0;    // Blocker (col 10)
-        }
-      });
+          if (moduleData[moduleKey]) {
+            moduleData[moduleKey].totalBugs = Number(row[3]) || 0;      // Total Bugs (col 4)
+            moduleData[moduleKey].criticalBugs = Number(row[4]) || 0;   // Critical (col 5)
+            moduleData[moduleKey].blockerBugs = Number(row[9]) || 0;    // Blocker (col 10)
+          }
+        });
+      }
 
       // Calculate health score for each module and sort
       const modules = Object.values(moduleData).map(m => {
