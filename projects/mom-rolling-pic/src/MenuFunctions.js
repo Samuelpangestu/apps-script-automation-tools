@@ -25,6 +25,9 @@ function onOpen() {
       .addItem('Generate Today (Both Projects)', 'menuGenerateToday')
       .addItem('Generate for Date...', 'menuGenerateForDate')
       .addSeparator()
+      .addItem('🔮 Bulk: Next 3 Months', 'menuGenerateBulk3Months')
+      .addItem('🔮 Bulk: Custom Period...', 'menuGenerateBulkCustom')
+      .addSeparator()
       .addItem('Generate Project A Today', 'menuGenerateProjectAToday')
       .addItem('Generate Project B Today', 'menuGenerateProjectBToday'))
     .addSeparator()
@@ -155,6 +158,162 @@ function menuGenerateForDate() {
     let message = `📅 Generate Standup for ${dateStr} (${dayName})\n\n`;
     message += `✅ Project A: ${countA} rows generated\n`;
     message += `✅ Project B: ${countB} rows generated`;
+
+    ui.alert(message);
+
+  } catch (e) {
+    ui.alert('❌ Error: ' + e.message);
+  }
+}
+
+/**
+ * MENU: Bulk generate for next 3 months
+ */
+function menuGenerateBulk3Months() {
+  try {
+    const today = new Date();
+    const endDate = new Date(today);
+    endDate.setMonth(endDate.getMonth() + 3); // 3 months from today
+
+    menuGenerateBulkPeriod(today, endDate);
+
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
+  }
+}
+
+/**
+ * MENU: Bulk generate for custom period
+ */
+function menuGenerateBulkCustom() {
+  const ui = SpreadsheetApp.getUi();
+
+  // Ask for start date
+  const startResponse = ui.prompt(
+    'Bulk Generate - Start Date',
+    'Enter START date (YYYY-MM-DD):\nExample: 2026-04-07',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (startResponse.getSelectedButton() !== ui.Button.OK) {
+    return;
+  }
+
+  const startDateStr = startResponse.getResponseText().trim();
+
+  if (!startDateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    ui.alert('❌ Invalid date format. Use YYYY-MM-DD (e.g., 2026-04-07)');
+    return;
+  }
+
+  // Ask for end date
+  const endResponse = ui.prompt(
+    'Bulk Generate - End Date',
+    'Enter END date (YYYY-MM-DD):\nExample: 2026-07-07',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (endResponse.getSelectedButton() !== ui.Button.OK) {
+    return;
+  }
+
+  const endDateStr = endResponse.getResponseText().trim();
+
+  if (!endDateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    ui.alert('❌ Invalid date format. Use YYYY-MM-DD (e.g., 2026-07-07)');
+    return;
+  }
+
+  try {
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+
+    if (endDate <= startDate) {
+      ui.alert('❌ Error: End date must be after start date');
+      return;
+    }
+
+    menuGenerateBulkPeriod(startDate, endDate);
+
+  } catch (e) {
+    ui.alert('❌ Error: ' + e.message);
+  }
+}
+
+/**
+ * Generate standup rows for a period (only Mon/Wed/Fri)
+ * @param {Date} startDate - Start date
+ * @param {Date} endDate - End date
+ */
+function menuGenerateBulkPeriod(startDate, endDate) {
+  const ui = SpreadsheetApp.getUi();
+
+  const startStr = Utilities.formatDate(startDate, Session.getScriptTimeZone(), 'dd MMM yyyy');
+  const endStr = Utilities.formatDate(endDate, Session.getScriptTimeZone(), 'dd MMM yyyy');
+
+  const confirm = ui.alert(
+    'Bulk Generate Confirmation',
+    `Generate standup rows for:\n\n` +
+    `📅 Period: ${startStr} - ${endStr}\n` +
+    `📋 Projects: Project A & Project B\n` +
+    `🗓️ Days: Monday, Wednesday, Friday only\n\n` +
+    `This may take a few seconds...\n\n` +
+    `Continue?`,
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirm !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    let totalCountA = 0;
+    let totalCountB = 0;
+    let totalDays = 0;
+
+    const currentDate = new Date(startDate);
+
+    while (currentDate <= endDate) {
+      const dayName = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), 'EEEE');
+
+      // Only generate for Mon/Wed/Fri
+      if (['Monday', 'Wednesday', 'Friday'].includes(dayName)) {
+        let countA = 0;
+        let countB = 0;
+
+        try {
+          countA = generateStandupRows('Project A', new Date(currentDate), true); // skipIfExists = true
+        } catch (e) {
+          Logger.log(`Error generating Project A for ${currentDate}: ${e.message}`);
+        }
+
+        try {
+          countB = generateStandupRows('Project B', new Date(currentDate), true); // skipIfExists = true
+        } catch (e) {
+          Logger.log(`Error generating Project B for ${currentDate}: ${e.message}`);
+        }
+
+        if (countA > 0 || countB > 0) {
+          totalCountA += countA;
+          totalCountB += countB;
+          totalDays++;
+
+          const dateStr = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+          Logger.log(`✅ Generated for ${dateStr}: A=${countA}, B=${countB}`);
+        }
+      }
+
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    let message = `✅ Bulk Generation Complete!\n\n`;
+    message += `📅 Period: ${startStr} - ${endStr}\n\n`;
+    message += `📊 Results:\n`;
+    message += `• Total standup days: ${totalDays}\n`;
+    message += `• Project A rows: ${totalCountA}\n`;
+    message += `• Project B rows: ${totalCountB}\n\n`;
+    message += `ℹ️ Existing dates were skipped (data protected)`;
 
     ui.alert(message);
 
