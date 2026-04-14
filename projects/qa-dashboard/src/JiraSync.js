@@ -673,18 +673,28 @@ function _fetch_(instKey, projKey, modulName, cred) {
     catch (e) { return null; }
 
     total = d.total || 0;
-    (d.issues || []).forEach(i => all.push(i));
+    const pageIssues = d.issues || [];
+    const pageCount = pageIssues.length;
+    pageIssues.forEach(i => all.push(i));
 
     if (isFirstPage) {
-      Logger.log('✅ Found ' + total + ' bug(s) matching JQL');
+      // Log both API's total and actual issues received
+      Logger.log('✅ API reports: ' + total + ' bug(s) matching JQL');
+      Logger.log('   Received in page 1: ' + pageCount + ' issue(s)');
 
-      // Debug: Log raw response when 0 results to troubleshoot
-      if (total === 0) {
+      // Debug: Log raw response when mismatch detected
+      if (total === 0 && pageCount > 0) {
         Logger.log('');
-        Logger.log('⚠️  ZERO RESULTS - Debug Info:');
+        Logger.log('⚠️  MISMATCH DETECTED - API reports 0 but returned ' + pageCount + ' issues');
         Logger.log('Raw API Response (first 1000 chars):');
         Logger.log(r.getContentText().substring(0, 1000));
         Logger.log('');
+      }
+
+      // Debug: Log when truly zero results
+      if (total === 0 && pageCount === 0) {
+        Logger.log('');
+        Logger.log('⚠️  ZERO RESULTS - Debug Info:');
         Logger.log('💡 Possible causes:');
         Logger.log('1. Custom field "modul[dropdown]" might need field ID instead (e.g., customfield_10001)');
         Logger.log('2. Module value "' + modulName + '" might not match exactly (check case/spaces)');
