@@ -322,7 +322,9 @@ function step4_addNotes() {
 }
 
 function refreshDashboard() {
-  Logger.log('refreshDashboard START: ' + new Date());
+  const startTime = new Date();
+  Logger.log('refreshDashboard START: ' + startTime);
+
   const ss      = SpreadsheetApp.getActiveSpreadsheet();
   const modules = getModuleList_(ss);
   if (modules.length === 0) {
@@ -330,6 +332,8 @@ function refreshDashboard() {
     return;
   }
 
+  // ═══ STEP 1: Pull Module Data ═══
+  let t1 = new Date();
   const allData = [];
   modules.forEach(mod => {
     Logger.log('Pulling: ' + mod.name + ' [' + mod.id + ']');
@@ -342,25 +346,56 @@ function refreshDashboard() {
     }
     Utilities.sleep(150);
   });
+  Logger.log('⏱️  Pull module data: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
 
+  // ═══ STEP 2: Write Tabs ═══
+  t1 = new Date();
   writeOverview(ss, allData);
-  writeBugs(ss, allData);  // NEW: Write Bugs tab with delta tracking
-  refreshVAPTData();  // NEW: Refresh VAPT findings from source spreadsheet
-  writeSmoke(ss, allData);
-  writeFailureScenario(ss, allData);
-  writeCoverage(ss, allData);
-  appendHistory(ss, allData);
-  updateRaw(ss, allData);
-  updateConfig(ss, allData);  // write back PIC + QA Lead from Summary
+  Logger.log('⏱️  writeOverview: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
 
+  t1 = new Date();
+  writeBugs(ss, allData);
+  Logger.log('⏱️  writeBugs: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  refreshVAPTData();
+  Logger.log('⏱️  refreshVAPTData: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  writeSmoke(ss, allData);
+  Logger.log('⏱️  writeSmoke: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  writeFailureScenario(ss, allData);
+  Logger.log('⏱️  writeFailureScenario: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  writeCoverage(ss, allData);
+  Logger.log('⏱️  writeCoverage: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  appendHistory(ss, allData);
+  Logger.log('⏱️  appendHistory: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  updateRaw(ss, allData);
+  Logger.log('⏱️  updateRaw: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  updateConfig(ss, allData);
+  Logger.log('⏱️  updateConfig: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  // ═══ STEP 3: Update Timestamps ═══
   const ts = 'Last refreshed: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss');
   ['Overview','Bugs','VAPT','Smoke'].forEach(name => {
     const sh = ss.getSheetByName(name);
     if (sh) sh.getRange(1,1).setValue(ts);
   });
 
+  const totalTime = ((new Date() - startTime) / 1000).toFixed(1);
   Logger.log('refreshDashboard DONE');
-  safeAlert_('Refresh selesai! ' + allData.length + ' modul di-update.');
+  Logger.log('⏱️  TOTAL TIME: ' + totalTime + 's');
+  safeAlert_('Refresh selesai! ' + allData.length + ' modul di-update.\n\nTotal time: ' + totalTime + 's');
 }
 
 /**
@@ -1841,7 +1876,8 @@ function writeOverview(ss, allData) {
   }
 
   ws.setConditionalFormatRules(rules);
-  buildOverviewCharts_(ws, allData);
+  // Charts removed - will use Web App dashboard for visualization
+  // buildOverviewCharts_(ws, allData);
 }
 
 function buildOverviewCharts_(ws, allData) {
@@ -2050,7 +2086,8 @@ function writeSmoke(ss, allData) {
   }
 
   ws.setConditionalFormatRules(rules);
-  buildSmokeCharts_(ws, allData);
+  // Charts removed - will use Web App dashboard for visualization
+  // buildSmokeCharts_(ws, allData);
 }
 
 function buildSmokeCharts_(ws, allData) {
