@@ -1695,16 +1695,16 @@ function fetchVAPTDataForProject_(vaptSpreadsheetId) {
     // Col B (1): Application
     //
     // Regular VAPT STATUS (OPEN):
-    //   Col G (6): Medium
+    //   Col G (6): Critical
     //   Col H (7): High
-    //   Col I (8): Critical
+    //   Col I (8): Medium
     //
     // Ad Hoc VAPT STATUS (OPEN):
-    //   Col R (17): Medium
+    //   Col R (17): Critical
     //   Col S (18): High
-    //   Col T (19): Critical
+    //   Col T (19): Medium
     //
-    // Total Blocker = (Regular: Med + High + Crit) + (Ad Hoc: Med + High + Crit)
+    // Total Blocker = (Regular: Crit + High + Med) + (Ad Hoc: Crit + High + Med)
     const vaptData = vaptTab.getDataRange().getValues();
 
     for (let i = 3; i < 36; i++) {  // Row 4-36 (index 3-35)
@@ -1714,14 +1714,14 @@ function fetchVAPTDataForProject_(vaptSpreadsheetId) {
       if (!aplikasi || aplikasi === '' || aplikasi === 'Application') continue;
 
       // Regular VAPT (OPEN)
-      const regularMed = parseInt(vaptData[i][6]) || 0;      // Col G (index 6)
-      const regularHigh = parseInt(vaptData[i][7]) || 0;     // Col H (index 7)
-      const regularCrit = parseInt(vaptData[i][8]) || 0;     // Col I (index 8)
+      const regularCrit = parseInt(vaptData[i][6]) || 0;     // Col G (index 6) = Critical
+      const regularHigh = parseInt(vaptData[i][7]) || 0;     // Col H (index 7) = High
+      const regularMed = parseInt(vaptData[i][8]) || 0;      // Col I (index 8) = Medium
 
       // Ad Hoc VAPT (OPEN)
-      const adhocMed = parseInt(vaptData[i][17]) || 0;       // Col R (index 17)
-      const adhocHigh = parseInt(vaptData[i][18]) || 0;      // Col S (index 18)
-      const adhocCrit = parseInt(vaptData[i][19]) || 0;      // Col T (index 19)
+      const adhocCrit = parseInt(vaptData[i][17]) || 0;      // Col R (index 17) = Critical
+      const adhocHigh = parseInt(vaptData[i][18]) || 0;      // Col S (index 18) = High
+      const adhocMed = parseInt(vaptData[i][19]) || 0;       // Col T (index 19) = Medium
 
       // Total per severity (Regular + Ad Hoc)
       const totalMedium = regularMed + adhocMed;
