@@ -18,6 +18,12 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 function buildVAPT(ss) {
+  // Delete existing VAPT tab if it exists
+  const existingSheet = ss.getSheetByName('VAPT');
+  if (existingSheet) {
+    ss.deleteSheet(existingSheet);
+  }
+
   const ws = ss.insertSheet('VAPT', 2);  // Insert after Bugs
   ws.setTabColor('#EF6C00');  // Orange color for security
   ws.clear();
@@ -259,6 +265,12 @@ function updateVAPTSummary_(ws, summary, data, totalProjects) {
 // ═══════════════════════════════════════════════════════════════════════
 
 function buildVAPTHistory(ss) {
+  // Delete existing VAPT History tab if it exists
+  const existingSheet = ss.getSheetByName('VAPT History');
+  if (existingSheet) {
+    ss.deleteSheet(existingSheet);
+  }
+
   const ws = ss.insertSheet('VAPT History');
   ws.setTabColor('#BF360C');
   ws.clear();
