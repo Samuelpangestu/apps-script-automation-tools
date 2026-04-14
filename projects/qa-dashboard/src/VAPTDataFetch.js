@@ -30,21 +30,31 @@ function refreshVAPTData() {
     const allProjectData = [];
 
     // Loop through Config rows (skip header rows 1-4)
+    // Stop early if we encounter 10+ consecutive empty rows (performance optimization)
+    let consecutiveEmptyRows = 0;
     for (let i = 4; i < cfgData.length; i++) {
       const projectName = String(cfgData[i][2]).trim(); // Col C (index 2) = Project Name
       const vaptSpreadsheetId = String(cfgData[i][21]).trim(); // Col V (index 21) = VAPT Spreadsheet ID
       const vaptEnabled = cfgData[i][22] === true; // Col W (index 22) = Enable VAPT
 
-      // Debug: Log what we read from Config
-      Logger.log('Row ' + (i + 1) + ' - Col C (Project): "' + projectName + '" | Col V (VAPT ID): "' + vaptSpreadsheetId + '" | Col W (Enable): ' + vaptEnabled);
+      // Early exit: Stop if 10+ consecutive empty rows (no more data)
+      if (!projectName && !vaptSpreadsheetId) {
+        consecutiveEmptyRows++;
+        if (consecutiveEmptyRows >= 10) {
+          Logger.log('Stopped scanning at row ' + (i + 1) + ' (10+ consecutive empty rows)');
+          break;
+        }
+        continue;
+      } else {
+        consecutiveEmptyRows = 0;
+      }
 
-      // Skip if project name is empty or VAPT not enabled
+      // Skip if project name is empty or VAPT not enabled (no verbose logging)
       if (!projectName || !vaptEnabled || !vaptSpreadsheetId) {
-        Logger.log('  ⏭️ Skipped (missing data or not enabled)');
         continue;
       }
 
-      Logger.log('  ✅ Fetching VAPT data for project: ' + projectName);
+      Logger.log('✅ Fetching VAPT for project: ' + projectName);
 
       try {
         // Fetch data from this project's VAPT spreadsheet
@@ -185,8 +195,8 @@ function fetchAndProcessVAPTData_(vaptSpreadsheetId, projectName) {
 }
 
 /**
- * Fetch VAPT data from VAPT BGN - Helper tab (E4:I36)
- * Simple format: Aplikasi | Critical | High | Medium
+ * Fetch VAPT data from VAPT BGN - Helper tab (B4:I36)
+ * Simple format: Aplikasi (B) | Critical (G) | High (H) | Medium (I)
  */
 function fetchVAPTBGNHelperData_(vaptSs) {
   try {
@@ -196,23 +206,22 @@ function fetchVAPTBGNHelperData_(vaptSs) {
       return [];
     }
 
-    // Read E4:I36 (Aplikasi, Critical, High, Medium, Low, Info)
-    // But user said G4:I36, so let me read E4:I36 to get aplikasi name + 3 severity columns
-    const data = sheet.getRange('E4:I36').getValues();  // E=Aplikasi, F=?, G=Critical, H=High, I=Medium
+    // Read B4:I36 to get Aplikasi (B) + Critical/High/Medium (G/H/I)
+    const data = sheet.getRange('B4:I36').getValues();  // B to I = 8 columns
     const entries = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
 
-      // G4:I36 means columns G, H, I (indices 2, 3, 4 in E4:I36 range)
-      const critical = Number(row[2]) || 0;  // G (index 2 from E)
-      const high = Number(row[3]) || 0;      // H (index 3 from E)
-      const medium = Number(row[4]) || 0;    // I (index 4 from E)
+      // B4:I36 indices: B=0, C=1, D=2, E=3, F=4, G=5, H=6, I=7
+      const critical = Number(row[5]) || 0;  // G (index 5 from B)
+      const high = Number(row[6]) || 0;      // H (index 6 from B)
+      const medium = Number(row[7]) || 0;    // I (index 7 from B)
 
       // Skip rows with no findings
       if (critical === 0 && high === 0 && medium === 0) continue;
 
-      // Application name from column E
+      // Application name from column B (index 0)
       let aplikasi = String(row[0] || '').trim();
       if (!aplikasi) {
         aplikasi = 'App ' + (i + 1);  // Default name if empty
