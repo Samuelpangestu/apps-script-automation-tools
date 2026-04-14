@@ -2311,40 +2311,28 @@ function buildHistory(ss) {
 function appendHistory(ss, allData) {
   const ws=ss.getSheetByName('History'); if(!ws)return;
   const ts=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm');
-  allData.forEach(d=>{
+
+  // Build all rows at once (batch operation)
+  const rows = allData.map(d => {
     const bs=d.bugStats||{};
-    ws.appendRow([ts,d.project||'',d.module||'',d.submodule||d.name,d.team||'',
+    return [ts,d.project||'',d.module||'',d.submodule||d.name,d.team||'',
       d.wPassRate,d.wExecRate,d.aPassRate,d.aExecRate,
       d.wSmokePassRate,d.wSmokeExecRate,d.aSmokePassRate,d.aSmokeExecRate,
-      d.perfResult,bs.total||0,bs.open||0,bs.blocker||0,bs.critical||0]);
+      d.perfResult,bs.total||0,bs.open||0,bs.blocker||0,bs.critical||0];
   });
-  const lastRow=ws.getLastRow();
-  if(lastRow>=3){
-    for(const col of [7,8,9,10,11,12,13,14])ws.getRange(3,col,lastRow-2,1).setNumberFormat('0%');
-    tryChart_(()=>{
-      ws.getCharts().forEach(c=>ws.removeChart(c));
-      ws.insertChart(ws.newChart()
-          .setChartType(Charts.ChartType.LINE)
-          .addRange(ws.getRange(2,1,lastRow-1,1))
-          .addRange(ws.getRange(2,7,lastRow-1,1))    // wPass%
-          .addRange(ws.getRange(2,9,lastRow-1,1))    // aPass%
-          .addRange(ws.getRange(2,11,lastRow-1,1))   // wSmokePass%
-          .addRange(ws.getRange(2,13,lastRow-1,1))   // aSmokePass%
-          .setPosition(3,21,0,0)
-          .setOption('title','Pass Rate Trend Over Time')
-          .setOption('curveType','function')
-          .setOption('series',{
-            0:{color:'#1565C0',labelInLegend:'Web Pass%'},
-            1:{color:'#283593',labelInLegend:'API Pass%'},
-            2:{color:'#BF360C',labelInLegend:'Smoke Web%',lineDashStyle:[6,3]},
-            3:{color:'#4A148C',labelInLegend:'Smoke API%',lineDashStyle:[6,3]}
-          })
-          .setOption('vAxis',{title:'Pass Rate',format:'#%',minValue:0,maxValue:1})
-          .setOption('hAxis',{title:'Refresh Time'})
-          .setOption('legend',{position:'top'})
-          .setOption('width',720).setOption('height',380).build());
-    });
+
+  // Batch append using setValues (much faster than multiple appendRow calls)
+  const lastRow = ws.getLastRow();
+  const startRow = lastRow + 1;
+  ws.getRange(startRow, 1, rows.length, 18).setValues(rows);
+
+  // Apply number formatting to percentage columns
+  const newLastRow = ws.getLastRow();
+  if(newLastRow>=3){
+    for(const col of [7,8,9,10,11,12,13,14])ws.getRange(3,col,newLastRow-2,1).setNumberFormat('0%');
   }
+
+  // Charts removed - will use Web App dashboard for visualization
 }
 
 
