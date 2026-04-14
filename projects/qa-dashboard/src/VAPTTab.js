@@ -18,7 +18,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 function buildVAPT(ss) {
-  const ws = ss.insertSheet('VAPT (Per-Project)', 2);  // Insert after Bugs with new name
+  const ws = ss.insertSheet('VAPT', 2);  // Insert after Bugs
   ws.setTabColor('#EF6C00');  // Orange color for security
   ws.clear();
   initVAPTHeaders_(ws);
@@ -107,8 +107,8 @@ function initVAPTHeaders_(ws) {
 // ═══════════════════════════════════════════════════════════════════════
 
 function writeVAPT(ss, vaptData) {
-  let ws = ss.getSheetByName('VAPT (Per-Project)');
-  if (!ws) { buildVAPT(ss); ws = ss.getSheetByName('VAPT (Per-Project)'); }
+  let ws = ss.getSheetByName('VAPT');
+  if (!ws) { buildVAPT(ss); ws = ss.getSheetByName('VAPT'); }
 
   initVAPTHeaders_(ws);
 
@@ -259,7 +259,7 @@ function updateVAPTSummary_(ws, summary, data, totalProjects) {
 // ═══════════════════════════════════════════════════════════════════════
 
 function buildVAPTHistory(ss) {
-  const ws = ss.insertSheet('VAPT History (Per-Project)');
+  const ws = ss.insertSheet('VAPT History');
   ws.setTabColor('#BF360C');
   ws.clear();
 
@@ -269,7 +269,7 @@ function buildVAPTHistory(ss) {
     'Total Apps','Apps with Blocker'
   ];
 
-  ws.getRange(1,1,1,hdrs.length).merge().setValue('VAPT HISTORY (Per-Project)  —  Trend Data (auto-appended setiap refresh)')
+  ws.getRange(1,1,1,hdrs.length).merge().setValue('VAPT HISTORY  —  Per-Project Trend Data (auto-appended setiap refresh)')
       .setBackground('#BF360C').setFontColor('#FFFFFF').setFontWeight('bold')
       .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.getRange(2,1,1,hdrs.length).setValues([hdrs]).setFontWeight('bold')
@@ -292,10 +292,10 @@ function buildVAPTHistory(ss) {
  * Append daily snapshot to VAPT History (per-project)
  */
 function appendVAPTHistory(ss, vaptData) {
-  let ws = ss.getSheetByName('VAPT History (Per-Project)');
+  let ws = ss.getSheetByName('VAPT History');
   if (!ws) {
     buildVAPTHistory(ss);
-    ws = ss.getSheetByName('VAPT History (Per-Project)');
+    ws = ss.getSheetByName('VAPT History');
   }
 
   const ts = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
