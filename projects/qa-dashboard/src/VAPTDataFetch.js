@@ -157,26 +157,21 @@ function mergeSummaries_(s1, s2) {
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
- * Fetch and process VAPT data from both tabs for a specific project
+ * Fetch and process VAPT data from VAPT BGN - Helper tab
  * @param {string} vaptSpreadsheetId - VAPT spreadsheet ID
  * @param {string} projectName - Project name to tag all entries
  */
 function fetchAndProcessVAPTData_(vaptSpreadsheetId, projectName) {
   const vaptSs = SpreadsheetApp.openById(vaptSpreadsheetId);
 
-  // Fetch Ad Hoc VAPT data
-  Logger.log('  Fetching Ad Hoc VAPT data...');
-  const adHocData = fetchAdHocVAPTData_(vaptSs);
-  Logger.log('  Ad Hoc VAPT entries: ' + adHocData.length);
+  // Fetch VAPT data from VAPT BGN - Helper tab (E4:I36)
+  Logger.log('  Fetching VAPT data from VAPT BGN - Helper tab...');
+  const vaptData = fetchVAPTBGNHelperData_(vaptSs);
+  Logger.log('  VAPT entries: ' + vaptData.length);
 
-  // Fetch Regular VAPT data
-  Logger.log('  Fetching Regular VAPT data...');
-  const regularData = fetchRegularVAPTData_(vaptSs);
-  Logger.log('  Regular VAPT entries: ' + regularData.length);
-
-  // Process and combine
-  Logger.log('  Processing and combining VAPT data...');
-  const processedData = processVAPTData_(adHocData, regularData);
+  // Process data
+  Logger.log('  Processing VAPT data...');
+  const processedData = processSimpleVAPTData_(vaptData);
 
   // Add project name to all table entries
   processedData.table.forEach(entry => {
@@ -190,65 +185,48 @@ function fetchAndProcessVAPTData_(vaptSpreadsheetId, projectName) {
 }
 
 /**
- * Fetch Ad Hoc VAPT data (C1:Y100)
- * Header is at D2 in external sheet
+ * Fetch VAPT data from VAPT BGN - Helper tab (E4:I36)
+ * Simple format: Aplikasi | Critical | High | Medium
  */
-function fetchAdHocVAPTData_(vaptSs) {
+function fetchVAPTBGNHelperData_(vaptSs) {
   try {
-    const sheet = vaptSs.getSheetByName('Ad Hoc VAPT');
+    const sheet = vaptSs.getSheetByName('VAPT BGN - Helper');
     if (!sheet) {
-      Logger.log('⚠️ Ad Hoc VAPT tab not found');
+      Logger.log('⚠️ VAPT BGN - Helper tab not found');
       return [];
     }
 
-    const data = sheet.getRange('C1:Y100').getValues();  // C to Y = 23 columns (No, Aplikasi, ..., Prod, Formula Updated)
+    // Read E4:I36 (Aplikasi, Critical, High, Medium, Low, Info)
+    // But user said G4:I36, so let me read E4:I36 to get aplikasi name + 3 severity columns
+    const data = sheet.getRange('E4:I36').getValues();  // E=Aplikasi, F=?, G=Critical, H=High, I=Medium
     const entries = [];
 
-    // Skip header rows: row 0 (C1) and row 1 (C2 - where "Aplikasi" header is at D2)
-    for (let i = 2; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       const row = data[i];
 
-      // Skip empty rows (check if Aplikasi is empty)
-      if (!row[1] || String(row[1]).trim() === '') continue;
+      // G4:I36 means columns G, H, I (indices 2, 3, 4 in E4:I36 range)
+      const critical = Number(row[2]) || 0;  // G (index 2 from E)
+      const high = Number(row[3]) || 0;      // H (index 3 from E)
+      const medium = Number(row[4]) || 0;    // I (index 4 from E)
 
-      // Skip header text if somehow still there
-      const aplikasiText = String(row[1]).trim().toLowerCase();
-      if (aplikasiText === 'aplikasi') continue;
+      // Skip rows with no findings
+      if (critical === 0 && high === 0 && medium === 0) continue;
 
-      // Parse row data
-      // Columns: C=No, D=Aplikasi, E=PIC VAPT, F=Scope, G=VAPT Status, H=Report,
-      //          I=RTR(total), J-N=Open(Crit,High,Med,Low,Info), O-S=Closed(Crit,High,Med,Low,Info),
-      //          T=Prod, U=Formula Updated
+      // Application name from column E
+      let aplikasi = String(row[0] || '').trim();
+      if (!aplikasi) {
+        aplikasi = 'App ' + (i + 1);  // Default name if empty
+      }
+
       const entry = {
-        type: 'Ad Hoc',
-        aplikasi: String(row[1]).trim(),      // D (index 1)
-        picVapt: String(row[2]).trim(),       // E (index 2)
-        scope: String(row[3]).trim(),         // F (index 3)
-        status: String(row[4]).trim(),        // G (index 4)
-        report: String(row[5]).trim(),        // H (index 5)
-        readyToRetest: {
-          critical: 0,  // I is total only, no breakdown
-          high: 0,
-          medium: 0,
-          low: 0,
-          info: 0
-        },
+        aplikasi: aplikasi,
         open: {
-          critical: Number(row[7]) || 0,      // J (index 7)
-          high: Number(row[8]) || 0,          // K (index 8)
-          medium: Number(row[9]) || 0,        // L (index 9)
-          low: Number(row[10]) || 0,          // M (index 10)
-          info: Number(row[11]) || 0          // N (index 11)
-        },
-        closed: {
-          critical: Number(row[12]) || 0,     // O (index 12)
-          high: Number(row[13]) || 0,         // P (index 13)
-          medium: Number(row[14]) || 0,       // Q (index 14)
-          low: Number(row[15]) || 0,          // R (index 15)
-          info: Number(row[16]) || 0          // S (index 16)
-        },
-        prod: row[17] === true || String(row[17]).toUpperCase() === 'TRUE',         // T (index 17)
-        formulaUpdated: row[18] === true || String(row[18]).toUpperCase() === 'TRUE' // U (index 18)
+          critical: critical,
+          high: high,
+          medium: medium,
+          low: 0,      // Not in G4:I36 range
+          info: 0      // Not in G4:I36 range
+        }
       };
 
       entries.push(entry);
@@ -256,228 +234,33 @@ function fetchAdHocVAPTData_(vaptSs) {
 
     return entries;
   } catch (error) {
-    Logger.log('❌ ERROR fetching Ad Hoc VAPT: ' + error.toString());
+    Logger.log('❌ ERROR fetching VAPT BGN Helper: ' + error.toString());
     return [];
   }
 }
 
 /**
- * Fetch Regular VAPT data (C1:AF100)
- * Header is at C2 in external sheet
- */
-function fetchRegularVAPTData_(vaptSs) {
-  try {
-    const sheet = vaptSs.getSheetByName('Regular VAPT');
-    if (!sheet) {
-      Logger.log('⚠️ Regular VAPT tab not found');
-      return [];
-    }
-
-    const data = sheet.getRange('C1:AF100').getValues();  // C to AF = 30 columns (Aplikasi, ..., Prod, Formula Updated)
-    const entries = [];
-
-    // Skip header rows: row 0 (C1) and row 1 (C2 - where "Aplikasi" header is)
-    for (let i = 2; i < data.length; i++) {
-      const row = data[i];
-
-      // Skip empty rows (check if Aplikasi is empty)
-      if (!row[0] || String(row[0]).trim() === '') continue;
-
-      // Skip header text if somehow still there
-      const aplikasiText = String(row[0]).trim().toLowerCase();
-      if (aplikasiText === 'aplikasi') continue;
-
-      // Parse row data
-      // Columns: C=Aplikasi, D=Product Owner, E=VAPT MSSP, F=MSSP Report,
-      //          G=MSSP Checklist Status, H=MSSP Checklist Report, I=Internal VAPT Status, J=Report,
-      //          K=Report to PMO, L=MSSP Reported, M=Internal Reported,
-      //          N=???, O=???, P=RTR(total),
-      //          Q-U=Open(Crit,High,Med,Low,Info), V-Z=Closed(Crit,High,Med,Low,Info),
-      //          AA=Prod, AB=Formula Updated
-      const entry = {
-        type: 'Regular',
-        aplikasi: String(row[0]).trim(),       // C (index 0)
-        picVapt: String(row[1]).trim(),        // D (index 1) - Product Owner actually, but use as picVapt
-        picQa: '',                             // Not available in Regular VAPT
-        productOwner: String(row[1]).trim(),   // D (index 1)
-        status: String(row[6]).trim(),         // I - Internal VAPT Status (index 6)
-        report: String(row[7]).trim(),         // J - Report (index 7)
-        readyToRetest: {
-          critical: 0,  // P is total only, no breakdown
-          high: 0,
-          medium: 0,
-          low: 0,
-          info: 0
-        },
-        open: {
-          critical: Number(row[14]) || 0,      // Q (index 14)
-          high: Number(row[15]) || 0,          // R (index 15)
-          medium: Number(row[16]) || 0,        // S (index 16)
-          low: Number(row[17]) || 0,           // T (index 17)
-          info: Number(row[18]) || 0           // U (index 18)
-        },
-        closed: {
-          critical: Number(row[19]) || 0,      // V (index 19)
-          high: Number(row[20]) || 0,          // W (index 20)
-          medium: Number(row[21]) || 0,        // X (index 21)
-          low: Number(row[22]) || 0,           // Y (index 22)
-          info: Number(row[23]) || 0           // Z (index 23)
-        },
-        prod: row[24] === true || String(row[24]).toUpperCase() === 'TRUE',         // AA (index 24)
-        formulaUpdated: row[25] === true || String(row[25]).toUpperCase() === 'TRUE' // AB (index 25)
-      };
-
-      entries.push(entry);
-    }
-
-    return entries;
-  } catch (error) {
-    Logger.log('❌ ERROR fetching Regular VAPT: ' + error.toString());
-    return [];
-  }
-}
-
-/**
- * Process and combine Ad Hoc + Regular VAPT data
+ * Process simple VAPT data from VAPT BGN - Helper
  * Calculate summary metrics
  */
-function processVAPTData_(adHocData, regularData) {
-  // AGGREGATE: Combine multiple rows for same aplikasi
-  const aggregatedAdHoc = aggregateByAplikasi_(adHocData);
-  const aggregatedRegular = aggregateByAplikasi_(regularData);
-
-  // Combine all entries
-  const allEntries = [...aggregatedAdHoc, ...aggregatedRegular];
-
-  // Calculate summaries
-  const adHocSummary = calculateVAPTSummary_(aggregatedAdHoc);
-  const regularSummary = calculateVAPTSummary_(aggregatedRegular);
-  const combinedSummary = calculateVAPTSummary_(allEntries);
+function processSimpleVAPTData_(vaptData) {
+  const summary = calculateSimpleVAPTSummary_(vaptData);
 
   return {
-    table: allEntries,
-    summary: combinedSummary,
-    adHocSummary: adHocSummary,
-    regularSummary: regularSummary
+    table: vaptData,
+    summary: summary
   };
 }
 
 /**
- * Aggregate multiple rows with same aplikasi name
- * Sum all findings (RTR, Open, Closed) for each severity
+ * Calculate summary metrics from simple VAPT entries
+ * Simple format: only has aplikasi and open.{critical, high, medium}
  */
-function aggregateByAplikasi_(entries) {
-  if (entries.length === 0) return [];
-
-  const grouped = {};
-
-  entries.forEach(entry => {
-    const key = entry.aplikasi.toLowerCase().trim();
-
-    if (!grouped[key]) {
-      // First entry for this aplikasi - clone it
-      grouped[key] = {
-        type: entry.type,
-        aplikasi: entry.aplikasi,
-        picVapt: entry.picVapt,
-        scope: entry.scope || '',
-        status: entry.status,
-        report: entry.report,
-        readyToRetest: {
-          critical: entry.readyToRetest.critical,
-          high: entry.readyToRetest.high,
-          medium: entry.readyToRetest.medium,
-          low: entry.readyToRetest.low,
-          info: entry.readyToRetest.info
-        },
-        open: {
-          critical: entry.open.critical,
-          high: entry.open.high,
-          medium: entry.open.medium,
-          low: entry.open.low,
-          info: entry.open.info
-        },
-        closed: {
-          critical: entry.closed.critical,
-          high: entry.closed.high,
-          medium: entry.closed.medium,
-          low: entry.closed.low,
-          info: entry.closed.info
-        },
-        prod: entry.prod,
-        formulaUpdated: entry.formulaUpdated,
-        _count: 1
-      };
-    } else {
-      // Subsequent entry - sum findings
-      grouped[key].readyToRetest.critical += entry.readyToRetest.critical;
-      grouped[key].readyToRetest.high += entry.readyToRetest.high;
-      grouped[key].readyToRetest.medium += entry.readyToRetest.medium;
-      grouped[key].readyToRetest.low += entry.readyToRetest.low;
-      grouped[key].readyToRetest.info += entry.readyToRetest.info;
-
-      grouped[key].open.critical += entry.open.critical;
-      grouped[key].open.high += entry.open.high;
-      grouped[key].open.medium += entry.open.medium;
-      grouped[key].open.low += entry.open.low;
-      grouped[key].open.info += entry.open.info;
-
-      grouped[key].closed.critical += entry.closed.critical;
-      grouped[key].closed.high += entry.closed.high;
-      grouped[key].closed.medium += entry.closed.medium;
-      grouped[key].closed.low += entry.closed.low;
-      grouped[key].closed.info += entry.closed.info;
-
-      // Combine PIC VAPT if different
-      if (entry.picVapt && !grouped[key].picVapt.includes(entry.picVapt)) {
-        grouped[key].picVapt += ', ' + entry.picVapt;
-      }
-
-      // Update status to latest (prefer "In Progress" over "Done")
-      if (entry.status === 'In Progress') {
-        grouped[key].status = 'In Progress';
-      }
-
-      // Prod: TRUE if any entry is TRUE
-      if (entry.prod) {
-        grouped[key].prod = true;
-      }
-
-      // Formula Updated: TRUE if any entry is TRUE
-      if (entry.formulaUpdated) {
-        grouped[key].formulaUpdated = true;
-      }
-
-      grouped[key]._count++;
-    }
-  });
-
-  // Convert back to array
-  const result = Object.values(grouped);
-
-  Logger.log('Aggregation: ' + entries.length + ' rows → ' + result.length + ' unique aplikasi');
-
-  return result;
-}
-
-/**
- * Calculate summary metrics from VAPT entries
- */
-function calculateVAPTSummary_(entries) {
+function calculateSimpleVAPTSummary_(entries) {
   const summary = {
     totalApps: entries.length,
     totalFindings: 0,
-    blocker: 0,  // NEW: Medium + High + Critical Open
-    blockerBreakdown: {  // NEW: Blocker by severity
-      critical: 0,
-      high: 0,
-      medium: 0
-    },
-    otherOpen: {  // NEW: Non-blocker open findings
-      low: 0,
-      info: 0
-    },
-    totalClosed: 0,  // NEW: Total closed findings
+    blocker: 0,  // Medium + High + Critical Open
     bySeverity: {
       critical: 0,
       high: 0,
@@ -499,52 +282,40 @@ function calculateVAPTSummary_(entries) {
     prodCount: 0
   };
 
+  let appsWithBlocker = 0;
+
   entries.forEach(entry => {
     // BLOCKER CALCULATION (Medium + High + Critical Open)
-    const blockerForEntry = (entry.open.medium || 0) + (entry.open.high || 0) + (entry.open.critical || 0);
+    const critical = entry.open.critical || 0;
+    const high = entry.open.high || 0;
+    const medium = entry.open.medium || 0;
+    const low = entry.open.low || 0;
+    const info = entry.open.info || 0;
+
+    const blockerForEntry = critical + high + medium;
     summary.blocker += blockerForEntry;
 
-    // Blocker Breakdown
-    summary.blockerBreakdown.critical += (entry.open.critical || 0);
-    summary.blockerBreakdown.high += (entry.open.high || 0);
-    summary.blockerBreakdown.medium += (entry.open.medium || 0);
+    if (blockerForEntry > 0) {
+      appsWithBlocker++;
+    }
 
-    // Other Open Findings (Low + Info)
-    summary.otherOpen.low += (entry.open.low || 0);
-    summary.otherOpen.info += (entry.open.info || 0);
+    // By Severity (only open status in simple format)
+    summary.bySeverity.critical += critical;
+    summary.bySeverity.high += high;
+    summary.bySeverity.medium += medium;
+    summary.bySeverity.low += low;
+    summary.bySeverity.info += info;
 
-    // Total Closed
-    const closedTotal = (entry.closed.critical || 0) + (entry.closed.high || 0) + (entry.closed.medium || 0) + (entry.closed.low || 0) + (entry.closed.info || 0);
-    summary.totalClosed += closedTotal;
-
-    // By Severity (sum across all statuses)
-    summary.bySeverity.critical += (entry.readyToRetest.critical + entry.open.critical + entry.closed.critical);
-    summary.bySeverity.high += (entry.readyToRetest.high + entry.open.high + entry.closed.high);
-    summary.bySeverity.medium += (entry.readyToRetest.medium + entry.open.medium + entry.closed.medium);
-    summary.bySeverity.low += (entry.readyToRetest.low + entry.open.low + entry.closed.low);
-    summary.bySeverity.info += (entry.readyToRetest.info + entry.open.info + entry.closed.info);
-
-    // By Status (sum across all severities)
-    const rtrTotal = entry.readyToRetest.critical + entry.readyToRetest.high + entry.readyToRetest.medium + entry.readyToRetest.low + entry.readyToRetest.info;
-    const openTotal = entry.open.critical + entry.open.high + entry.open.medium + entry.open.low + entry.open.info;
-
-    summary.byStatus.readyToRetest += rtrTotal;
+    // By Status (all are open in simple format)
+    const openTotal = critical + high + medium + low + info;
     summary.byStatus.open += openTotal;
-    summary.byStatus.closed += closedTotal;
-
-    // VAPT Status
-    const status = String(entry.status).toLowerCase();
-    if (status === 'done') summary.byVaptStatus.done++;
-    else if (status === 'in progress') summary.byVaptStatus.inProgress++;
-    else if (status === 'not started') summary.byVaptStatus.notStarted++;
-    else if (status === 'todo') summary.byVaptStatus.todo++;
-
-    // Production count
-    if (entry.prod) summary.prodCount++;
   });
 
   // Total findings
   summary.totalFindings = summary.bySeverity.critical + summary.bySeverity.high + summary.bySeverity.medium + summary.bySeverity.low + summary.bySeverity.info;
+
+  // Add apps with blocker count to summary (used in history)
+  summary.appsWithBlocker = appsWithBlocker;
 
   return summary;
 }
