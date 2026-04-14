@@ -85,6 +85,18 @@ function onOpen() {
     .addSubMenu(ui.createMenu('🔄 Jira Sync')
       .addItem('Sync All Modules from Jira', 'syncAllJira')
       .addItem('Show Jira JQL for Module', 'showJiraJQL'))
+    .addSubMenu(ui.createMenu('🔧 Rebuild Individual Tabs')
+      .addItem('Config', 'rebuildConfig')
+      .addItem('Credentials', 'rebuildCredentials')
+      .addItem('Overview', 'rebuildOverview')
+      .addItem('Bugs', 'rebuildBugs')
+      .addItem('VAPT (Per-Project)', 'rebuildVAPTPerProject')
+      .addItem('VAPT History (Per-Project)', 'rebuildVAPTHistoryPerProject')
+      .addItem('Smoke', 'rebuildSmoke')
+      .addItem('Failure Scenario', 'rebuildFailureScenario')
+      .addItem('Coverage', 'rebuildCoverage')
+      .addItem('History', 'rebuildHistory')
+      .addItem('_Raw', 'rebuildRaw'))
     .addSubMenu(ui.createMenu('🔧 Broadcast Fixes')
       .addItem('Fix BUG BLOCKER (Rename + Formula)', 'broadcastBugBlockerFix'))
     .addToUi();
@@ -498,6 +510,9 @@ function safeAlert_(msg) {
 function rebuildConfig() { buildConfig(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Config tab rebuilt!'); }
 function rebuildCredentials() { buildCredentials(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Credentials tab rebuilt!'); }
 function rebuildOverview() { buildOverview(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Overview tab rebuilt!'); }
+function rebuildBugs() { buildBugs(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Bugs tab rebuilt!'); }
+function rebuildVAPTPerProject() { buildVAPT(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('VAPT (Per-Project) tab created!\n\nTab lama "VAPT" tidak tersentuh.'); }
+function rebuildVAPTHistoryPerProject() { buildVAPTHistory(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('VAPT History (Per-Project) tab created!\n\nTab lama "VAPT History" tidak tersentuh.'); }
 function rebuildSmoke() { buildSmoke(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Smoke tab rebuilt!'); }
 function rebuildFailureScenario() { buildFailureScenario(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Failure Scenario tab rebuilt!'); }
 function rebuildCoverage() { buildCoverage(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Coverage tab rebuilt!'); }
