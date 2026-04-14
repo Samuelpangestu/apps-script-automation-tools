@@ -323,9 +323,14 @@ function appendVAPTHistory(ss, vaptData) {
     createHistoryRow_(ts, 'Combined', vaptData.summary)
   ];
 
-  historyRows.forEach(row => ws.appendRow(row));
+  // Get last row and append using setValues (safer than appendRow with merged cells)
+  const lastRow = ws.getLastRow();
+  const startRow = lastRow + 1;
+  const numCols = historyRows[0].length;
 
-  Logger.log('✅ VAPT History appended: ' + historyRows.length + ' rows');
+  ws.getRange(startRow, 1, historyRows.length, numCols).setValues(historyRows);
+
+  Logger.log('✅ VAPT History appended: ' + historyRows.length + ' rows at row ' + startRow);
 }
 
 /**
