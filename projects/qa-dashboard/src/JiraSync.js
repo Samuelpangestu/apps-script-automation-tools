@@ -726,13 +726,16 @@ function _fetch_(instKey, projKey, modulName, cred) {
 
 /**
  * Clean all data rows from BugReport sheet (keep header rows 1-4)
- * Simple and fast - delete everything from row 5 onwards
+ * Use clearContents() instead of deleteRows() to avoid frozen rows conflict
  */
 function _cleanBugReportData_(sh) {
   const lastRow = sh.getLastRow();
   if (lastRow >= BUG_START_) {
-    sh.deleteRows(BUG_START_, lastRow - BUG_START_ + 1);
-    Logger.log('Cleaned ' + (lastRow - BUG_START_ + 1) + ' existing rows from BugReport');
+    // Clear contents instead of deleting rows (safer with frozen rows)
+    const numRows = lastRow - BUG_START_ + 1;
+    const numCols = sh.getMaxColumns();
+    sh.getRange(BUG_START_, 1, numRows, numCols).clearContent();
+    Logger.log('Cleared ' + numRows + ' existing rows from BugReport');
   }
 }
 
