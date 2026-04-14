@@ -90,8 +90,8 @@ function onOpen() {
       .addItem('Credentials', 'rebuildCredentials')
       .addItem('Overview', 'rebuildOverview')
       .addItem('Bugs', 'rebuildBugs')
-      .addItem('VAPT (Per-Project)', 'rebuildVAPTPerProject')
-      .addItem('VAPT History (Per-Project)', 'rebuildVAPTHistoryPerProject')
+      .addItem('VAPT', 'rebuildVAPT')
+      .addItem('VAPT History', 'rebuildVAPTHistory')
       .addItem('Smoke', 'rebuildSmoke')
       .addItem('Failure Scenario', 'rebuildFailureScenario')
       .addItem('Coverage', 'rebuildCoverage')
@@ -511,8 +511,8 @@ function rebuildConfig() { buildConfig(SpreadsheetApp.getActiveSpreadsheet()); s
 function rebuildCredentials() { buildCredentials(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Credentials tab rebuilt!'); }
 function rebuildOverview() { buildOverview(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Overview tab rebuilt!'); }
 function rebuildBugs() { buildBugs(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Bugs tab rebuilt!'); }
-function rebuildVAPTPerProject() { buildVAPT(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('VAPT (Per-Project) tab created!\n\nTab lama "VAPT" tidak tersentuh.'); }
-function rebuildVAPTHistoryPerProject() { buildVAPTHistory(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('VAPT History (Per-Project) tab created!\n\nTab lama "VAPT History" tidak tersentuh.'); }
+function rebuildVAPT() { buildVAPT(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('VAPT tab rebuilt!\n\nStructure: Per-Project (8 columns)'); }
+function rebuildVAPTHistory() { buildVAPTHistory(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('VAPT History tab rebuilt!\n\nStructure: Per-Project tracking'); }
 function rebuildSmoke() { buildSmoke(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Smoke tab rebuilt!'); }
 function rebuildFailureScenario() { buildFailureScenario(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Failure Scenario tab rebuilt!'); }
 function rebuildCoverage() { buildCoverage(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Coverage tab rebuilt!'); }
