@@ -1682,43 +1682,44 @@ function fetchVAPTDataForProject_(vaptSpreadsheetId) {
   try {
     // Open external VAPT spreadsheet
     const vaptSS = SpreadsheetApp.openById(vaptSpreadsheetId);
-    const vaptTab = vaptSS.getSheetByName('VAPT');
+    const vaptTab = vaptSS.getSheetByName('VAPT BGN - Helper');
 
     if (!vaptTab) {
-      Logger.log('⚠️ VAPT tab not found in spreadsheet: ' + vaptSpreadsheetId);
+      Logger.log('⚠️ VAPT BGN - Helper tab not found in spreadsheet: ' + vaptSpreadsheetId);
       return result;
     }
 
-    Logger.log('✅ Reading VAPT data from external spreadsheet: ' + vaptSpreadsheetId);
-
-    // Read VAPT blocker from summary section
-    // Row 5, Col 2 = Total Blocker (same format as dashboard VAPT)
-    result.vaptBlocker = parseInt(vaptTab.getRange(5, 2).getValue()) || 0;
-
-    // Fetch detail VAPT apps with blockers
-    // NOTE: VAPT tab has 7 columns: Aplikasi, Blocker, Critical, High, Medium, Low, Info
-    // Layout: Row 1-9 = headers/summary, Row 10+ = data (with section headers)
+    // Fetch VAPT data from new format
+    // Row 1-3: Headers
+    // Row 4+: Data
+    // Col B (1): Application
+    // Col G (6): Critical (OPEN)
+    // Col H (7): High (OPEN)
+    // Col I (8): Med (OPEN)
+    // Blocker = Critical + High + Med
     const vaptData = vaptTab.getDataRange().getValues();
 
-    for (let i = 10; i < vaptData.length; i++) {  // Start from row 11 (index 10)
-      const aplikasi = String(vaptData[i][0]).trim();  // Col A (index 0) = Aplikasi
-      const blocker = parseInt(vaptData[i][1]) || 0;   // Col B (index 1) = Blocker
+    for (let i = 3; i < vaptData.length; i++) {  // Start from row 4 (index 3)
+      const aplikasi = String(vaptData[i][1]).trim();  // Col B (index 1) = Application
 
-      // Skip empty rows, section headers, table headers, or placeholder messages
-      if (!aplikasi || aplikasi === '' || aplikasi.startsWith('═══') || aplikasi.startsWith('▶') || aplikasi === 'Aplikasi') continue;
+      // Skip empty rows or rows without application name
+      if (!aplikasi || aplikasi === '' || aplikasi === 'Application') continue;
+
+      const critical = parseInt(vaptData[i][6]) || 0;  // Col G (index 6) = Critical OPEN
+      const high = parseInt(vaptData[i][7]) || 0;      // Col H (index 7) = High OPEN
+      const medium = parseInt(vaptData[i][8]) || 0;    // Col I (index 8) = Med OPEN
+
+      // Blocker = Critical + High + Medium
+      const blocker = critical + high + medium;
+
+      // Accumulate total severity breakdown
+      result.vaptBreakdown.critical += critical;
+      result.vaptBreakdown.high += high;
+      result.vaptBreakdown.medium += medium;
 
       // Only include apps with blocker > 0
       if (blocker > 0) {
         result.vaptAppsWithBlockers++;
-
-        const critical = parseInt(vaptData[i][2]) || 0;  // Col C (index 2) = Critical Open
-        const high = parseInt(vaptData[i][3]) || 0;      // Col D (index 3) = High Open
-        const medium = parseInt(vaptData[i][4]) || 0;    // Col E (index 4) = Medium Open
-
-        // Accumulate severity breakdown
-        result.vaptBreakdown.critical += critical;
-        result.vaptBreakdown.high += high;
-        result.vaptBreakdown.medium += medium;
 
         result.vaptApps.push({
           aplikasi: aplikasi,
@@ -1729,6 +1730,9 @@ function fetchVAPTDataForProject_(vaptSpreadsheetId) {
         });
       }
     }
+
+    // Total blocker = sum of all severity blockers
+    result.vaptBlocker = result.vaptBreakdown.critical + result.vaptBreakdown.high + result.vaptBreakdown.medium;
 
     Logger.log('VAPT data fetched: totalBlockers=' + result.vaptBlocker + ', apps=' + result.vaptAppsWithBlockers +
                ', crit=' + result.vaptBreakdown.critical + ', high=' + result.vaptBreakdown.high + ', med=' + result.vaptBreakdown.medium);
