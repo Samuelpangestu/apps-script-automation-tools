@@ -112,14 +112,9 @@ function writeVAPT(ss, vaptData) {
 
   initVAPTHeaders_(ws);
 
-  // Clear ALL data rows (from row 10 onwards)
+  // Clear ALL data rows (from row 10 onwards) - 8 columns now
   const lastRow = ws.getMaxRows();
-  if (lastRow >= 10) ws.getRange(10, 1, lastRow - 9, 7).clearContent().clearFormat();
-
-  // Update link to external VAPT spreadsheet
-  const vaptSpreadsheetId = '17qeErP3VHxN7qcNQqhT6zGLukxZU4OKLmBMbsgsl1Rk';
-  const externalLink = 'https://docs.google.com/spreadsheets/d/' + vaptSpreadsheetId + '/edit';
-  ws.getRange(3, 1).setFormula('=HYPERLINK("' + externalLink + '", "📋 View External VAPT Spreadsheet")');
+  if (lastRow >= 10) ws.getRange(10, 1, lastRow - 9, 8).clearContent().clearFormat();
 
   // Calculate blocker for each row
   const now = new Date();
@@ -129,29 +124,42 @@ function writeVAPT(ss, vaptData) {
     return {...row, blocker: blocker};
   });
 
-  // Separate Ad Hoc and Regular, then sort each by blocker descending
-  const adHocData = data.filter(row => row.type === 'Ad Hoc').sort((a, b) => b.blocker - a.blocker);
-  const regularData = data.filter(row => row.type === 'Regular').sort((a, b) => b.blocker - a.blocker);
+  // Sort by Project, then by blocker descending
+  data.sort((a, b) => {
+    // First sort by project name
+    if (a.project < b.project) return -1;
+    if (a.project > b.project) return 1;
+    // Then by blocker descending
+    return b.blocker - a.blocker;
+  });
+
+  // Count unique projects
+  const uniqueProjects = [...new Set(data.map(row => row.project))];
+  const totalProjects = uniqueProjects.length;
 
   // Update summary
-  updateVAPTSummary_(ws, vaptData.summary, vaptData.adHocSummary, vaptData.regularSummary, data);
+  updateVAPTSummary_(ws, vaptData.summary, data, totalProjects);
 
   let currentRow = 10;
 
   // ═══════════════════════════════════════════════════════════════════════
-  // AD HOC VAPT SECTION
+  // PER-PROJECT VAPT SECTIONS
   // ═══════════════════════════════════════════════════════════════════════
-  if (adHocData.length > 0) {
-    // Section header
-    ws.getRange(currentRow, 1, 1, 7).merge()
-        .setValue('═══ AD HOC VAPT (Development/Improvement) ═══')
+
+  // Group by project
+  uniqueProjects.forEach(projectName => {
+    const projectData = data.filter(row => row.project === projectName);
+
+    // Section header for each project
+    ws.getRange(currentRow, 1, 1, 8).merge()
+        .setValue('═══ ' + projectName + ' ═══')
         .setBackground('#37474F').setFontColor('#FFFFFF').setFontWeight('bold')
         .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
     ws.setRowHeight(currentRow, 24);
     currentRow++;
 
-    // Table headers (7 columns - removed Status)
-    const headers = ['Aplikasi', 'Blocker', 'Critical', 'High', 'Medium', 'Low', 'Info'];
+    // Table headers (8 columns - added Project)
+    const headers = ['Project', 'Aplikasi', 'Blocker', 'Critical', 'High', 'Medium', 'Low', 'Info'];
     headers.forEach((lbl, i) => {
       ws.getRange(currentRow, i + 1)
           .setValue(lbl)
@@ -163,53 +171,22 @@ function writeVAPT(ss, vaptData) {
     currentRow++;
 
     // Data rows
-    adHocData.forEach((row, i) => {
+    projectData.forEach((row, i) => {
       writeVAPTRow_(ws, currentRow, row, i);
       currentRow++;
     });
 
     currentRow++; // Blank row after section
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // REGULAR VAPT SECTION
-  // ═══════════════════════════════════════════════════════════════════════
-  if (regularData.length > 0) {
-    // Section header
-    ws.getRange(currentRow, 1, 1, 7).merge()
-        .setValue('═══ REGULAR VAPT (Quarterly/Routine) ═══')
-        .setBackground('#37474F').setFontColor('#FFFFFF').setFontWeight('bold')
-        .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
-    ws.setRowHeight(currentRow, 24);
-    currentRow++;
-
-    // Table headers (7 columns - removed Status)
-    const headers = ['Aplikasi', 'Blocker', 'Critical', 'High', 'Medium', 'Low', 'Info'];
-    headers.forEach((lbl, i) => {
-      ws.getRange(currentRow, i + 1)
-          .setValue(lbl)
-          .setBackground('#1565C0').setFontColor('#FFFFFF').setFontWeight('bold')
-          .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center')
-          .setBorder(true, true, true, true, false, false, '#FFFFFF', SpreadsheetApp.BorderStyle.SOLID);
-    });
-    ws.setRowHeight(currentRow, 22);
-    currentRow++;
-
-    // Data rows
-    regularData.forEach((row, i) => {
-      writeVAPTRow_(ws, currentRow, row, i);
-      currentRow++;
-    });
-  }
+  });
 
   // Update last refresh timestamp
   ws.getRange(1, 1).setValue('Last refreshed: ' + Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss'));
 
-  Logger.log('✅ VAPT tab updated: ' + data.length + ' applications (Ad Hoc: ' + adHocData.length + ', Regular: ' + regularData.length + ')');
+  Logger.log('✅ VAPT tab updated: ' + data.length + ' applications across ' + totalProjects + ' project(s)');
 }
 
 /**
- * Write a single VAPT data row (7 columns - removed Status)
+ * Write a single VAPT data row (8 columns - added Project)
  */
 function writeVAPTRow_(ws, row, data, index) {
   const bg = index % 2 === 0 ? '#FFF8E1' : '#FFFFFF';
@@ -220,13 +197,18 @@ function writeVAPTRow_(ws, row, data, index) {
         .setBorder(true, true, true, true, false, false, '#E0E0E0', SpreadsheetApp.BorderStyle.SOLID);
   }
 
-  // Col 1: Aplikasi (left-aligned)
-  ws.getRange(row, 1).setValue(data.aplikasi).setBackground(bg).setHorizontalAlignment('left')
+  // Col 1: Project (left-aligned)
+  ws.getRange(row, 1).setValue(data.project || '').setBackground(bg).setHorizontalAlignment('left')
+      .setFontFamily('Arial').setFontSize(9).setFontWeight('bold')
+      .setBorder(true, true, true, true, false, false, '#E0E0E0', SpreadsheetApp.BorderStyle.SOLID);
+
+  // Col 2: Aplikasi (left-aligned)
+  ws.getRange(row, 2).setValue(data.aplikasi).setBackground(bg).setHorizontalAlignment('left')
       .setFontFamily('Arial').setFontSize(9)
       .setBorder(true, true, true, true, false, false, '#E0E0E0', SpreadsheetApp.BorderStyle.SOLID);
 
-  // Col 2: Blocker (colored: red if > 0, green if 0)
-  const blockerCell = ws.getRange(row, 2);
+  // Col 3: Blocker (colored: red if > 0, green if 0)
+  const blockerCell = ws.getRange(row, 3);
   blockerCell.setValue(data.blocker).setBackground(bg).setFontFamily('Arial').setFontSize(9)
       .setHorizontalAlignment('center').setVerticalAlignment('middle').setFontWeight('bold')
       .setBorder(true, true, true, true, false, false, '#E0E0E0', SpreadsheetApp.BorderStyle.SOLID);
@@ -236,12 +218,12 @@ function writeVAPTRow_(ws, row, data, index) {
     blockerCell.setBackground('#C8E6C9').setFontColor('#2E7D32');  // Green
   }
 
-  // Col 3-7: OPEN findings (Critical, High, Medium, Low, Info)
-  cell(3, data.open.critical);
-  cell(4, data.open.high);
-  cell(5, data.open.medium);
-  cell(6, data.open.low);
-  cell(7, data.open.info);
+  // Col 4-8: OPEN findings (Critical, High, Medium, Low, Info)
+  cell(4, data.open.critical);
+  cell(5, data.open.high);
+  cell(6, data.open.medium);
+  cell(7, data.open.low);
+  cell(8, data.open.info);
 
   ws.setRowHeight(row, 22);
 }
@@ -251,10 +233,10 @@ function writeVAPTRow_(ws, row, data, index) {
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
- * Update summary section with calculated metrics
+ * Update summary section with calculated metrics (per-project)
  */
-function updateVAPTSummary_(ws, summary, adHocSummary, regularSummary, data) {
-  // Row 5: Total Blocker & Ad Hoc Blocker
+function updateVAPTSummary_(ws, summary, data, totalProjects) {
+  // Row 5: Total Blocker & Total Projects
   const totalBlockerCell = ws.getRange(5, 2);
   totalBlockerCell.setValue(summary.blocker || 0).setFontWeight('bold').setFontSize(12);
   if (summary.blocker > 0) {
@@ -263,12 +245,13 @@ function updateVAPTSummary_(ws, summary, adHocSummary, regularSummary, data) {
     totalBlockerCell.setBackground('#C8E6C9').setFontColor('#2E7D32');  // Green
   }
 
-  ws.getRange(5, 5).setValue(adHocSummary.blocker || 0).setFontWeight('bold');
+  ws.getRange(5, 5).setValue(totalProjects || 0).setFontWeight('bold');
 
-  // Row 6: Apps with Blocker & Regular Blocker
+  // Row 6: Apps with Blocker & Total Apps
   const appsWithBlocker = data ? data.filter(app => app.blocker > 0).length : 0;
+  const totalApps = data ? data.length : 0;
   ws.getRange(6, 2).setValue(appsWithBlocker).setFontWeight('bold');
-  ws.getRange(6, 5).setValue(regularSummary.blocker || 0).setFontWeight('bold');
+  ws.getRange(6, 5).setValue(totalApps).setFontWeight('bold');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -281,33 +264,32 @@ function buildVAPTHistory(ss) {
   ws.clear();
 
   const hdrs = [
-    'Timestamp','Type',
-    'Total Findings','Critical','High','Medium','Low','Info',
-    'Ready to Retest','Open','Closed',
-    'Apps Total','Apps Done','Apps In Progress',
-    'Prod Count'
+    'Timestamp','Project','Blocker',
+    'Critical','High','Medium','Low','Info',
+    'Total Apps','Apps with Blocker'
   ];
 
-  ws.getRange(1,1,1,hdrs.length).merge().setValue('VAPT HISTORY  —  Trend Data (auto-appended setiap refresh)')
+  ws.getRange(1,1,1,hdrs.length).merge().setValue('VAPT HISTORY  —  Per-Project Trend Data (auto-appended setiap refresh)')
       .setBackground('#BF360C').setFontColor('#FFFFFF').setFontWeight('bold')
       .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.getRange(2,1,1,hdrs.length).setValues([hdrs]).setFontWeight('bold')
       .setBackground('#EF6C00').setFontColor('#FFFFFF');
   ws.setFrozenRows(2);
-  ws.setColumnWidth(1,130);
-  ws.setColumnWidth(2,90);
-  for(let c=3;c<=hdrs.length;c++)ws.setColumnWidth(c,80);
+  ws.setColumnWidth(1,140);  // Timestamp
+  ws.setColumnWidth(2,120);  // Project
+  ws.setColumnWidth(3,80);   // Blocker
+  for(let c=4;c<=hdrs.length;c++)ws.setColumnWidth(c,80);
 
   // Add notes
-  ws.getRange(2,2).setNote('Type\n\nAd Hoc, Regular, or Combined');
-  ws.getRange(2,3).setNote('Total Findings\n\nSum of all findings (all severities, all statuses)');
-  ws.getRange(2,9).setNote('Ready to Retest\n\nFindings waiting for retest after fix');
-  ws.getRange(2,10).setNote('Open\n\nActive findings needing action');
-  ws.getRange(2,11).setNote('Closed\n\nVerified and closed findings');
+  ws.getRange(2,2).setNote('Project\n\nProject name from Config');
+  ws.getRange(2,3).setNote('Blocker\n\nCritical + High + Medium OPEN findings');
+  ws.getRange(2,4).setNote('Critical\n\nCritical severity OPEN findings');
+  ws.getRange(2,9).setNote('Total Apps\n\nTotal applications in this project');
+  ws.getRange(2,10).setNote('Apps with Blocker\n\nApplications with blocker > 0');
 }
 
 /**
- * Append daily snapshot to VAPT History
+ * Append daily snapshot to VAPT History (per-project)
  */
 function appendVAPTHistory(ss, vaptData) {
   let ws = ss.getSheetByName('VAPT History');
@@ -318,12 +300,17 @@ function appendVAPTHistory(ss, vaptData) {
 
   const ts = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
 
-  // Append 3 rows: Ad Hoc, Regular, Combined
-  const historyRows = [
-    createHistoryRow_(ts, 'Ad Hoc', vaptData.adHocSummary),
-    createHistoryRow_(ts, 'Regular', vaptData.regularSummary),
-    createHistoryRow_(ts, 'Combined', vaptData.summary)
-  ];
+  // Append one row per project
+  const historyRows = [];
+
+  if (vaptData.projectSummaries && vaptData.projectSummaries.length > 0) {
+    vaptData.projectSummaries.forEach(projectSum => {
+      historyRows.push(createHistoryRow_(ts, projectSum.project, projectSum.summary, vaptData.table));
+    });
+  } else {
+    Logger.log('⚠️ No project summaries found in vaptData');
+    return;
+  }
 
   // Get last row and append using setValues (safer than appendRow with merged cells)
   // IMPORTANT: Ensure we never write to rows 1-2 (headers with merged cells)
@@ -340,28 +327,27 @@ function appendVAPTHistory(ss, vaptData) {
 }
 
 /**
- * Create history row from summary data
+ * Create history row from per-project summary data
  */
-function createHistoryRow_(timestamp, type, summary) {
-  // Calculate blocker (Critical + High + Medium OPEN findings only, not Low/Info)
-  // This matches the blocker definition used in dashboard
+function createHistoryRow_(timestamp, projectName, summary, allData) {
+  // Calculate blocker (Critical + High + Medium OPEN findings only)
   const blocker = summary.blocker || 0;
+
+  // Count apps for this project
+  const projectApps = allData ? allData.filter(app => app.project === projectName) : [];
+  const totalApps = projectApps.length;
+  const appsWithBlocker = projectApps.filter(app => app.blocker > 0).length;
 
   return [
     timestamp,
-    type,
-    summary.totalFindings || 0,
+    projectName,
+    blocker,
     summary.bySeverity.critical || 0,
     summary.bySeverity.high || 0,
     summary.bySeverity.medium || 0,
     summary.bySeverity.low || 0,
     summary.bySeverity.info || 0,
-    summary.byStatus.readyToRetest || 0,
-    blocker,  // Use blocker instead of summary.byStatus.open (which includes Low/Info)
-    summary.byStatus.closed || 0,
-    summary.totalApps || 0,
-    summary.byVaptStatus.done || 0,
-    summary.byVaptStatus.inProgress || 0,
-    summary.prodCount || 0
+    totalApps,
+    appsWithBlocker
   ];
 }
