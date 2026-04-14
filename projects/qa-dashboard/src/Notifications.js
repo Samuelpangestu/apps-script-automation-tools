@@ -1682,59 +1682,41 @@ function fetchVAPTDataForProject_(vaptSpreadsheetId) {
   try {
     // Open external VAPT spreadsheet
     const vaptSS = SpreadsheetApp.openById(vaptSpreadsheetId);
-    const vaptTab = vaptSS.getSheetByName('VAPT BGN');
+    const vaptTab = vaptSS.getSheetByName('VAPT BGN - Helper');
 
     if (!vaptTab) {
-      Logger.log('⚠️ VAPT BGN tab not found in spreadsheet: ' + vaptSpreadsheetId);
+      Logger.log('⚠️ VAPT BGN - Helper tab not found in spreadsheet: ' + vaptSpreadsheetId);
       return result;
     }
 
-    // Fetch VAPT data from new format (Regular VAPT + Ad Hoc VAPT)
+    // Fetch VAPT data from VAPT BGN - Helper tab (B4:I36)
+    // Simple format: Aplikasi (B) | Critical (G) | High (H) | Medium (I)
     // Row 1-3: Headers
-    // Row 4-36: Data (B4:B36)
-    // Col B (1): Application
-    //
-    // Regular VAPT STATUS (OPEN):
-    //   Col G (6): Critical
-    //   Col H (7): High
-    //   Col I (8): Medium
-    //
-    // Ad Hoc VAPT STATUS (OPEN):
-    //   Col R (17): Critical
-    //   Col S (18): High
-    //   Col T (19): Medium
-    //
-    // Total Blocker = (Regular: Crit + High + Med) + (Ad Hoc: Crit + High + Med)
-    const vaptData = vaptTab.getDataRange().getValues();
+    // Row 4-36: Data
+    const data = vaptTab.getRange('B4:I36').getValues();  // B to I = 8 columns
 
-    for (let i = 3; i < 36; i++) {  // Row 4-36 (index 3-35)
-      const aplikasi = String(vaptData[i][1]).trim();  // Col B (index 1) = Application
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
 
-      // Skip empty rows or rows without application name
-      if (!aplikasi || aplikasi === '' || aplikasi === 'Application') continue;
+      // B4:I36 indices: B=0, C=1, D=2, E=3, F=4, G=5, H=6, I=7
+      const aplikasi = String(row[0] || '').trim();     // B (index 0 from B)
+      const critical = Number(row[5]) || 0;              // G (index 5 from B)
+      const high = Number(row[6]) || 0;                  // H (index 6 from B)
+      const medium = Number(row[7]) || 0;                // I (index 7 from B)
 
-      // Regular VAPT (OPEN)
-      const regularCrit = parseInt(vaptData[i][6]) || 0;     // Col G (index 6) = Critical
-      const regularHigh = parseInt(vaptData[i][7]) || 0;     // Col H (index 7) = High
-      const regularMed = parseInt(vaptData[i][8]) || 0;      // Col I (index 8) = Medium
+      // Skip rows with no findings (all 0)
+      if (critical === 0 && high === 0 && medium === 0) continue;
 
-      // Ad Hoc VAPT (OPEN)
-      const adhocCrit = parseInt(vaptData[i][17]) || 0;      // Col R (index 17) = Critical
-      const adhocHigh = parseInt(vaptData[i][18]) || 0;      // Col S (index 18) = High
-      const adhocMed = parseInt(vaptData[i][19]) || 0;       // Col T (index 19) = Medium
+      // Skip rows with no aplikasi name
+      if (!aplikasi) continue;
 
-      // Total per severity (Regular + Ad Hoc)
-      const totalMedium = regularMed + adhocMed;
-      const totalHigh = regularHigh + adhocHigh;
-      const totalCritical = regularCrit + adhocCrit;
-
-      // Total blocker per app
-      const blocker = totalMedium + totalHigh + totalCritical;
+      // Total blocker per app (Medium + High + Critical)
+      const blocker = medium + high + critical;
 
       // Accumulate total severity breakdown
-      result.vaptBreakdown.medium += totalMedium;
-      result.vaptBreakdown.high += totalHigh;
-      result.vaptBreakdown.critical += totalCritical;
+      result.vaptBreakdown.medium += medium;
+      result.vaptBreakdown.high += high;
+      result.vaptBreakdown.critical += critical;
 
       // Only include apps with blocker > 0
       if (blocker > 0) {
@@ -1743,9 +1725,9 @@ function fetchVAPTDataForProject_(vaptSpreadsheetId) {
         result.vaptApps.push({
           aplikasi: aplikasi,
           blocker: blocker,
-          critical: totalCritical,
-          high: totalHigh,
-          medium: totalMedium
+          critical: critical,
+          high: high,
+          medium: medium
         });
       }
     }
