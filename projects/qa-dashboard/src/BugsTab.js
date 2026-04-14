@@ -279,8 +279,7 @@ function writeBugs(ss, allData) {
   // Update last refresh timestamp
   ws.getRange(1,1).setValue('Last refreshed: ' + Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'));
 
-  // Build charts for visual trend analysis
-  buildBugsCharts_(ws, submodulList, submodulBugs, previousData);
+  // Charts removed - will use Web App dashboard for visualization
 }
 
 // ═══════════════════════════════════════════════════════════════════════
