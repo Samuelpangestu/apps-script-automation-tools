@@ -73,7 +73,8 @@ function onOpen() {
       .addItem('▶️ Manual Sync + Refresh', 'manualSyncAndRefresh')
       .addItem('🚀 Setup Auto-Refresh Trigger', 'setupAutoRefreshTrigger')
       .addSeparator()
-      .addItem('⚙️ Refresh Data Only (No Jira Sync)', 'refreshDashboard'))
+      .addItem('⚙️ Refresh Bug Only (No Jira Sync)', 'refreshBugOnly')
+      .addItem('🔒 Refresh VAPT Only', 'refreshVAPTOnly'))
     .addSubMenu(ui.createMenu('🔔 Notifications')
       .addItem('⚙️ Setup Notifications', 'setupDailyBlockerNotification')
       .addItem('✅ Test Notification Now', 'sendBlockerNotification')
@@ -287,6 +288,86 @@ function refreshDashboard() {
   Logger.log('refreshDashboard DONE');
   Logger.log('⏱️  TOTAL TIME: ' + totalTime + 's');
   safeAlert_('Refresh selesai! ' + allData.length + ' modul di-update.\n\nTotal time: ' + totalTime + 's');
+}
+
+/**
+ * Refresh Bug Only (No VAPT refresh)
+ * Use this when you only need to update bug data from QATM modules
+ */
+function refreshBugOnly() {
+  const startTime = new Date();
+  Logger.log('refreshBugOnly START: ' + startTime);
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const modules = getModuleList_(ss);
+  if (modules.length === 0) {
+    safeAlert_('Belum ada modul aktif di Config.\nIsi tab Config dulu lalu refresh.');
+    return;
+  }
+
+  // ═══ STEP 1: Pull Module Data ═══
+  let t1 = new Date();
+  const allData = [];
+  modules.forEach(mod => {
+    Logger.log('Pulling: ' + mod.name + ' [' + mod.id + ']');
+    try {
+      allData.push(pullModuleData_(mod));
+      Logger.log('OK: ' + mod.name);
+    } catch(e) {
+      Logger.log('ERROR ' + mod.name + ': ' + e.message);
+      allData.push(emptyModuleData_(mod, 'ERROR: ' + e.message));
+    }
+    Utilities.sleep(150);
+  });
+  Logger.log('⏱️  Pull module data: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  // ═══ STEP 2: Write Bugs Tab Only ═══
+  t1 = new Date();
+  writeBugs(ss, allData);
+  Logger.log('⏱️  writeBugs: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  // Update Overview for bug columns
+  t1 = new Date();
+  writeOverview(ss, allData);
+  Logger.log('⏱️  writeOverview: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  // ═══ STEP 3: Update Timestamp ═══
+  const ts = 'Last refreshed: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss');
+  ['Overview', 'Bugs'].forEach(name => {
+    const sh = ss.getSheetByName(name);
+    if (sh) sh.getRange(1,1).setValue(ts);
+  });
+
+  const totalTime = ((new Date() - startTime) / 1000).toFixed(1);
+  Logger.log('refreshBugOnly DONE');
+  Logger.log('⏱️  TOTAL TIME: ' + totalTime + 's');
+  safeAlert_('Refresh Bug selesai! ' + allData.length + ' modul di-update.\n\nTotal time: ' + totalTime + 's\n\n💡 VAPT data tidak di-refresh.');
+}
+
+/**
+ * Refresh VAPT Only (No bug data refresh)
+ * Use this when you only need to update VAPT findings
+ */
+function refreshVAPTOnly() {
+  const startTime = new Date();
+  Logger.log('refreshVAPTOnly START: ' + startTime);
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // ═══ Refresh VAPT Data ═══
+  let t1 = new Date();
+  refreshVAPTData();
+  Logger.log('⏱️  refreshVAPTData: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  // ═══ Update Timestamp ═══
+  const ts = 'Last refreshed: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss');
+  const vaptSheet = ss.getSheetByName('VAPT');
+  if (vaptSheet) vaptSheet.getRange(1,1).setValue(ts);
+
+  const totalTime = ((new Date() - startTime) / 1000).toFixed(1);
+  Logger.log('refreshVAPTOnly DONE');
+  Logger.log('⏱️  TOTAL TIME: ' + totalTime + 's');
+  safeAlert_('Refresh VAPT selesai!\n\nTotal time: ' + totalTime + 's\n\n💡 Bug data tidak di-refresh.');
 }
 
 /**
