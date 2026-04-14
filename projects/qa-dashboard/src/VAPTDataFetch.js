@@ -35,10 +35,23 @@ function refreshVAPTData() {
       const vaptSpreadsheetId = String(cfgData[i][21]).trim(); // Col V (index 21) = VAPT Spreadsheet ID
       const vaptEnabled = cfgData[i][22] === true; // Col W (index 22) = Enable VAPT
 
-      // Skip if project name is empty or VAPT not enabled
-      if (!projectName || !vaptEnabled || !vaptSpreadsheetId) continue;
+      // Debug: Log what we read from Config
+      Logger.log('Row ' + (i + 1) + ' - Col A (Project): "' + projectName + '" | Col V (VAPT ID): "' + vaptSpreadsheetId + '" | Col W (Enable): ' + vaptEnabled);
 
-      Logger.log('Fetching VAPT data for project: ' + projectName);
+      // Skip if project name is empty or VAPT not enabled
+      if (!projectName || !vaptEnabled || !vaptSpreadsheetId) {
+        Logger.log('  ⏭️ Skipped (missing data or not enabled)');
+        continue;
+      }
+
+      // Validate project name is not a boolean string
+      if (projectName === 'TRUE' || projectName === 'FALSE' || projectName === 'true' || projectName === 'false') {
+        Logger.log('  ⚠️ ERROR: Col A contains boolean value "' + projectName + '" instead of project name!');
+        Logger.log('  💡 FIX: Please fill Col A with project name (e.g., "SIPGN", "INADigital")');
+        continue;
+      }
+
+      Logger.log('  ✅ Fetching VAPT data for project: ' + projectName);
 
       try {
         // Fetch data from this project's VAPT spreadsheet
