@@ -45,11 +45,12 @@ function refreshVAPTData() {
     Logger.log('Writing VAPT data to dashboard...');
     writeVAPT(ss, vaptData);
 
-    // Append to history
-    Logger.log('Appending to VAPT History...');
-    appendVAPTHistory(ss, vaptData);
+    // Append to history - TEMPORARILY DISABLED due to merge conflict issues
+    // TODO: Re-enable after deciding: keep global VAPT or migrate to per-project VAPT
+    // Logger.log('Appending to VAPT History...');
+    // appendVAPTHistory(ss, vaptData);
 
-    Logger.log('✅ VAPT data refresh complete');
+    Logger.log('✅ VAPT data refresh complete (History append disabled)');
   } catch (error) {
     Logger.log('❌ ERROR refreshing VAPT data: ' + error.toString());
     Logger.log('Stack: ' + error.stack);
