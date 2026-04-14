@@ -1,24 +1,21 @@
 /**
- * VAPTDataFetch.js - Fetch and Process VAPT Data
+ * VAPTDataFetch.js - Fetch and Process VAPT Data (Per-Project)
  *
- * Fetch VAPT findings from source spreadsheet (Ad Hoc + Regular VAPT tabs)
+ * Fetch VAPT findings from multiple per-project spreadsheets
  * Process and combine data for dashboard display
  */
-
-// VAPT Spreadsheet ID (from Config tab)
-const VAPT_SPREADSHEET_ID = '17qeErP3VHxN7qcNQqhT6zGLukxZU4OKLmBMbsgsl1Rk';
 
 // ═══════════════════════════════════════════════════════════════════════
 // MAIN REFRESH FUNCTION
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
- * Refresh VAPT data from source spreadsheet
+ * Refresh VAPT data from per-project spreadsheets
  * Called by refreshDashboard()
  */
 function refreshVAPTData() {
   try {
-    Logger.log('Starting VAPT data refresh...');
+    Logger.log('Starting per-project VAPT data refresh...');
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const configSheet = ss.getSheetByName('Config');
@@ -28,33 +25,125 @@ function refreshVAPTData() {
       return;
     }
 
-    // Get VAPT spreadsheet ID from Config (will be added later)
-    // For now, use hardcoded ID
-    const vaptSpreadsheetId = VAPT_SPREADSHEET_ID;
+    // Read Config to get projects with VAPT enabled
+    const cfgData = configSheet.getDataRange().getValues();
+    const allProjectData = [];
 
-    if (!vaptSpreadsheetId || vaptSpreadsheetId === 'PASTE_VAPT_SPREADSHEET_ID_HERE') {
-      Logger.log('⚠️ VAPT Spreadsheet ID not configured - skipping VAPT refresh');
+    // Loop through Config rows (skip header rows 1-4)
+    for (let i = 4; i < cfgData.length; i++) {
+      const projectName = String(cfgData[i][0]).trim(); // Col A = Project Name
+      const vaptSpreadsheetId = String(cfgData[i][21]).trim(); // Col V (index 21) = VAPT Spreadsheet ID
+      const vaptEnabled = cfgData[i][22] === true; // Col W (index 22) = Enable VAPT
+
+      // Skip if project name is empty or VAPT not enabled
+      if (!projectName || !vaptEnabled || !vaptSpreadsheetId) continue;
+
+      Logger.log('Fetching VAPT data for project: ' + projectName);
+
+      try {
+        // Fetch data from this project's VAPT spreadsheet
+        const projectVaptData = fetchAndProcessVAPTData_(vaptSpreadsheetId, projectName);
+        allProjectData.push(projectVaptData);
+      } catch (error) {
+        Logger.log('⚠️ Error fetching VAPT for ' + projectName + ': ' + error.toString());
+        // Continue with other projects
+      }
+    }
+
+    if (allProjectData.length === 0) {
+      Logger.log('⚠️ No projects with VAPT enabled - skipping VAPT refresh');
       return;
     }
 
-    // Fetch data from VAPT spreadsheet
-    Logger.log('Fetching VAPT data from spreadsheet: ' + vaptSpreadsheetId);
-    const vaptData = fetchAndProcessVAPTData_(vaptSpreadsheetId);
+    // Combine all project data
+    Logger.log('Combining VAPT data from ' + allProjectData.length + ' project(s)...');
+    const combinedData = combineProjectVAPTData_(allProjectData);
 
     // Write to VAPT tab
     Logger.log('Writing VAPT data to dashboard...');
-    writeVAPT(ss, vaptData);
+    writeVAPT(ss, combinedData);
 
-    // Append to history - TEMPORARILY DISABLED due to merge conflict issues
-    // TODO: Re-enable after deciding: keep global VAPT or migrate to per-project VAPT
-    // Logger.log('Appending to VAPT History...');
-    // appendVAPTHistory(ss, vaptData);
+    // Append to history with per-project tracking
+    Logger.log('Appending to VAPT History...');
+    appendVAPTHistory(ss, combinedData);
 
-    Logger.log('✅ VAPT data refresh complete (History append disabled)');
+    Logger.log('✅ VAPT data refresh complete');
   } catch (error) {
     Logger.log('❌ ERROR refreshing VAPT data: ' + error.toString());
     Logger.log('Stack: ' + error.stack);
   }
+}
+
+/**
+ * Combine VAPT data from multiple projects
+ */
+function combineProjectVAPTData_(allProjectData) {
+  const combinedTable = [];
+  let combinedSummary = initSummary_();
+  const projectSummaries = [];
+
+  allProjectData.forEach(projectData => {
+    // Add all table entries (with project name already included)
+    combinedTable.push(...projectData.table);
+
+    // Accumulate summary
+    combinedSummary = mergeSummaries_(combinedSummary, projectData.summary);
+
+    // Store per-project summary for history
+    projectSummaries.push({
+      project: projectData.projectName,
+      summary: projectData.summary
+    });
+  });
+
+  return {
+    table: combinedTable,
+    summary: combinedSummary,
+    projectSummaries: projectSummaries
+  };
+}
+
+/**
+ * Initialize empty summary object
+ */
+function initSummary_() {
+  return {
+    blocker: 0,
+    totalFindings: 0,
+    bySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+    byStatus: { readyToRetest: 0, open: 0, closed: 0 },
+    totalApps: 0,
+    byVaptStatus: { done: 0, inProgress: 0 },
+    prodCount: 0
+  };
+}
+
+/**
+ * Merge two summary objects
+ */
+function mergeSummaries_(s1, s2) {
+  return {
+    blocker: (s1.blocker || 0) + (s2.blocker || 0),
+    totalFindings: (s1.totalFindings || 0) + (s2.totalFindings || 0),
+    bySeverity: {
+      critical: (s1.bySeverity.critical || 0) + (s2.bySeverity.critical || 0),
+      high: (s1.bySeverity.high || 0) + (s2.bySeverity.high || 0),
+      medium: (s1.bySeverity.medium || 0) + (s2.bySeverity.medium || 0),
+      low: (s1.bySeverity.low || 0) + (s2.bySeverity.low || 0),
+      info: (s1.bySeverity.info || 0) + (s2.bySeverity.info || 0)
+    },
+    byStatus: {
+      readyToRetest: (s1.byStatus.readyToRetest || 0) + (s2.byStatus.readyToRetest || 0),
+      open: (s1.byStatus.open || 0) + (s2.byStatus.open || 0),
+      closed: (s1.byStatus.closed || 0) + (s2.byStatus.closed || 0)
+    },
+    totalApps: (s1.totalApps || 0) + (s2.totalApps || 0),
+    byVaptStatus: {
+      done: (s1.byVaptStatus.done || 0) + (s2.byVaptStatus.done || 0),
+      inProgress: (s1.byVaptStatus.inProgress || 0) + (s2.byVaptStatus.inProgress || 0)
+    },
+    prodCount: (s1.prodCount || 0) + (s2.prodCount || 0)
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -62,24 +151,34 @@ function refreshVAPTData() {
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
- * Fetch and process VAPT data from both tabs
+ * Fetch and process VAPT data from both tabs for a specific project
+ * @param {string} vaptSpreadsheetId - VAPT spreadsheet ID
+ * @param {string} projectName - Project name to tag all entries
  */
-function fetchAndProcessVAPTData_(vaptSpreadsheetId) {
+function fetchAndProcessVAPTData_(vaptSpreadsheetId, projectName) {
   const vaptSs = SpreadsheetApp.openById(vaptSpreadsheetId);
 
   // Fetch Ad Hoc VAPT data
-  Logger.log('Fetching Ad Hoc VAPT data...');
+  Logger.log('  Fetching Ad Hoc VAPT data...');
   const adHocData = fetchAdHocVAPTData_(vaptSs);
-  Logger.log('Ad Hoc VAPT entries: ' + adHocData.length);
+  Logger.log('  Ad Hoc VAPT entries: ' + adHocData.length);
 
   // Fetch Regular VAPT data
-  Logger.log('Fetching Regular VAPT data...');
+  Logger.log('  Fetching Regular VAPT data...');
   const regularData = fetchRegularVAPTData_(vaptSs);
-  Logger.log('Regular VAPT entries: ' + regularData.length);
+  Logger.log('  Regular VAPT entries: ' + regularData.length);
 
   // Process and combine
-  Logger.log('Processing and combining VAPT data...');
+  Logger.log('  Processing and combining VAPT data...');
   const processedData = processVAPTData_(adHocData, regularData);
+
+  // Add project name to all table entries
+  processedData.table.forEach(entry => {
+    entry.project = projectName;
+  });
+
+  // Add project name to result
+  processedData.projectName = projectName;
 
   return processedData;
 }

@@ -23,22 +23,23 @@ function buildVAPT(ss) {
   ws.clear();
   initVAPTHeaders_(ws);
 
-  ws.getRange(10,1,1,7).merge()
-      .setValue('▶ Run refreshDashboard() untuk mengisi data VAPT')
+  ws.getRange(10,1,1,8).merge()
+      .setValue('▶ Run refreshDashboard() untuk mengisi data VAPT per-project')
       .setBackground('#FFF3E0').setFontColor('#E65100').setFontStyle('italic')
       .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setFrozenRows(9);
 }
 
 function initVAPTHeaders_(ws) {
-  // Set column widths (7 columns total - removed Status)
-  ws.setColumnWidth(1, 250);  // Aplikasi
-  ws.setColumnWidth(2, 90);   // Blocker
-  ws.setColumnWidth(3, 70);   // Critical
-  ws.setColumnWidth(4, 70);   // High
-  ws.setColumnWidth(5, 70);   // Medium
-  ws.setColumnWidth(6, 70);   // Low
-  ws.setColumnWidth(7, 70);   // Info
+  // Set column widths (8 columns total - added Project)
+  ws.setColumnWidth(1, 120);  // Project
+  ws.setColumnWidth(2, 200);  // Aplikasi
+  ws.setColumnWidth(3, 90);   // Blocker
+  ws.setColumnWidth(4, 70);   // Critical
+  ws.setColumnWidth(5, 70);   // High
+  ws.setColumnWidth(6, 70);   // Medium
+  ws.setColumnWidth(7, 70);   // Low
+  ws.setColumnWidth(8, 70);   // Info
 
   function h_(r,c,rCnt,cCnt,txt,bg,fg) {
     fg = fg || '#FFFFFF';
@@ -51,32 +52,33 @@ function initVAPTHeaders_(ws) {
   }
 
   // Row 1 — last refresh
-  ws.getRange(1,1,1,7).merge().setValue('Last refreshed: —')
+  ws.getRange(1,1,1,8).merge().setValue('Last refreshed: —')
       .setBackground('#FFF3E0').setFontColor('#E65100').setFontStyle('italic')
       .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
   ws.setRowHeight(1,16);
 
   // Row 2 — title with link
-  ws.getRange(2,1,1,7).merge().setValue('🔒 VAPT BLOCKER TRACKING')
+  ws.getRange(2,1,1,8).merge().setValue('🔒 PER-PROJECT VAPT BLOCKER TRACKING')
       .setBackground('#BF360C').setFontColor('#FFFFFF').setFontWeight('bold')
       .setFontSize(13).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setRowHeight(2,30);
 
   // Row 3 — subtitle + link to external
-  ws.getRange(3,1,1,7).merge()
+  ws.getRange(3,1,1,8).merge()
+      .setValue('📋 Each project has its own VAPT spreadsheet')
       .setBackground('#FFF3E0').setFontColor('#E65100')
       .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setRowHeight(3,20);
 
   // Row 4-8 — SIMPLE SUMMARY
-  ws.getRange(4,1,1,7).merge().setValue('🚨 SUMMARY')
+  ws.getRange(4,1,1,8).merge().setValue('🚨 SUMMARY (All Projects)')
       .setBackground('#FF6F00').setFontColor('#FFFFFF').setFontWeight('bold')
       .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setRowHeight(4,22);
 
   const summaryLabels = [
-    ['Total Blocker:', '—', 'Ad Hoc:', '—'],
-    ['Apps with Blocker:', '—', 'Regular:', '—']
+    ['Total Blocker:', '—', 'Total Projects:', '—'],
+    ['Apps with Blocker:', '—', 'Total Apps:', '—']
   ];
 
   summaryLabels.forEach((row, i) => {
@@ -91,7 +93,7 @@ function initVAPTHeaders_(ws) {
   ws.setRowHeight(7,8);
 
   // Row 8 — Target
-  ws.getRange(8,1,1,7).merge().setValue('🎯 Target: 0 blocker di semua aplikasi!')
+  ws.getRange(8,1,1,8).merge().setValue('🎯 Target: 0 blocker di semua aplikasi!')
       .setBackground('#E8F5E9').setFontColor('#2E7D32').setFontWeight('bold')
       .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.setRowHeight(8,20);
