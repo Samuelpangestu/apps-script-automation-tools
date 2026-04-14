@@ -145,7 +145,14 @@ function sendBlockerNotification() {
     };
 
     if (pg.vaptConfig && pg.vaptConfig.enabled && pg.vaptConfig.spreadsheetId) {
+      Logger.log('📊 Fetching VAPT data for project: ' + projectName + ' | Spreadsheet: ' + pg.vaptConfig.spreadsheetId);
       projectVaptData = fetchVAPTDataForProject_(pg.vaptConfig.spreadsheetId);
+      Logger.log('📊 VAPT data fetched: blocker=' + projectVaptData.vaptBlocker + ', apps=' + projectVaptData.vaptAppsWithBlockers);
+    } else {
+      Logger.log('⚠️ VAPT config not found or invalid for project: ' + projectName +
+                 ' | vaptConfig=' + (pg.vaptConfig ? 'EXISTS' : 'NULL') +
+                 ' | enabled=' + (pg.vaptConfig ? pg.vaptConfig.enabled : 'N/A') +
+                 ' | spreadsheetId=' + (pg.vaptConfig ? (pg.vaptConfig.spreadsheetId ? 'EXISTS' : 'EMPTY') : 'N/A'));
     }
 
     // Aggregate project-level data
