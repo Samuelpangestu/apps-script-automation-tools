@@ -950,7 +950,7 @@ function sendGoogleChatNotification_(webhookUrl, blockerData) {
       message += ' - ' + blockerData.projectName;
     }
     message += '\n📅 ' + blockerData.timestamp + '\n';
-    message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    message += '━━━━━━━━━━━━━\n\n';
 
     // Calculate totals from blockerData (same data source as Email/WhatsApp for consistency)
     const totalCritical = blockerData.modules.reduce((sum, m) => sum + (m.critical || 0), 0);
@@ -1007,7 +1007,7 @@ function sendGoogleChatNotification_(webhookUrl, blockerData) {
     });
 
     message += '\n🔗 <' + dashboardBugsUrl + '|📊 View Dashboard>\n';
-    message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    message += '━━━━━━━━━━━━━\n\n';
 
     // ══════════════════════════════════════════════════════════════════════
     // VAPT BLOCKER DETAIL (if any) - Per aplikasi
@@ -1042,9 +1042,9 @@ function sendGoogleChatNotification_(webhookUrl, blockerData) {
     });
 
     if (hasProdBugs) {
-      message += '🚨🚨🚨 *PRODUCTION BUGS* 🚨🚨🚨\n';
+      message += '🚨 *PRODUCTION BUGS* 🚨\n';
       message += '<users/all>\n';
-      message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+      message += '━━━━━━━━━━━━━\n\n';
 
       Object.keys(moduleGroups).forEach(moduleKey => {
         const moduleData = moduleGroups[moduleKey];
@@ -1166,7 +1166,7 @@ function sendGoogleChatNotification_(webhookUrl, blockerData) {
     const scriptProps = PropertiesService.getScriptProperties();
     const dashboardWebAppUrl = scriptProps.getProperty('WEB_APP_URL') || LATEST_WEBAPP_URL;
 
-    message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    message += '━━━━━━━━━━━━━\n';
     message += '🔗 <' + dashboardWebAppUrl + '|📊 Web Dashboard (QA & VAPT)>  •  <' + dashboardOverviewUrl + '|📋 Sheet Overview>  •  <' + dashboardBugsUrl + '|🐛 Sheet Bugs>';
     message += '\n_Automated Daily Report_';
 
@@ -1217,7 +1217,7 @@ function sendEmailNotification_(recipients, blockerData) {
     // Header
     if (blockerData.totalProdBugs > 0) {
       body += '<div style="background: #D32F2F; color: white; padding: 20px; text-align: center;">';
-      body += '<h2 style="margin: 0;">🚨🚨 PRODUCTION BUGS ALERT 🚨🚨</h2>';
+      body += '<h2 style="margin: 0;">🚨 PRODUCTION BUGS ALERT 🚨</h2>';
       if (blockerData.projectName) {
         body += '<h3 style="margin: 5px 0 0 0; font-weight: normal;">Project: ' + blockerData.projectName + '</h3>';
       }
@@ -1548,8 +1548,8 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     const hasProdBugs = blockerData.modules.some(m => m.prodBugs > 0);
 
     if (hasProdBugs) {
-      message += '🚨🚨🚨 *PRODUCTION BUGS* 🚨🚨🚨\n';
-      message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+      message += '🚨 *PRODUCTION BUGS* 🚨\n';
+      message += '━━━━━━━━━━━━━\n\n';
 
       blockerData.modules.forEach(module => {
         if (module.prodBugs > 0) {
