@@ -329,7 +329,10 @@ function appendVAPTHistory(ss, vaptData) {
   const startRow = Math.max(lastRow + 1, 3);  // Always start at row 3 minimum (after headers)
   const numCols = historyRows[0].length;
 
-  ws.getRange(startRow, 1, historyRows.length, numCols).setValues(historyRows);
+  // Unmerge target range first to avoid merge conflicts
+  const targetRange = ws.getRange(startRow, 1, historyRows.length, numCols);
+  targetRange.breakApart();  // Unmerge any merged cells in target area
+  targetRange.setValues(historyRows);
 
   Logger.log('✅ VAPT History appended: ' + historyRows.length + ' rows at row ' + startRow);
 }
