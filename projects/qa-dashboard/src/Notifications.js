@@ -58,6 +58,32 @@ function sendBlockerNotification() {
     globalFallbackGroupId = String(cfg.getRange(4, 19).getValue()).trim(); // S4 = Global fallback Group ID
   }
 
+  // ── LOAD VAPT CONFIG FROM ALL MODULES (not just modules with bugs) ────────
+  // VAPT config is per-project, but we need to check ALL modules to find valid config
+  // Some modules may have VAPT config but no bugs (so not in blockerData.modules)
+  // ────────────────────────────────────────────────────────────────────────
+  const allVaptConfigs = {};  // { projectName: { spreadsheetId, enabled } }
+
+  if (cfg) {
+    const cfgData = cfg.getDataRange().getValues();
+    for (let i = 3; i < cfgData.length; i++) {  // Start from row 4 (index 3)
+      const projectName = String(cfgData[i][2]).trim();  // Col C = Project
+      if (!projectName) break;  // Stop on empty project
+
+      const vaptSpreadsheetId = String(cfgData[i][21]).trim();  // Col V = VAPT Spreadsheet ID
+      const vaptEnabled = cfgData[i][22] === true;              // Col W = Enable VAPT
+
+      // Store VAPT config for this project (last valid config wins)
+      if (vaptEnabled && vaptSpreadsheetId) {
+        allVaptConfigs[projectName] = {
+          spreadsheetId: vaptSpreadsheetId,
+          enabled: vaptEnabled
+        };
+        Logger.log('📋 VAPT config loaded from Config: ' + projectName + ' | Spreadsheet: ' + vaptSpreadsheetId);
+      }
+    }
+  }
+
   // ── GROUP BY PROJECT ────────────────────────────────────────────────────
   // Aggregate modules by PROJECT NAME → send 1 notification per project
   // Notification config (WhatsApp, Email, Chat) diambil dari module pertama yang punya config
@@ -108,14 +134,16 @@ function sendBlockerNotification() {
       };
     }
 
-    // VAPT config is per-project - take from ANY module in the project that has valid config
-    // Remove !projectGroups[projectName].vaptConfig check to allow override from any module
-    // This handles case where first module has vaptEnabled=TRUE but no spreadsheetId
-    if (module.vaptEnabled && module.vaptSpreadsheetId) {
-      projectGroups[projectName].vaptConfig = {
-        spreadsheetId: module.vaptSpreadsheetId,
-        enabled: module.vaptEnabled
-      };
+    // VAPT config will be set from allVaptConfigs below (not from modules)
+    // Removed old logic that only checked modules with bugs
+  });
+
+  // ── APPLY VAPT CONFIG FROM ALL MODULES (including those without bugs) ────────
+  // Now that projectGroups is created, apply VAPT config from allVaptConfigs
+  Object.keys(projectGroups).forEach(projectName => {
+    if (allVaptConfigs[projectName]) {
+      projectGroups[projectName].vaptConfig = allVaptConfigs[projectName];
+      Logger.log('✅ VAPT config applied to project: ' + projectName);
     }
   });
 
