@@ -29,9 +29,10 @@ function refreshVAPTData() {
     const cfgData = configSheet.getDataRange().getValues();
     const allProjectData = [];
 
-    // Loop through Config rows (skip header rows 1-4)
+    // Loop through Config rows (skip header rows 1-3)
+    // Row 4 = index 3 = first data row
     // Stop immediately when project name is empty (no more data)
-    for (let i = 4; i < cfgData.length; i++) {
+    for (let i = 3; i < cfgData.length; i++) {
       const projectName = String(cfgData[i][2]).trim(); // Col C (index 2) = Project Name
 
       // Early exit: Stop if project name is empty (no more data)
