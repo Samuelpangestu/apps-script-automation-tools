@@ -678,34 +678,8 @@ function _fetch_(instKey, projKey, modulName, cred) {
     pageIssues.forEach(i => all.push(i));
 
     if (isFirstPage) {
-      // Log both API's total and actual issues received
-      Logger.log('✅ API reports: ' + total + ' bug(s) matching JQL');
-      Logger.log('   Received in page 1: ' + pageCount + ' issue(s)');
-
-      // Debug: Log raw response when mismatch detected
-      if (total === 0 && pageCount > 0) {
-        Logger.log('');
-        Logger.log('⚠️  MISMATCH DETECTED - API reports 0 but returned ' + pageCount + ' issues');
-        Logger.log('Raw API Response (first 1000 chars):');
-        Logger.log(r.getContentText().substring(0, 1000));
-        Logger.log('');
-      }
-
-      // Debug: Log when truly zero results
-      if (total === 0 && pageCount === 0) {
-        Logger.log('');
-        Logger.log('⚠️  ZERO RESULTS - Debug Info:');
-        Logger.log('💡 Possible causes:');
-        Logger.log('1. Custom field "modul[dropdown]" might need field ID instead (e.g., customfield_10001)');
-        Logger.log('2. Module value "' + modulName + '" might not match exactly (check case/spaces)');
-        Logger.log('3. Field permissions might have changed');
-        Logger.log('');
-        Logger.log('To find custom field ID:');
-        Logger.log('• Go to: ' + base + '/rest/api/3/field');
-        Logger.log('• Search for: modul');
-        Logger.log('• Use the "id" value (e.g., customfield_10001) instead of "modul[dropdown]"');
-        Logger.log('');
-      }
+      // Simple log: just show page 1 count
+      Logger.log('✅ Fetching bugs from Jira... (page 1: ' + pageCount + ' issue(s))');
       isFirstPage = false;
     }
 
