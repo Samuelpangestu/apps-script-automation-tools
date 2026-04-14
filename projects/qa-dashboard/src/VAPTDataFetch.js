@@ -31,23 +31,16 @@ function refreshVAPTData() {
 
     // Loop through Config rows (skip header rows 1-4)
     for (let i = 4; i < cfgData.length; i++) {
-      const projectName = String(cfgData[i][0]).trim(); // Col A = Project Name
+      const projectName = String(cfgData[i][2]).trim(); // Col C (index 2) = Project Name
       const vaptSpreadsheetId = String(cfgData[i][21]).trim(); // Col V (index 21) = VAPT Spreadsheet ID
       const vaptEnabled = cfgData[i][22] === true; // Col W (index 22) = Enable VAPT
 
       // Debug: Log what we read from Config
-      Logger.log('Row ' + (i + 1) + ' - Col A (Project): "' + projectName + '" | Col V (VAPT ID): "' + vaptSpreadsheetId + '" | Col W (Enable): ' + vaptEnabled);
+      Logger.log('Row ' + (i + 1) + ' - Col C (Project): "' + projectName + '" | Col V (VAPT ID): "' + vaptSpreadsheetId + '" | Col W (Enable): ' + vaptEnabled);
 
       // Skip if project name is empty or VAPT not enabled
       if (!projectName || !vaptEnabled || !vaptSpreadsheetId) {
         Logger.log('  ⏭️ Skipped (missing data or not enabled)');
-        continue;
-      }
-
-      // Validate project name is not a boolean string
-      if (projectName === 'TRUE' || projectName === 'FALSE' || projectName === 'true' || projectName === 'false') {
-        Logger.log('  ⚠️ ERROR: Col A contains boolean value "' + projectName + '" instead of project name!');
-        Logger.log('  💡 FIX: Please fill Col A with project name (e.g., "SIPGN", "INADigital")');
         continue;
       }
 
