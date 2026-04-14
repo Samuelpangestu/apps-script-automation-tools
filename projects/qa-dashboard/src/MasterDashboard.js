@@ -1196,7 +1196,7 @@ function buildConfig(ss) {
 
   // Info row (row 2, merged L2:N2)
   ws.getRange(2, chatCol, 1, 3).merge()
-    .setValue('💬  Notifikasi blocker otomatis dikirim ke Google Chat Space setiap hari.')
+    .setValue('💬  Notifikasi blocker ke Google Chat per-PROJECT. Cukup isi config di 1 module per project (sisanya diabaikan).')
     .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic')
     .setFontSize(8).setHorizontalAlignment('center');
 
@@ -1273,7 +1273,7 @@ function buildConfig(ss) {
 
   // Info row (row 2, merged O2:P2)
   ws.getRange(2, emailCol, 1, 2).merge()
-    .setValue('📧  Email notifikasi blocker harian (multiple recipients, pisah dengan koma)')
+    .setValue('📧  Email notifikasi blocker per-PROJECT. Cukup isi config di 1 module per project (multiple recipients pisah koma)')
     .setBackground('#E8F5E9').setFontColor('#2E7D32').setFontStyle('italic')
     .setFontSize(8).setHorizontalAlignment('center');
 
@@ -1412,7 +1412,7 @@ function buildConfig(ss) {
   ws.setConditionalFormatRules([...finalRules, refreshEnableTrueRule, refreshEnableFalseRule]);
 
   // ─────────────────────────────────────────────────────────────────────
-  // WHATSAPP NOTIFICATION SECTION (Kolom S-U, global config)
+  // WHATSAPP NOTIFICATION SECTION (Kolom S-U, per-module config)
   // ─────────────────────────────────────────────────────────────────────
 
   const waCol = 19; // Start at column S (19)
@@ -1425,15 +1425,15 @@ function buildConfig(ss) {
 
   // Info row (row 2, merged S2:U2)
   ws.getRange(2, waCol, 1, 3).merge()
-    .setValue('📱  Notifikasi blocker ke WhatsApp Group via Fonnte API (global untuk semua module)')
+    .setValue('📱  Notifikasi blocker ke WhatsApp Group per-PROJECT via Fonnte API. Cukup isi config di 1 module per project (sisanya diabaikan). Token shared row 4.')
     .setBackground('#E8F5E9').setFontColor('#1B5E20').setFontStyle('italic')
     .setFontSize(8).setHorizontalAlignment('center');
 
   // Column headers (row 3)
   const waHeaders = [
-    ['WhatsApp Group ID', 200, 'Group ID WhatsApp (global untuk semua module)\nFormat: 120363xxxxxxxxx@g.us\n\nCara dapat:\n1. Menu → Notifications → WhatsApp: Get Groups\n2. Atau dari invite link grup'],
-    ['Fonnte Token', 160, 'Token API dari Fonnte Dashboard\nLogin: https://fonnte.com/dashboard\nMenu: Device → Token\n\nToken ini dipakai untuk kirim message ke WhatsApp'],
-    ['Enable WA', 85, 'TRUE = aktif notifikasi WhatsApp\nFALSE = nonaktifkan']
+    ['WhatsApp Group ID', 200, 'Group ID WhatsApp (per-PROJECT)\nFormat: 120363xxxxxxxxx@g.us\n\nCara dapat:\n1. Menu → Notifications → WhatsApp: Get Groups\n2. Atau dari invite link grup\n\n💡 TIP: Cukup isi di 1 module per project (biasanya module pertama).\nSemua module dalam 1 project akan kirim ke grup yang sama.\n\nRow 4 = Global fallback (opsional)'],
+    ['Fonnte Token', 160, 'Token API dari Fonnte Dashboard (SHARED - row 4 only)\nLogin: https://fonnte.com/dashboard\nMenu: Device → Token\n\nToken di row 4 dipakai untuk SEMUA project\nRow 5+ kosongkan (tidak perlu diisi)'],
+    ['Enable WA', 85, 'TRUE = aktif notifikasi WhatsApp untuk project ini\nFALSE = nonaktifkan\n\n💡 TIP: Cukup centang di 1 module per project']
   ];
 
   waHeaders.forEach(([h, w, note], i) => {
@@ -1500,14 +1500,14 @@ function buildConfig(ss) {
 
   // Info row (row 2, merged V2:W2)
   ws.getRange(2, vaptCol, 1, 2).merge()
-    .setValue('🔒  VAPT Findings dari Ad Hoc VAPT + Regular VAPT (auto-pulled setiap refresh)')
+    .setValue('🔒  VAPT Report per-PROJECT. Cukup isi Spreadsheet ID di 1 module per project. Jika kosong = no VAPT.')
     .setBackground('#FFF3E0').setFontColor('#E65100').setFontStyle('italic')
     .setFontSize(8).setHorizontalAlignment('center');
 
   // Column headers (row 3)
   const vaptHeaders = [
-    ['VAPT Spreadsheet ID', 320, 'Spreadsheet ID untuk VAPT findings\nContains: Ad Hoc VAPT + Regular VAPT tabs\n\nURL: https://docs.google.com/spreadsheets/d/[ID]/edit'],
-    ['Enable VAPT', 85, 'TRUE = pull VAPT data\nFALSE = skip VAPT refresh']
+    ['VAPT Spreadsheet ID', 320, 'Spreadsheet ID VAPT report untuk PROJECT ini\nContains: Ad Hoc VAPT + Regular VAPT tabs\n\n💡 TIP: Cukup isi di 1 module per project.\nSetiap project bisa punya VAPT spreadsheet sendiri.\n\nFormat: 17qeErP3VHxN7qcNQqhT6zGLukxZU4OKLmBMbsgsl1Rk\nJika kosong = project tidak punya VAPT report'],
+    ['Enable VAPT', 85, 'TRUE = include VAPT data in notifications\nFALSE = skip VAPT\n\n💡 TIP: Cukup centang di 1 module per project']
   ];
 
   vaptHeaders.forEach(([h, w, note], i) => {
