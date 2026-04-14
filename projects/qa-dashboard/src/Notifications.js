@@ -108,7 +108,10 @@ function sendBlockerNotification() {
       };
     }
 
-    if (module.vaptEnabled && module.vaptSpreadsheetId && !projectGroups[projectName].vaptConfig) {
+    // VAPT config is per-project - take from ANY module in the project that has valid config
+    // Remove !projectGroups[projectName].vaptConfig check to allow override from any module
+    // This handles case where first module has vaptEnabled=TRUE but no spreadsheetId
+    if (module.vaptEnabled && module.vaptSpreadsheetId) {
       projectGroups[projectName].vaptConfig = {
         spreadsheetId: module.vaptSpreadsheetId,
         enabled: module.vaptEnabled
