@@ -341,7 +341,7 @@ function refreshBugOnly() {
   const totalTime = ((new Date() - startTime) / 1000).toFixed(1);
   Logger.log('refreshBugOnly DONE');
   Logger.log('⏱️  TOTAL TIME: ' + totalTime + 's');
-  safeAlert_('Refresh Bug selesai! ' + allData.length + ' modul di-update.\n\nTotal time: ' + totalTime + 's\n\n💡 VAPT data tidak di-refresh.');
+  safeAlert_('Refresh Bug selesai! ' + allData.length + ' modul di-update.\n\nTotal time: ' + totalTime + 's');
 }
 
 /**
@@ -367,7 +367,7 @@ function refreshVAPTOnly() {
   const totalTime = ((new Date() - startTime) / 1000).toFixed(1);
   Logger.log('refreshVAPTOnly DONE');
   Logger.log('⏱️  TOTAL TIME: ' + totalTime + 's');
-  safeAlert_('Refresh VAPT selesai!\n\nTotal time: ' + totalTime + 's\n\n💡 Bug data tidak di-refresh.');
+  safeAlert_('Refresh VAPT selesai!\n\nTotal time: ' + totalTime + 's');
 }
 
 /**
