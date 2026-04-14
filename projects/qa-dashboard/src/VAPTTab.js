@@ -324,8 +324,9 @@ function appendVAPTHistory(ss, vaptData) {
   ];
 
   // Get last row and append using setValues (safer than appendRow with merged cells)
+  // IMPORTANT: Ensure we never write to rows 1-2 (headers with merged cells)
   const lastRow = ws.getLastRow();
-  const startRow = lastRow + 1;
+  const startRow = Math.max(lastRow + 1, 3);  // Always start at row 3 minimum (after headers)
   const numCols = historyRows[0].length;
 
   ws.getRange(startRow, 1, historyRows.length, numCols).setValues(historyRows);
