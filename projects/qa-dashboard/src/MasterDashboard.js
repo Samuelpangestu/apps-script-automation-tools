@@ -360,7 +360,7 @@ function refreshDashboard() {
   });
 
   Logger.log('refreshDashboard DONE');
-  safeAlert_('Refresh selesai! ' + allData.length + ' modul di-update.\n\nQA Lead otomatis diisi dari Summary B4 (jika tersedia).');
+  safeAlert_('Refresh selesai! ' + allData.length + ' modul di-update.');
 }
 
 /**
