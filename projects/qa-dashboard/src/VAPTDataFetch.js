@@ -203,22 +203,25 @@ function fetchVAPTBGNHelperData_(vaptSs) {
     const data = sheet.getRange('B4:I36').getValues();  // B to I = 8 columns
     const entries = [];
 
+    Logger.log('  📋 Reading VAPT data from B4:I36...');
+
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
+      const rowNumber = i + 4;  // Actual row number in sheet (4-based)
 
       // B4:I36 indices: B=0, C=1, D=2, E=3, F=4, G=5, H=6, I=7
+      const aplikasi = String(row[0] || '').trim();
       const critical = Number(row[5]) || 0;  // G (index 5 from B)
       const high = Number(row[6]) || 0;      // H (index 6 from B)
       const medium = Number(row[7]) || 0;    // I (index 7 from B)
 
-      // Skip rows with no findings
+      // Skip rows with no findings (all 0)
       if (critical === 0 && high === 0 && medium === 0) continue;
 
-      // Application name from column B (index 0)
-      let aplikasi = String(row[0] || '').trim();
-      if (!aplikasi) {
-        aplikasi = 'App ' + (i + 1);  // Default name if empty
-      }
+      // Skip rows with no aplikasi name
+      if (!aplikasi) continue;
+
+      Logger.log('  Row ' + rowNumber + ': ' + aplikasi + ' → C=' + critical + ' H=' + high + ' M=' + medium + ' (Blocker=' + (critical + high + medium) + ')');
 
       const entry = {
         aplikasi: aplikasi,
@@ -233,6 +236,8 @@ function fetchVAPTBGNHelperData_(vaptSs) {
 
       entries.push(entry);
     }
+
+    Logger.log('  ✅ Fetched ' + entries.length + ' aplikasi with findings');
 
     return entries;
   } catch (error) {
