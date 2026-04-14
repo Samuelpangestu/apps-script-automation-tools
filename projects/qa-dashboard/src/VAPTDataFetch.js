@@ -30,27 +30,20 @@ function refreshVAPTData() {
     const allProjectData = [];
 
     // Loop through Config rows (skip header rows 1-4)
-    // Stop early if we encounter 10+ consecutive empty rows (performance optimization)
-    let consecutiveEmptyRows = 0;
+    // Stop immediately when project name is empty (no more data)
     for (let i = 4; i < cfgData.length; i++) {
       const projectName = String(cfgData[i][2]).trim(); // Col C (index 2) = Project Name
+
+      // Early exit: Stop if project name is empty (no more data)
+      if (!projectName) {
+        break;
+      }
+
       const vaptSpreadsheetId = String(cfgData[i][21]).trim(); // Col V (index 21) = VAPT Spreadsheet ID
       const vaptEnabled = cfgData[i][22] === true; // Col W (index 22) = Enable VAPT
 
-      // Early exit: Stop if 10+ consecutive empty rows (no more data)
-      if (!projectName && !vaptSpreadsheetId) {
-        consecutiveEmptyRows++;
-        if (consecutiveEmptyRows >= 10) {
-          Logger.log('Stopped scanning at row ' + (i + 1) + ' (10+ consecutive empty rows)');
-          break;
-        }
-        continue;
-      } else {
-        consecutiveEmptyRows = 0;
-      }
-
-      // Skip if project name is empty or VAPT not enabled (no verbose logging)
-      if (!projectName || !vaptEnabled || !vaptSpreadsheetId) {
+      // Skip if VAPT not enabled or no spreadsheet ID
+      if (!vaptEnabled || !vaptSpreadsheetId) {
         continue;
       }
 
