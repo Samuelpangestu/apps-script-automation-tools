@@ -31,152 +31,184 @@ function sendBlockerNotification() {
 
   const blockerData = getBlockerData_(overview, cfg);
 
-  if (blockerData.totalBlockers === 0 && blockerData.totalProdBugs === 0 && blockerData.vaptBlocker === 0) {
-    Logger.log('No blockers, PROD bugs, or VAPT blockers found - notification skipped');
+  if (blockerData.totalBlockers === 0 && blockerData.totalProdBugs === 0) {
+    Logger.log('No blockers or PROD bugs found - notification skipped');
+    Logger.log('Note: VAPT data is checked per-project and will be included if configured');
     SpreadsheetApp.getUi().alert(
       '✅ All Clear!',
-      'Tidak ada Open Blocker, PROD BUGS, atau VAPT Blocker.\n\n' +
-      'Notification tidak dikirim (tidak ada yang perlu di-alert).',
+      'Tidak ada Open Blocker atau PROD BUGS.\n\n' +
+      'Notification tidak dikirim (tidak ada yang perlu di-alert).\n\n' +
+      'Note: VAPT data akan dicek per-project jika dikonfigurasi.',
       SpreadsheetApp.getUi().ButtonSet.OK
     );
     return;
   }
 
-  // ── DEBUG: Log blocker data ──────────────────────────────────────────────
-  Logger.log('═══════════════════════════════════════════════');
-  Logger.log('DEBUG: Blocker Data Summary');
-  Logger.log('═══════════════════════════════════════════════');
+  // Log summary
   Logger.log('Total modules with bugs: ' + blockerData.modules.length);
-  blockerData.modules.forEach((mod, i) => {
-    Logger.log('Module ' + (i+1) + ':');
-    Logger.log('  - Project: ' + mod.project);
-    Logger.log('  - Module: ' + mod.module);
-    Logger.log('  - Blockers: ' + mod.blocker);
-    Logger.log('  - PROD Bugs: ' + mod.prodBugs);
-    Logger.log('  - Chat Enabled: ' + mod.chatEnabled);
-    Logger.log('  - Chat Webhook: ' + (mod.chatWebhook ? mod.chatWebhook.substring(0, 50) + '...' : 'NONE'));
-    Logger.log('  - Email Enabled: ' + mod.emailEnabled);
-  });
 
-  // ── GET GLOBAL WHATSAPP CONFIG (before grouping) ────────────────────────
-  // Get GLOBAL WhatsApp Config from Config row 4, col S-U (19-21)
-  let whatsappGroupId = null;
+  // ── GET SHARED FONNTE TOKEN (row 4, col T) ──────────────────────────────
+  // Fonnte Token is SHARED config at row 4, column T (index 20)
+  // Used by all modules for sending WhatsApp messages
   let fontteToken = null;
-  let whatsappEnabled = false;
+  let globalFallbackGroupId = null;
 
   if (cfg) {
-    whatsappGroupId = String(cfg.getRange(4, 19).getValue()).trim(); // S4 = WhatsApp Group ID
-    fontteToken = String(cfg.getRange(4, 20).getValue()).trim();      // T4 = Fonnte Token
-    whatsappEnabled = cfg.getRange(4, 21).getValue() === true;        // U4 = Enable WA (checkbox)
+    fontteToken = String(cfg.getRange(4, 20).getValue()).trim();        // T4 = Fonnte Token (SHARED)
+    globalFallbackGroupId = String(cfg.getRange(4, 19).getValue()).trim(); // S4 = Global fallback Group ID
   }
 
-  // ── GROUP BY WEBHOOK ────────────────────────────────────────────────────
-  // Aggregate modules with same webhook → send 1 message per webhook
+  // ── GROUP BY PROJECT ────────────────────────────────────────────────────
+  // Aggregate modules by PROJECT NAME → send 1 notification per project
+  // Notification config (WhatsApp, Email, Chat) diambil dari module pertama yang punya config
   // ────────────────────────────────────────────────────────────────────────
 
-  const webhookGroups = {};   // { webhookUrl: [module1, module2, ...] }
-  const emailGroups = {};     // { emailRecipients: [module1, module2, ...] }
+  const projectGroups = {};  // { projectName: { modules: [...], config: {...} } }
 
   blockerData.modules.forEach(module => {
-    // Group by Google Chat webhook
-    if (module.chatEnabled && module.chatWebhook) {
-      if (!webhookGroups[module.chatWebhook]) {
-        webhookGroups[module.chatWebhook] = [];
-      }
-      webhookGroups[module.chatWebhook].push(module);
+    const projectName = module.project || 'Unknown';
+
+    if (!projectGroups[projectName]) {
+      projectGroups[projectName] = {
+        modules: [],
+        chatConfig: null,      // First module with chat config
+        emailConfig: null,     // First module with email config
+        whatsappConfig: null,  // First module with WhatsApp config
+        vaptConfig: null       // First module with VAPT config
+      };
     }
 
-    // Group by Email recipients
-    if (module.emailEnabled && module.emailRecipients) {
-      if (!emailGroups[module.emailRecipients]) {
-        emailGroups[module.emailRecipients] = [];
-      }
-      emailGroups[module.emailRecipients].push(module);
+    projectGroups[projectName].modules.push(module);
+
+    // Store first module with notification config (per type)
+    if (module.chatEnabled && module.chatWebhook && !projectGroups[projectName].chatConfig) {
+      projectGroups[projectName].chatConfig = {
+        webhook: module.chatWebhook,
+        enabled: module.chatEnabled
+      };
+    }
+
+    if (module.emailEnabled && module.emailRecipients && !projectGroups[projectName].emailConfig) {
+      projectGroups[projectName].emailConfig = {
+        recipients: module.emailRecipients,
+        enabled: module.emailEnabled
+      };
+    }
+
+    if (module.whatsappEnabled && module.whatsappGroupId && !projectGroups[projectName].whatsappConfig) {
+      projectGroups[projectName].whatsappConfig = {
+        groupId: module.whatsappGroupId,
+        enabled: module.whatsappEnabled
+      };
+    } else if (module.whatsappEnabled && !module.whatsappGroupId && !projectGroups[projectName].whatsappConfig && globalFallbackGroupId && globalFallbackGroupId.includes('@g.us')) {
+      // Fallback: use global Group ID if module enabled but no Group ID
+      projectGroups[projectName].whatsappConfig = {
+        groupId: globalFallbackGroupId,
+        enabled: true
+      };
+    }
+
+    if (module.vaptEnabled && module.vaptSpreadsheetId && !projectGroups[projectName].vaptConfig) {
+      projectGroups[projectName].vaptConfig = {
+        spreadsheetId: module.vaptSpreadsheetId,
+        enabled: module.vaptEnabled
+      };
     }
   });
 
-  // ── DEBUG: Log webhook grouping ──────────────────────────────────────────
-  Logger.log('');
-  Logger.log('Webhook Groups: ' + Object.keys(webhookGroups).length);
-  Object.keys(webhookGroups).forEach((webhook, i) => {
-    Logger.log('Webhook ' + (i+1) + ': ' + webhook.substring(0, 50) + '...');
-    Logger.log('  - Modules: ' + webhookGroups[webhook].length);
-    webhookGroups[webhook].forEach(m => {
-      Logger.log('    • ' + m.project + ' - ' + m.module);
-    });
-  });
-  Logger.log('WhatsApp Config (Global):');
-  Logger.log('  - Group ID: ' + (whatsappGroupId || 'NOT SET'));
-  Logger.log('  - Token: ' + (fontteToken ? fontteToken.substring(0, 10) + '...' : 'NOT SET'));
-  Logger.log('  - Enabled: ' + whatsappEnabled);
-  Logger.log('═══════════════════════════════════════════════');
+  // Log project summary
+  Logger.log('Project Groups: ' + Object.keys(projectGroups).length + ' | Fonnte Token: ' + (fontteToken ? 'SET' : 'NOT SET'));
 
-  // ── SEND AGGREGATED NOTIFICATIONS ───────────────────────────────────────
+  // ── SEND PROJECT-BASED NOTIFICATIONS ────────────────────────────────────
+  // Send 1 notification per project (all modules in project aggregated)
+  // ────────────────────────────────────────────────────────────────────────
   let chatSentCount = 0;
   let emailSentCount = 0;
   let whatsappSentCount = 0;
-  let skippedCount = blockerData.modules.filter(m => !m.chatEnabled && !m.emailEnabled).length;
+  let projectsProcessed = 0;
 
-  // Send 1 Google Chat message per webhook (aggregated modules)
-  Object.keys(webhookGroups).forEach(webhookUrl => {
-    const modules = webhookGroups[webhookUrl];
-    Logger.log('Sending Google Chat to webhook: ' + webhookUrl + ' (' + modules.length + ' modules)');
+  Object.keys(projectGroups).forEach(projectName => {
+    const pg = projectGroups[projectName];
+    const modules = pg.modules;
 
+    Logger.log('Processing project: ' + projectName + ' (' + modules.length + ' modules)');
+
+    // Fetch per-project VAPT data (if configured)
+    let projectVaptData = {
+      vaptBlocker: 0,
+      vaptAppsWithBlockers: 0,
+      vaptApps: [],
+      vaptBreakdown: { critical: 0, high: 0, medium: 0 }
+    };
+
+    if (pg.vaptConfig && pg.vaptConfig.enabled && pg.vaptConfig.spreadsheetId) {
+      projectVaptData = fetchVAPTDataForProject_(pg.vaptConfig.spreadsheetId);
+    }
+
+    // Aggregate project-level data
     const aggregatedData = {
+      projectName: projectName,                                     // Project name for subject/header
       modules: modules,
       totalBlockers: modules.reduce((sum, m) => sum + m.blocker, 0),
       totalProdBugs: modules.reduce((sum, m) => sum + m.prodBugs, 0),
+      vaptBlocker: projectVaptData.vaptBlocker,                     // Per-project VAPT
+      vaptAppsWithBlockers: projectVaptData.vaptAppsWithBlockers,   // Per-project VAPT
+      vaptApps: projectVaptData.vaptApps,                           // Per-project VAPT detail
+      vaptBreakdown: projectVaptData.vaptBreakdown,                 // Per-project VAPT severity
       timestamp: blockerData.timestamp
     };
 
-    if (sendGoogleChatNotification_(webhookUrl, aggregatedData)) {
-      chatSentCount++;
+    let projectSent = false;
+
+    // Send Google Chat (if configured for this project)
+    if (pg.chatConfig && pg.chatConfig.enabled && pg.chatConfig.webhook) {
+      if (sendGoogleChatNotification_(pg.chatConfig.webhook, aggregatedData)) {
+        chatSentCount++;
+        projectSent = true;
+      }
+    }
+
+    // Send Email (if configured for this project)
+    if (pg.emailConfig && pg.emailConfig.enabled && pg.emailConfig.recipients) {
+      if (sendEmailNotification_(pg.emailConfig.recipients, aggregatedData)) {
+        emailSentCount++;
+        projectSent = true;
+      }
+    }
+
+    // Send WhatsApp (if configured for this project)
+    if (pg.whatsappConfig && pg.whatsappConfig.enabled && pg.whatsappConfig.groupId) {
+      if (fontteToken && fontteToken.length > 10) {
+        if (sendWhatsAppNotification_(pg.whatsappConfig.groupId, aggregatedData, fontteToken)) {
+          whatsappSentCount++;
+          projectSent = true;
+        }
+      } else {
+        Logger.log('⚠️ WhatsApp enabled but Fonnte Token missing for ' + projectName);
+      }
+    }
+
+    if (projectSent) {
+      projectsProcessed++;
     }
   });
 
-  // Send 1 Email per recipient group (aggregated modules)
-  Object.keys(emailGroups).forEach(recipients => {
-    const modules = emailGroups[recipients];
-    Logger.log('Sending Email to: ' + recipients + ' (' + modules.length + ' modules)');
-
-    const aggregatedData = {
-      modules: modules,
-      totalBlockers: modules.reduce((sum, m) => sum + m.blocker, 0),
-      totalProdBugs: modules.reduce((sum, m) => sum + m.prodBugs, 0),
-      timestamp: blockerData.timestamp
-    };
-
-    if (sendEmailNotification_(recipients, aggregatedData)) {
-      emailSentCount++;
-    }
-  });
-
-  // Send 1 WhatsApp message (GLOBAL config - all modules to 1 group)
-  if (whatsappEnabled && whatsappGroupId && fontteToken && whatsappGroupId.includes('@g.us')) {
-    Logger.log('Sending WhatsApp to global group: ' + whatsappGroupId + ' (' + blockerData.modules.length + ' modules)');
-
-    if (sendWhatsAppNotification_(whatsappGroupId, blockerData, fontteToken)) {
-      whatsappSentCount = 1;
-    }
-  } else if (whatsappEnabled) {
-    Logger.log('⚠️ WhatsApp enabled but config incomplete - Group ID: ' + (whatsappGroupId || 'MISSING') + ', Token: ' + (fontteToken ? 'SET' : 'MISSING'));
-  }
+  const skippedCount = Object.keys(projectGroups).length - projectsProcessed;
 
   // Show result
-  let msg = '📤 Notifications Sent!\n\n';
-  if (chatSentCount > 0) msg += '✅ Google Chat: ' + chatSentCount + ' message(s) sent\n';
-  if (emailSentCount > 0) msg += '✅ Email: ' + emailSentCount + ' message(s) sent\n';
-  if (whatsappSentCount > 0) msg += '✅ WhatsApp: ' + whatsappSentCount + ' message(s) sent\n';
-  if (skippedCount > 0) msg += 'ℹ️ Skipped: ' + skippedCount + ' module(s) (notifications disabled)\n';
+  let msg = '📤 Notifications Sent (Project-Based)!\n\n';
+  if (chatSentCount > 0) msg += '✅ Google Chat: ' + chatSentCount + ' project(s)\n';
+  if (emailSentCount > 0) msg += '✅ Email: ' + emailSentCount + ' project(s)\n';
+  if (whatsappSentCount > 0) msg += '✅ WhatsApp: ' + whatsappSentCount + ' project(s)\n';
+  if (skippedCount > 0) msg += 'ℹ️ Skipped: ' + skippedCount + ' project(s) (all channels disabled)\n';
   msg += '\n📊 Summary:\n';
+  msg += '• Total Projects: ' + Object.keys(projectGroups).length + '\n';
+  msg += '• Projects notified: ' + projectsProcessed + '\n';
+  msg += '• Total Modules with issues: ' + blockerData.modules.length + '\n';
   msg += '• Total Open Blockers: ' + blockerData.totalBlockers + '\n';
   msg += '• Total PROD BUGS: ' + blockerData.totalProdBugs + '\n';
-  msg += '• VAPT Blocker: ' + blockerData.vaptBlocker + ' (' + blockerData.vaptAppsWithBlockers + ' apps)\n';
-  msg += '• Modules with issues: ' + blockerData.modules.length + '\n';
-  msg += '• Unique webhooks: ' + Object.keys(webhookGroups).length + '\n';
-  msg += '• Unique email groups: ' + Object.keys(emailGroups).length + '\n';
-  if (whatsappSentCount > 0) msg += '• WhatsApp: Sent to global group\n';
-  msg += '• Modules skipped: ' + skippedCount;
+  msg += '• VAPT: Dicek per-project (jika dikonfigurasi)\n\n';
+  msg += '💡 Notification config diambil dari module pertama per project';
 
   SpreadsheetApp.getUi().alert('Notification Sent', msg, SpreadsheetApp.getUi().ButtonSet.OK);
   Logger.log('✅ Notifications sent successfully - Chat: ' + chatSentCount + ', Email: ' + emailSentCount + ', WhatsApp: ' + whatsappSentCount + ', Skipped: ' + skippedCount);
@@ -206,17 +238,19 @@ function setupDailyBlockerNotification() {
   const instructionsMsg =
     '🔔 SETUP NOTIFICATIONS\n\n' +
     'Buka Config tab dan isi konfigurasi berikut:\n\n' +
-    '📱 GOOGLE CHAT (kolom L-N) - Per Module\n' +
+    '📱 GOOGLE CHAT (kolom L-N) - Per Project\n' +
     '  L = Webhook URL (dari Google Chat Space)\n' +
     '  M = Schedule (9,14,18 atau 4h)\n' +
     '  N = ☑ Enable Chat\n\n' +
-    '📧 EMAIL (kolom O-P) - Per Module\n' +
+    '📧 EMAIL (kolom O-P) - Per Project\n' +
     '  O = Email recipients (comma separated)\n' +
     '  P = ☑ Enable Email\n\n' +
-    '📲 WHATSAPP (kolom S-U row 4) - GLOBAL\n' +
+    '📲 WHATSAPP (kolom S-U) - Per Project\n' +
     '  S = Group ID (120363xxx@g.us)\n' +
-    '  T = Fonnte Token\n' +
+    '  T = Fonnte Token (row 4 ONLY - shared)\n' +
     '  U = ☑ Enable WhatsApp\n\n' +
+    '💡 TIP: Cukup isi config di 1 module per project\n' +
+    'Semua module dalam 1 project kirim ke channel sama\n\n' +
     '⏰ SCHEDULE FORMAT:\n' +
     '  • Single: 9\n' +
     '  • Multiple: 9,14,18\n' +
@@ -562,12 +596,10 @@ function getBlockerData_(overview, cfg) {
 
   let data;
   if (!bugsTab) {
-    Logger.log('⚠️⚠️⚠️ Bugs tab not found - using Overview as fallback ⚠️⚠️⚠️');
+    Logger.log('⚠️ Bugs tab not found - using Overview as fallback');
     data = overview.getDataRange().getValues();
   } else {
-    Logger.log('✅✅✅ Reading from Bugs tab for accurate module names ✅✅✅');
     data = bugsTab.getDataRange().getValues();
-    Logger.log('Bugs tab rows: ' + data.length);
   }
 
   // Build module map from Config for QATM URLs + notification config
@@ -586,11 +618,19 @@ function getBlockerData_(overview, cfg) {
       // Col N (13) = Enable Notifikasi (checkbox)
       // Col O (14) = Email Recipients
       // Col P (15) = Enable Email (checkbox)
-      // WhatsApp is GLOBAL config (row 4, col S-U), not per-module
+      // Col S (18) = WhatsApp Group ID (per-module) ✨ NEW
+      // Col U (20) = Enable WhatsApp (per-module) ✨ NEW
+      // Col T (19) = Fonnte Token (row 4 only, shared for all modules)
+      // Col V (21) = VAPT Spreadsheet ID (per-project) ✨ NEW
+      // Col W (22) = Enable VAPT (per-project) ✨ NEW
       const chatWebhook = String(cfgData[i][11]).trim();
       const chatEnabled = cfgData[i][13] === true;
       const emailRecipients = String(cfgData[i][14]).trim();
       const emailEnabled = cfgData[i][15] === true;
+      const whatsappGroupId = String(cfgData[i][18]).trim(); // Col S (index 18)
+      const whatsappEnabled = cfgData[i][20] === true;       // Col U (index 20)
+      const vaptSpreadsheetId = String(cfgData[i][21]).trim(); // Col V (index 21)
+      const vaptEnabled = cfgData[i][22] === true;            // Col W (index 22)
 
       // Only add active modules with valid QATM ID
       if (active && qatmId && qatmId.length > 10) {
@@ -602,14 +642,17 @@ function getBlockerData_(overview, cfg) {
           chatWebhook: chatWebhook && chatWebhook.includes('chat.googleapis.com') ? chatWebhook : null,
           chatEnabled: chatEnabled,
           emailRecipients: emailRecipients && emailRecipients.includes('@') ? emailRecipients : null,
-          emailEnabled: emailEnabled
+          emailEnabled: emailEnabled,
+          whatsappGroupId: whatsappGroupId && whatsappGroupId.includes('@g.us') ? whatsappGroupId : null,
+          whatsappEnabled: whatsappEnabled,
+          vaptSpreadsheetId: vaptSpreadsheetId && vaptSpreadsheetId.length > 10 ? vaptSpreadsheetId : null,
+          vaptEnabled: vaptEnabled
         };
-        Logger.log('Config loaded: ' + key + ' (chatEnabled=' + chatEnabled + ', emailEnabled=' + emailEnabled + ')');
       }
     }
   }
 
-  Logger.log('Total configs in moduleMap: ' + Object.keys(moduleMap).length);
+  Logger.log('Config loaded: ' + Object.keys(moduleMap).length + ' modules');
 
   const modules = [];
   let totalBlockers = 0;
@@ -632,24 +675,23 @@ function getBlockerData_(overview, cfg) {
 
     if (isFromBugs) {
       // Reading from Bugs tab structure
-      // Col B (index 1) = Modul number, Col C (index 2) = Submodul name
+      // Col A (index 0) = Project, Col B (index 1) = Modul, Col C (index 2) = Submodul
       if (!row[1] && !row[2]) continue; // Empty row
 
+      project = String(row[0]).trim();        // Col A = Project (e.g., "SIPGN", "INADigital")
       modul = String(row[1]).trim();          // Col B = Modul (e.g., "1", "3", "4")
       moduleName = String(row[2]).trim();     // Col C = Submodul (e.g., "Portal + SSO")
 
       // Skip rows with NO submodule name
       if (!moduleName || moduleName === '') {
-        Logger.log('⚠️ Skipping row with empty moduleName');
         continue;
       }
 
-      project = modul || moduleName;          // Use modul number as project, or moduleName if modul is empty
       critical = parseInt(row[4]) || 0;       // Col E = Critical
       high = parseInt(row[5]) || 0;           // Col F = High
       medium = parseInt(row[6]) || 0;         // Col G = Medium
-      blocker = parseInt(row[9]) || 0;        // Col J = Blocker (was row[7] which is Low column)
-      prodBugs = parseInt(row[11]) || 0;      // Col L = PROD BUGS
+      blocker = parseInt(row[9]) || 0;        // Col J = Blocker
+      prodBugs = parseInt(row[14]) || 0;      // Col O = Prod (index 14, NOT 11!)
     } else {
       // Reading from Overview tab structure (fallback)
       if (!row[1] && !row[2]) continue; // Empty row
@@ -687,12 +729,8 @@ function getBlockerData_(overview, cfg) {
       // If no match and modul is empty, try finding by QATM that contains this submodule
       // (This is a fallback - ideally Dashboard should have modul filled)
       if (!moduleInfo) {
-        Logger.log('⚠️ No direct config match for modul="' + modul + '", moduleName="' + moduleName + '" - will try to find QATM by reading all configs');
-        // For now, leave moduleInfo empty - user should fill modul column in Dashboard
         moduleInfo = {};
       }
-
-      Logger.log('Found module with bugs: configKey=' + matchedConfigKey + ', projectName=' + configProjectName + ', moduleName=' + moduleName + ', blocker=' + blocker + ', prodBugs=' + prodBugs + ', configFound=' + (moduleInfo.qatmUrl ? 'YES' : 'NO'));
 
       modules.push({
         project: configProjectName || project,  // Use project name from Config (e.g., "SIPGN")
@@ -710,8 +748,11 @@ function getBlockerData_(overview, cfg) {
         chatWebhook: moduleInfo.chatWebhook || null,
         chatEnabled: moduleInfo.chatEnabled || false,
         emailRecipients: moduleInfo.emailRecipients || null,
-        emailEnabled: moduleInfo.emailEnabled || false
-        // WhatsApp is GLOBAL config (read from Config row 4, col S-U)
+        emailEnabled: moduleInfo.emailEnabled || false,
+        whatsappGroupId: moduleInfo.whatsappGroupId || null,   // ✨ NEW - per-module WhatsApp Group ID
+        whatsappEnabled: moduleInfo.whatsappEnabled || false,  // ✨ NEW - per-module WhatsApp enable
+        vaptSpreadsheetId: moduleInfo.vaptSpreadsheetId || null, // ✨ NEW - per-project VAPT Spreadsheet ID
+        vaptEnabled: moduleInfo.vaptEnabled || false           // ✨ NEW - per-project VAPT enable
       });
       totalBlockers += blocker;
       totalProdBugs += prodBugs;
@@ -719,84 +760,14 @@ function getBlockerData_(overview, cfg) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // FETCH VAPT BLOCKER DATA
+  // RETURN MODULE DATA
+  // Note: VAPT data is now fetched per-project in sendBlockerNotification()
   // ═══════════════════════════════════════════════════════════════════════
-
-  let totalVaptBlockers = 0;
-  let vaptAppsWithBlockers = 0;
-  let vaptCritical = 0;
-  let vaptHigh = 0;
-  let vaptMedium = 0;
-  let vaptApps = [];  // Detail apps with blocker > 0
-
-  const vaptTab = ss.getSheetByName('VAPT');
-  if (vaptTab) {
-    Logger.log('✅ Reading VAPT blocker data from VAPT tab...');
-
-    // Read VAPT blocker from summary section
-    // Row 5, Col 2 = Total Blocker
-    // Row 6, Col 2 = Apps with Blocker
-    totalVaptBlockers = parseInt(vaptTab.getRange(5, 2).getValue()) || 0;
-
-    // Calculate blocker breakdown from detail data (no summary breakdown in new layout)
-    vaptCritical = 0;
-    vaptHigh = 0;
-    vaptMedium = 0;
-
-    // Fetch detail VAPT apps with blockers
-    // NOTE: VAPT tab has 7 columns: Aplikasi, Blocker, Critical, High, Medium, Low, Info
-    // Layout: Row 1-9 = headers/summary, Row 10+ = data (with section headers)
-    const vaptData = vaptTab.getDataRange().getValues();
-
-    for (let i = 10; i < vaptData.length; i++) {  // Start from row 11 (index 10)
-      const aplikasi = String(vaptData[i][0]).trim();  // Col A (index 0) = Aplikasi
-      const blocker = parseInt(vaptData[i][1]) || 0;   // Col B (index 1) = Blocker
-
-      // Skip empty rows, section headers, table headers, or placeholder messages
-      if (!aplikasi || aplikasi === '' || aplikasi.startsWith('═══') || aplikasi.startsWith('▶') || aplikasi === 'Aplikasi') continue;
-
-      // Only include apps with blocker > 0
-      if (blocker > 0) {
-        vaptAppsWithBlockers++;
-
-        const critical = parseInt(vaptData[i][2]) || 0;  // Col C (index 2) = Critical Open
-        const high = parseInt(vaptData[i][3]) || 0;      // Col D (index 3) = High Open
-        const medium = parseInt(vaptData[i][4]) || 0;    // Col E (index 4) = Medium Open
-
-        // Accumulate severity breakdown
-        vaptCritical += critical;
-        vaptHigh += high;
-        vaptMedium += medium;
-
-        vaptApps.push({
-          aplikasi: aplikasi,
-          blocker: blocker,
-          critical: critical,
-          high: high,
-          medium: medium
-        });
-      }
-    }
-
-    Logger.log('VAPT Blocker data: totalBlockers=' + totalVaptBlockers + ', apps=' + vaptAppsWithBlockers + ', crit=' + vaptCritical + ', high=' + vaptHigh + ', med=' + vaptMedium);
-    Logger.log('VAPT Apps with blockers: ' + vaptApps.length);
-  } else {
-    Logger.log('⚠️ VAPT tab not found - skipping VAPT blocker data');
-  }
 
   return {
     modules: modules,
     totalBlockers: totalBlockers,
     totalProdBugs: totalProdBugs,
-    // VAPT BLOCKER DATA
-    vaptBlocker: totalVaptBlockers,
-    vaptAppsWithBlockers: vaptAppsWithBlockers,
-    vaptApps: vaptApps,  // Detail apps with blocker > 0
-    vaptBreakdown: {
-      critical: vaptCritical,
-      high: vaptHigh,
-      medium: vaptMedium
-    },
     timestamp: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss')
   };
 }
@@ -974,8 +945,11 @@ function sendGoogleChatNotification_(webhookUrl, blockerData) {
     // ══════════════════════════════════════════════════════════════════════
     // HEADER - Daily Bug Report Summary (WhatsApp-ready)
     // ══════════════════════════════════════════════════════════════════════
-    message += '📊 *DAILY BUG REPORT*\n';
-    message += '📅 ' + blockerData.timestamp + '\n';
+    message += '📊 *DAILY BUG REPORT*';
+    if (blockerData.projectName) {
+      message += ' - ' + blockerData.projectName;
+    }
+    message += '\n📅 ' + blockerData.timestamp + '\n';
     message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
 
     // Calculate totals from blockerData (same data source as Email/WhatsApp for consistency)
@@ -1231,10 +1205,11 @@ function sendEmailNotification_(recipients, blockerData) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const dashboardUrl = ss.getUrl();
 
-    // Build subject based on aggregated data
-    let subject = '🚨 QA Blocker Alert: ' + blockerData.totalBlockers + ' blockers';
+    // Build subject based on aggregated data (include project name)
+    const projectPrefix = blockerData.projectName ? blockerData.projectName + ' - ' : '';
+    let subject = '🚨 ' + projectPrefix + 'QA Blocker Alert: ' + blockerData.totalBlockers + ' blockers';
     if (blockerData.totalProdBugs > 0) {
-      subject = '🚨🚨 URGENT PROD BUGS: ' + blockerData.totalProdBugs + ' bugs affecting production';
+      subject = '🚨🚨 ' + projectPrefix + 'URGENT PROD BUGS: ' + blockerData.totalProdBugs + ' bugs affecting production';
     }
 
     let body = '<html><body style="font-family: Arial, sans-serif; max-width: 700px;">';
@@ -1243,10 +1218,16 @@ function sendEmailNotification_(recipients, blockerData) {
     if (blockerData.totalProdBugs > 0) {
       body += '<div style="background: #D32F2F; color: white; padding: 20px; text-align: center;">';
       body += '<h2 style="margin: 0;">🚨🚨 PRODUCTION BUGS ALERT 🚨🚨</h2>';
+      if (blockerData.projectName) {
+        body += '<h3 style="margin: 5px 0 0 0; font-weight: normal;">Project: ' + blockerData.projectName + '</h3>';
+      }
       body += '</div>';
     } else {
       body += '<div style="background: #FF9800; color: white; padding: 15px; text-align: center;">';
       body += '<h2 style="margin: 0;">⚠️ QA BLOCKER ALERT</h2>';
+      if (blockerData.projectName) {
+        body += '<h3 style="margin: 5px 0 0 0; font-weight: normal;">Project: ' + blockerData.projectName + '</h3>';
+      }
       body += '</div>';
     }
 
@@ -1494,8 +1475,11 @@ function sendWhatsAppNotification_(groupId, blockerData, fontteToken) {
     // ══════════════════════════════════════════════════════════════════════
     // HEADER - Daily Bug Report Summary
     // ══════════════════════════════════════════════════════════════════════
-    message += '📊 *DAILY BUG REPORT*\n';
-    message += '📅 ' + blockerData.timestamp + '\n';
+    message += '📊 *DAILY BUG REPORT*';
+    if (blockerData.projectName) {
+      message += ' - ' + blockerData.projectName;
+    }
+    message += '\n📅 ' + blockerData.timestamp + '\n';
     message += '━━━━━━━━━━━━━\n\n';
 
     // Calculate total severity counts (same as email)
@@ -1680,6 +1664,80 @@ function getDashboardBugsGid_(ss) {
     return bugsSheet.getSheetId();
   }
   return '0'; // Default to first sheet
+}
+
+/**
+ * Fetch VAPT data for a specific project from external VAPT spreadsheet
+ * @param {string} vaptSpreadsheetId - The spreadsheet ID containing VAPT data
+ * @returns {Object} VAPT data { vaptBlocker, vaptAppsWithBlockers, vaptApps, vaptBreakdown }
+ */
+function fetchVAPTDataForProject_(vaptSpreadsheetId) {
+  const result = {
+    vaptBlocker: 0,
+    vaptAppsWithBlockers: 0,
+    vaptApps: [],
+    vaptBreakdown: { critical: 0, high: 0, medium: 0 }
+  };
+
+  try {
+    // Open external VAPT spreadsheet
+    const vaptSS = SpreadsheetApp.openById(vaptSpreadsheetId);
+    const vaptTab = vaptSS.getSheetByName('VAPT');
+
+    if (!vaptTab) {
+      Logger.log('⚠️ VAPT tab not found in spreadsheet: ' + vaptSpreadsheetId);
+      return result;
+    }
+
+    Logger.log('✅ Reading VAPT data from external spreadsheet: ' + vaptSpreadsheetId);
+
+    // Read VAPT blocker from summary section
+    // Row 5, Col 2 = Total Blocker (same format as dashboard VAPT)
+    result.vaptBlocker = parseInt(vaptTab.getRange(5, 2).getValue()) || 0;
+
+    // Fetch detail VAPT apps with blockers
+    // NOTE: VAPT tab has 7 columns: Aplikasi, Blocker, Critical, High, Medium, Low, Info
+    // Layout: Row 1-9 = headers/summary, Row 10+ = data (with section headers)
+    const vaptData = vaptTab.getDataRange().getValues();
+
+    for (let i = 10; i < vaptData.length; i++) {  // Start from row 11 (index 10)
+      const aplikasi = String(vaptData[i][0]).trim();  // Col A (index 0) = Aplikasi
+      const blocker = parseInt(vaptData[i][1]) || 0;   // Col B (index 1) = Blocker
+
+      // Skip empty rows, section headers, table headers, or placeholder messages
+      if (!aplikasi || aplikasi === '' || aplikasi.startsWith('═══') || aplikasi.startsWith('▶') || aplikasi === 'Aplikasi') continue;
+
+      // Only include apps with blocker > 0
+      if (blocker > 0) {
+        result.vaptAppsWithBlockers++;
+
+        const critical = parseInt(vaptData[i][2]) || 0;  // Col C (index 2) = Critical Open
+        const high = parseInt(vaptData[i][3]) || 0;      // Col D (index 3) = High Open
+        const medium = parseInt(vaptData[i][4]) || 0;    // Col E (index 4) = Medium Open
+
+        // Accumulate severity breakdown
+        result.vaptBreakdown.critical += critical;
+        result.vaptBreakdown.high += high;
+        result.vaptBreakdown.medium += medium;
+
+        result.vaptApps.push({
+          aplikasi: aplikasi,
+          blocker: blocker,
+          critical: critical,
+          high: high,
+          medium: medium
+        });
+      }
+    }
+
+    Logger.log('VAPT data fetched: totalBlockers=' + result.vaptBlocker + ', apps=' + result.vaptAppsWithBlockers +
+               ', crit=' + result.vaptBreakdown.critical + ', high=' + result.vaptBreakdown.high + ', med=' + result.vaptBreakdown.medium);
+
+  } catch (error) {
+    Logger.log('❌ Error fetching VAPT data from spreadsheet ' + vaptSpreadsheetId + ': ' + error.toString());
+  }
+
+  return result;
 }
 
 /**
