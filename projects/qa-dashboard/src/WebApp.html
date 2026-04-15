@@ -568,15 +568,50 @@
       const select = document.getElementById('projectFilter');
       const currentValue = select.value;
 
-      // Clear existing options except "All Modules"
-      select.innerHTML = '<option value="">All Modules</option>';
+      // Clear existing options
+      select.innerHTML = '<option value="">All Projects</option>';
 
-      // Add module options (e.g., "SIPGN - 0.E2E", "SIPGN - 1", etc)
+      // Group modules by project
+      const projectGroups = {};
       modules.forEach(module => {
-        const option = document.createElement('option');
-        option.value = module;
-        option.textContent = module;
-        select.appendChild(option);
+        // Parse "SIPGN - 0.E2E" => project="SIPGN", modul="0.E2E"
+        const parts = module.split(' - ');
+        const project = parts[0];
+        const modul = parts.slice(1).join(' - ');
+
+        if (!projectGroups[project]) {
+          projectGroups[project] = [];
+        }
+        projectGroups[project].push({ full: module, modul: modul });
+      });
+
+      // Sort projects alphabetically
+      const sortedProjects = Object.keys(projectGroups).sort();
+
+      // Build grouped options
+      sortedProjects.forEach((project, index) => {
+        // Add separator before each project (except first)
+        if (index > 0) {
+          const separator = document.createElement('option');
+          separator.disabled = true;
+          separator.textContent = '─────────────────────';
+          select.appendChild(separator);
+        }
+
+        // Add project-level option
+        const projectOption = document.createElement('option');
+        projectOption.value = 'PROJECT:' + project;
+        projectOption.textContent = '📁 ' + project + ' (All Modules)';
+        projectOption.style.fontWeight = 'bold';
+        select.appendChild(projectOption);
+
+        // Add module options (indented)
+        projectGroups[project].forEach(mod => {
+          const moduleOption = document.createElement('option');
+          moduleOption.value = mod.full;
+          moduleOption.textContent = '  • ' + mod.full;
+          select.appendChild(moduleOption);
+        });
       });
 
       // Restore selection
@@ -614,18 +649,88 @@
       });
     }
 
+    function aggregateFilteredData(data, filteredHistory, filteredBugsTable) {
+      // For project-level filter: aggregate metrics from all modules in project
+      let summary = data.summary;
+
+      if (filteredHistory.length > 0) {
+        // Get latest entry per module (in case of multiple entries per module)
+        const latestPerModule = {};
+        filteredHistory.forEach(row => {
+          const moduleKey = String(row[1]) + ' - ' + String(row[2]); // Project - Modul
+          if (!latestPerModule[moduleKey] || new Date(row[0]) > new Date(latestPerModule[moduleKey][0])) {
+            latestPerModule[moduleKey] = row;
+          }
+        });
+
+        const latestEntries = Object.values(latestPerModule);
+        const moduleCount = latestEntries.length;
+
+        if (moduleCount > 0) {
+          // Aggregate: Average for rates, Sum for bugs
+          summary = {
+            webPassRate: latestEntries.reduce((sum, row) => sum + (row[5] || 0), 0) / moduleCount,
+            webExecRate: latestEntries.reduce((sum, row) => sum + (row[6] || 0), 0) / moduleCount,
+            apiPassRate: latestEntries.reduce((sum, row) => sum + (row[7] || 0), 0) / moduleCount,
+            apiExecRate: latestEntries.reduce((sum, row) => sum + (row[8] || 0), 0) / moduleCount,
+            smokeWebPassRate: latestEntries.reduce((sum, row) => sum + (row[9] || 0), 0) / moduleCount,
+            smokeWebExecRate: latestEntries.reduce((sum, row) => sum + (row[10] || 0), 0) / moduleCount,
+            smokeApiPassRate: latestEntries.reduce((sum, row) => sum + (row[11] || 0), 0) / moduleCount,
+            smokeApiExecRate: latestEntries.reduce((sum, row) => sum + (row[12] || 0), 0) / moduleCount,
+            perfResult: '-', // Not aggregated
+            totalBugs: latestEntries.reduce((sum, row) => sum + (row[14] || 0), 0),
+            openBugs: latestEntries.reduce((sum, row) => sum + (row[15] || 0), 0),
+            blockerBugs: latestEntries.reduce((sum, row) => sum + (row[16] || 0), 0),
+            criticalBugs: latestEntries.reduce((sum, row) => sum + (row[17] || 0), 0),
+            lastUpdated: latestEntries[0][0], // Use latest timestamp
+            // Preserve VAPT data (not affected by project/module filter)
+            vaptBlocker: data.summary.vaptBlocker,
+            vaptCritical: data.summary.vaptCritical,
+            vaptHigh: data.summary.vaptHigh,
+            vaptMedium: data.summary.vaptMedium
+          };
+        }
+      }
+
+      return {
+        summary: summary,
+        history: filteredHistory,
+        bugsTable: filteredBugsTable,
+        modules: data.modules
+      };
+    }
+
     function filterDataByProject(data, moduleFilter) {
       // Ensure bugsTable exists
       if (!data.bugsTable) {
         data.bugsTable = [];
       }
 
+      // Case 1: No filter = All Projects
       if (!moduleFilter) return data;
 
-      // Parse module filter: "SIPGN - 0.E2E" => project="SIPGN", modul="0.E2E"
+      // Case 2: Project-level filter (e.g., "PROJECT:SIPGN")
+      if (moduleFilter.startsWith('PROJECT:')) {
+        const projectName = moduleFilter.substring(8); // Remove "PROJECT:" prefix
+
+        // Filter history by project only
+        const filteredHistory = data.history.filter(row => {
+          return String(row[1]).trim() === projectName;
+        });
+
+        // Filter bugs table by project only
+        const filteredBugsTable = data.bugsTable ? data.bugsTable.filter(row => {
+          return String(row[0]).trim() === projectName;
+        }) : [];
+
+        // Aggregate summary from filtered history
+        return aggregateFilteredData(data, filteredHistory, filteredBugsTable);
+      }
+
+      // Case 3: Module-level filter (e.g., "SIPGN - 0.E2E")
       const parts = moduleFilter.split(' - ');
       const projectName = parts[0];
-      const modulName = parts[1];
+      const modulName = parts.slice(1).join(' - ');
 
       // Filter history by module (project + modul)
       // IMPORTANT: Convert row[2] to string for comparison (can be number like 1, 2, 3)
