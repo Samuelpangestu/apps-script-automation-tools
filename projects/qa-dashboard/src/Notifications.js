@@ -2092,3 +2092,755 @@ function menuTestSendToGroup() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// TEST EXECUTION NOTIFICATION FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Send test execution notification (Pass Rate summary per module)
+ * Grouped by project, sent to configured channels (WhatsApp, Email, Google Chat)
+ * 
+ * Thresholds (from Dashboard conditional formatting):
+ * - Pass Rate (WEB/API): ≥80% 🟢 | 50-79% 🟡 | <50% 🔴
+ * - Smoke Pass Rate: ≥80% 🟢 | 50-79% 🟡 | <50% 🔴
+ * - Smoke Exec Rate: ≥70% 🟢 | 40-69% 🟡 | <40% 🔴
+ */
+function sendTestExecutionNotification() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const cfg = ss.getSheetByName('Config');
+  
+  if (!cfg) {
+    Logger.log('Config tab not found');
+    return;
+  }
+  
+  const overview = ss.getSheetByName('Overview');
+  if (!overview) {
+    Logger.log('Overview tab not found');
+    return;
+  }
+  
+  // Get test execution data from Overview tab
+  const testData = getTestExecutionData_(overview, cfg);
+  
+  if (testData.length === 0) {
+    Logger.log('No test execution data found');
+    SpreadsheetApp.getUi().alert(
+      '✅ No Test Data',
+      'Tidak ada data test execution untuk dikirim.\n\n' +
+      'Pastikan sudah ada module aktif dengan data test.',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+    return;
+  }
+  
+  Logger.log('Found ' + testData.length + ' projects with test data');
+  
+  // Get shared Fonnte token (row 4, col T)
+  const fontteToken = cfg ? String(cfg.getRange(4, 20).getValue()).trim() : '';
+  
+  // Group data by project and send notifications
+  const projectGroups = {};
+  testData.forEach(data => {
+    if (!projectGroups[data.projectName]) {
+      projectGroups[data.projectName] = [];
+    }
+    projectGroups[data.projectName].push(data);
+  });
+  
+  let totalSent = 0;
+  
+  Object.keys(projectGroups).forEach(projectName => {
+    const projectModules = projectGroups[projectName];
+    
+    // Aggregate project data
+    const projectData = {
+      projectName: projectName,
+      timestamp: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm'),
+      modules: projectModules
+    };
+    
+    // Send to each module's configured channels
+    projectModules.forEach(moduleData => {
+      let sent = 0;
+      
+      // WhatsApp
+      if (moduleData.whatsappEnabled && moduleData.whatsappGroupId && fontteToken) {
+        const message = buildWhatsAppTestExecution_(projectData);
+        const success = sendWhatsApp_(fontteToken, moduleData.whatsappGroupId, message);
+        if (success) sent++;
+      }
+      
+      // Email
+      if (moduleData.emailEnabled && moduleData.emailRecipients) {
+        const subject = '[' + projectName + '] Daily Test Execution Summary';
+        const htmlBody = buildEmailTestExecution_(projectData, ss);
+        const success = sendEmail_(moduleData.emailRecipients, subject, htmlBody);
+        if (success) sent++;
+      }
+      
+      // Google Chat
+      if (moduleData.chatEnabled && moduleData.chatWebhook) {
+        const payload = buildGoogleChatTestExecution_(projectData, ss);
+        const success = sendGoogleChat_(moduleData.chatWebhook, payload);
+        if (success) sent++;
+      }
+      
+      if (sent > 0) {
+        Logger.log('✅ Sent test execution notification for: ' + moduleData.modul + ' (' + sent + ' channels)');
+        totalSent++;
+      }
+    });
+  });
+  
+  SpreadsheetApp.getUi().alert(
+    '✅ Test Execution Notifications Sent!',
+    'Successfully sent test execution summary to ' + totalSent + ' module(s).\n\n' +
+    'Projects: ' + Object.keys(projectGroups).join(', '),
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+}
+
+/**
+ * Get test execution data from Overview tab
+ * Returns array of modules with pass rate data
+ */
+function getTestExecutionData_(overview, cfg) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const overviewData = overview.getDataRange().getValues();
+  
+  // Build module config map from Config tab
+  const moduleMap = {};
+  if (cfg) {
+    const cfgData = cfg.getDataRange().getValues();
+    for (let i = 3; i < cfgData.length; i++) {
+      const active = cfgData[i][0] === true;
+      const project = String(cfgData[i][2]).trim();
+      const modul = String(cfgData[i][3]).trim();
+      const chatWebhook = String(cfgData[i][11]).trim();
+      const chatEnabled = cfgData[i][13] === true;
+      const emailRecipients = String(cfgData[i][14]).trim();
+      const emailEnabled = cfgData[i][15] === true;
+      const whatsappGroupId = String(cfgData[i][18]).trim();
+      const whatsappEnabled = cfgData[i][20] === true;
+      
+      if (active && modul) {
+        const key = project + '|' + modul;
+        moduleMap[key] = {
+          project,
+          modul,
+          chatWebhook: chatWebhook && chatWebhook.includes('chat.googleapis.com') ? chatWebhook : null,
+          chatEnabled,
+          emailRecipients: emailRecipients || null,
+          emailEnabled,
+          whatsappGroupId: whatsappGroupId || null,
+          whatsappEnabled
+        };
+      }
+    }
+  }
+  
+  // Read test execution data from Overview tab
+  // Row structure: 1=webapp link, 2=timestamp, 3=title, 4=group headers, 5=column headers, 6+=data
+  const testData = [];
+  
+  for (let i = 5; i < overviewData.length; i++) {
+    const row = overviewData[i];
+    const project = String(row[0]).trim();
+    const modul = String(row[1]).trim();
+    
+    // Skip empty rows, TOTAL row, or invalid data
+    if (!modul || modul.toUpperCase().includes('TOTAL') || modul.toUpperCase().includes('AVERAGE')) {
+      continue;
+    }
+    
+    const key = project + '|' + modul;
+    const config = moduleMap[key];
+    
+    // Skip if module not in config or notification not enabled
+    if (!config || (!config.whatsappEnabled && !config.emailEnabled && !config.chatEnabled)) {
+      continue;
+    }
+    
+    // Extract test execution data
+    // Columns: WEB (I-M: 8-12), API (Q-U: 16-20), Smoke WEB (N-P: 13-15), Smoke API (V-X: 21-23)
+    const webTotal = Number(row[8]) || 0;
+    const webPass = Number(row[9]) || 0;
+    const webPassRate = Number(row[12]) || 0;
+    
+    const apiTotal = Number(row[16]) || 0;
+    const apiPass = Number(row[17]) || 0;
+    const apiPassRate = Number(row[20]) || 0;
+    
+    const smokeWebTotal = Number(row[13]) || 0;
+    const smokeWebPassRate = Number(row[14]) || 0;
+    
+    const smokeApiTotal = Number(row[22]) || 0;
+    const smokeApiPassRate = Number(row[23]) || 0;
+    
+    // Only include modules with test data
+    if (webTotal === 0 && apiTotal === 0) {
+      continue;
+    }
+    
+    testData.push({
+      projectName: project,
+      modul: modul,
+      webTotal,
+      webPass,
+      webPassRate,
+      apiTotal,
+      apiPass,
+      apiPassRate,
+      smokeWebTotal,
+      smokeWebPassRate,
+      smokeApiTotal,
+      smokeApiPassRate,
+      chatWebhook: config.chatWebhook,
+      chatEnabled: config.chatEnabled,
+      emailRecipients: config.emailRecipients,
+      emailEnabled: config.emailEnabled,
+      whatsappGroupId: config.whatsappGroupId,
+      whatsappEnabled: config.whatsappEnabled
+    });
+  }
+  
+  return testData;
+}
+
+/**
+ * Build WhatsApp message for test execution notification
+ */
+function buildWhatsAppTestExecution_(projectData) {
+  let message = '';
+  
+  // Header
+  message += '📊 *TEST EXECUTION REPORT*';
+  if (projectData.projectName) {
+    message += ' - ' + projectData.projectName;
+  }
+  message += '\n📅 ' + projectData.timestamp + '\n';
+  message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+  
+  // Module summaries
+  message += '📈 *MODULE SUMMARY*\n\n';
+  
+  projectData.modules.forEach((mod, idx) => {
+    // Module header with status indicator
+    const avgPassRate = mod.webTotal > 0 && mod.apiTotal > 0 
+      ? (mod.webPassRate + mod.apiPassRate) / 2 
+      : mod.webTotal > 0 ? mod.webPassRate : mod.apiPassRate;
+    
+    const statusIcon = avgPassRate >= 0.8 ? '🟢' : avgPassRate >= 0.5 ? '⚠️' : '🔴';
+    message += statusIcon + ' *' + mod.modul + '*\n';
+    
+    // WEB Test
+    if (mod.webTotal > 0) {
+      const webIcon = mod.webPassRate >= 0.8 ? '✅' : mod.webPassRate >= 0.5 ? '⚠️' : '❌';
+      message += '├─ WEB: ' + (mod.webPassRate * 100).toFixed(1) + '% ';
+      message += '(' + mod.webPass + '/' + mod.webTotal + ' pass)';
+      if (mod.webPassRate < 0.8) {
+        message += ' ' + webIcon + ' BELOW TARGET';
+      }
+      message += '\n';
+      
+      // Smoke WEB
+      if (mod.smokeWebTotal > 0) {
+        message += '│  └─ Smoke: ' + (mod.smokeWebPassRate * 100).toFixed(1) + '%\n';
+      }
+    }
+    
+    // API Test
+    if (mod.apiTotal > 0) {
+      const apiIcon = mod.apiPassRate >= 0.8 ? '✅' : mod.apiPassRate >= 0.5 ? '⚠️' : '❌';
+      message += '├─ API: ' + (mod.apiPassRate * 100).toFixed(1) + '% ';
+      message += '(' + mod.apiPass + '/' + mod.apiTotal + ' pass)';
+      if (mod.apiPassRate < 0.8) {
+        message += ' ' + apiIcon + ' BELOW TARGET';
+      }
+      message += '\n';
+      
+      // Smoke API
+      if (mod.smokeApiTotal > 0) {
+        message += '│  └─ Smoke: ' + (mod.smokeApiPassRate * 100).toFixed(1) + '%\n';
+      }
+    }
+    
+    message += '\n';
+  });
+  
+  // Project summary
+  message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+  message += '📊 *PROJECT STATUS*\n\n';
+  message += '✅ Total Modules: ' + projectData.modules.length + '\n';
+  
+  const modulesBelow80 = projectData.modules.filter(m => {
+    const avgRate = m.webTotal > 0 && m.apiTotal > 0 
+      ? (m.webPassRate + m.apiPassRate) / 2 
+      : m.webTotal > 0 ? m.webPassRate : m.apiPassRate;
+    return avgRate < 0.8;
+  });
+  
+  if (modulesBelow80.length > 0) {
+    message += '⚠️ Modules Below 80%: ' + modulesBelow80.length + '\n';
+    message += '   (' + modulesBelow80.map(m => m.modul).join(', ') + ')\n';
+  }
+  
+  // Average pass rate
+  const totalWeb = projectData.modules.reduce((sum, m) => sum + m.webTotal, 0);
+  const totalWebPass = projectData.modules.reduce((sum, m) => sum + m.webPass, 0);
+  const totalApi = projectData.modules.reduce((sum, m) => sum + m.apiTotal, 0);
+  const totalApiPass = projectData.modules.reduce((sum, m) => sum + m.apiPass, 0);
+  
+  if (totalWeb > 0) {
+    const avgWebRate = totalWebPass / totalWeb;
+    message += '🎯 Avg WEB Pass Rate: ' + (avgWebRate * 100).toFixed(1) + '%\n';
+  }
+  if (totalApi > 0) {
+    const avgApiRate = totalApiPass / totalApi;
+    message += '🎯 Avg API Pass Rate: ' + (avgApiRate * 100).toFixed(1) + '%\n';
+  }
+  
+  // Dashboard link
+  const overviewSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Overview');
+  const overviewGid = overviewSheet ? overviewSheet.getSheetId() : 0;
+  const dashboardUrl = 'https://docs.google.com/spreadsheets/d/' + 
+    SpreadsheetApp.getActiveSpreadsheet().getId() + '/edit#gid=' + overviewGid;
+  
+  message += '\n🔗 View Dashboard:\n' + dashboardUrl;
+  
+  return message;
+}
+
+/**
+ * Build HTML email body for test execution notification
+ */
+function buildEmailTestExecution_(projectData, ss) {
+  const overviewSheet = ss.getSheetByName('Overview');
+  const overviewGid = overviewSheet ? overviewSheet.getSheetId() : 0;
+  const dashboardUrl = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/edit#gid=' + overviewGid;
+  
+  // Calculate project stats
+  const totalWeb = projectData.modules.reduce((sum, m) => sum + m.webTotal, 0);
+  const totalWebPass = projectData.modules.reduce((sum, m) => sum + m.webPass, 0);
+  const totalApi = projectData.modules.reduce((sum, m) => sum + m.apiTotal, 0);
+  const totalApiPass = projectData.modules.reduce((sum, m) => sum + m.apiPass, 0);
+  
+  const avgWebRate = totalWeb > 0 ? totalWebPass / totalWeb : 0;
+  const avgApiRate = totalApi > 0 ? totalApiPass / totalApi : 0;
+  
+  const modulesBelow80 = projectData.modules.filter(m => {
+    const avgRate = m.webTotal > 0 && m.apiTotal > 0 
+      ? (m.webPassRate + m.apiPassRate) / 2 
+      : m.webTotal > 0 ? m.webPassRate : m.apiPassRate;
+    return avgRate < 0.8;
+  });
+  
+  const statusColor = modulesBelow80.length === 0 ? '#4CAF50' : '#FF9800';
+  const statusIcon = modulesBelow80.length === 0 ? '✅' : '⚠️';
+  const statusMessage = modulesBelow80.length === 0 
+    ? 'All modules meeting target! Great job team!' 
+    : modulesBelow80.length + ' module(s) below 80% pass rate — Need attention.';
+  
+  let html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; }
+    .header { background: ${statusColor}; color: white; padding: 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .header p { margin: 10px 0 0; opacity: 0.9; }
+    .summary { background: #f9f9f9; padding: 15px 20px; border-left: 4px solid ${statusColor}; margin: 20px; }
+    .summary p { margin: 5px 0; font-size: 14px; }
+    .module { margin: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+    .module-header { font-weight: bold; font-size: 16px; margin-bottom: 10px; color: #333; }
+    .test-line { padding: 4px 0; }
+    .rate-good { color: #2E7D32; font-weight: bold; }
+    .rate-warning { color: #F57C00; font-weight: bold; }
+    .rate-critical { color: #C62828; font-weight: bold; }
+    .footer { text-align: center; padding: 20px; background: #f9f9f9; }
+    .button { display: inline-block; padding: 12px 24px; background: #1976D2; color: white; text-decoration: none; border-radius: 4px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${statusIcon} Test Execution Report</h1>
+      <p>${projectData.projectName} | ${projectData.timestamp}</p>
+    </div>
+    
+    <div class="summary">
+      <p><strong>📊 Project Status:</strong> ${statusMessage}</p>
+      <p><strong>✅ Total Modules:</strong> ${projectData.modules.length}</p>
+      ${modulesBelow80.length > 0 ? '<p><strong>⚠️ Modules Below 80%:</strong> ' + modulesBelow80.length + ' (' + modulesBelow80.map(m => m.modul).join(', ') + ')</p>' : ''}
+      ${totalWeb > 0 ? '<p><strong>🎯 Avg WEB Pass Rate:</strong> ' + (avgWebRate * 100).toFixed(1) + '%</p>' : ''}
+      ${totalApi > 0 ? '<p><strong>🎯 Avg API Pass Rate:</strong> ' + (avgApiRate * 100).toFixed(1) + '%</p>' : ''}
+    </div>
+    
+    <h2 style="margin: 20px; color: #333;">📈 Module Details</h2>
+`;
+  
+  projectData.modules.forEach(mod => {
+    const avgPassRate = mod.webTotal > 0 && mod.apiTotal > 0 
+      ? (mod.webPassRate + mod.apiPassRate) / 2 
+      : mod.webTotal > 0 ? mod.webPassRate : mod.apiPassRate;
+    
+    const statusIcon = avgPassRate >= 0.8 ? '🟢' : avgPassRate >= 0.5 ? '⚠️' : '🔴';
+    
+    html += `
+    <div class="module">
+      <div class="module-header">${statusIcon} ${mod.modul}</div>
+`;
+    
+    // WEB Test
+    if (mod.webTotal > 0) {
+      const webClass = mod.webPassRate >= 0.8 ? 'rate-good' : mod.webPassRate >= 0.5 ? 'rate-warning' : 'rate-critical';
+      html += `
+      <div class="test-line">
+        <strong>WEB:</strong> <span class="${webClass}">${(mod.webPassRate * 100).toFixed(1)}%</span> 
+        (${mod.webPass}/${mod.webTotal} pass)
+        ${mod.webPassRate < 0.8 ? ' <span style="color: #F57C00;">⚠️ BELOW TARGET</span>' : ''}
+      </div>
+`;
+      if (mod.smokeWebTotal > 0) {
+        html += `      <div class="test-line" style="margin-left: 20px;">└─ Smoke: ${(mod.smokeWebPassRate * 100).toFixed(1)}%</div>\n`;
+      }
+    }
+    
+    // API Test
+    if (mod.apiTotal > 0) {
+      const apiClass = mod.apiPassRate >= 0.8 ? 'rate-good' : mod.apiPassRate >= 0.5 ? 'rate-warning' : 'rate-critical';
+      html += `
+      <div class="test-line">
+        <strong>API:</strong> <span class="${apiClass}">${(mod.apiPassRate * 100).toFixed(1)}%</span> 
+        (${mod.apiPass}/${mod.apiTotal} pass)
+        ${mod.apiPassRate < 0.8 ? ' <span style="color: #F57C00;">⚠️ BELOW TARGET</span>' : ''}
+      </div>
+`;
+      if (mod.smokeApiTotal > 0) {
+        html += `      <div class="test-line" style="margin-left: 20px;">└─ Smoke: ${(mod.smokeApiPassRate * 100).toFixed(1)}%</div>\n`;
+      }
+    }
+    
+    html += `
+    </div>
+`;
+  });
+  
+  html += `
+    <div class="footer">
+      <p>View full dashboard for detailed test results and trends</p>
+      <a href="${dashboardUrl}" class="button">📊 Open Dashboard</a>
+      <p style="margin-top: 15px; font-size: 12px; color: #757575;">
+        🤖 Automated Test Execution Report<br>
+        Target: WEB/API ≥80%, Smoke ≥80%
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+`;
+  
+  return html;
+}
+
+/**
+ * Build Google Chat card for test execution notification
+ */
+function buildGoogleChatTestExecution_(projectData, ss) {
+  const overviewSheet = ss.getSheetByName('Overview');
+  const overviewGid = overviewSheet ? overviewSheet.getSheetId() : 0;
+  const dashboardUrl = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/edit#gid=' + overviewGid;
+  
+  const widgets = [];
+  
+  // Calculate project stats
+  const totalWeb = projectData.modules.reduce((sum, m) => sum + m.webTotal, 0);
+  const totalWebPass = projectData.modules.reduce((sum, m) => sum + m.webPass, 0);
+  const totalApi = projectData.modules.reduce((sum, m) => sum + m.apiTotal, 0);
+  const totalApiPass = projectData.modules.reduce((sum, m) => sum + m.apiPass, 0);
+  
+  const avgWebRate = totalWeb > 0 ? totalWebPass / totalWeb : 0;
+  const avgApiRate = totalApi > 0 ? totalApiPass / totalApi : 0;
+  
+  const modulesBelow80 = projectData.modules.filter(m => {
+    const avgRate = m.webTotal > 0 && m.apiTotal > 0 
+      ? (m.webPassRate + m.apiPassRate) / 2 
+      : m.webTotal > 0 ? m.webPassRate : m.apiPassRate;
+    return avgRate < 0.8;
+  });
+  
+  const statusIcon = modulesBelow80.length === 0 ? '✅' : '⚠️';
+  const statusMessage = modulesBelow80.length === 0 
+    ? '<b>All modules meeting target!</b> 🎉 Great job team!' 
+    : '<b>' + modulesBelow80.length + ' module(s) below 80% pass rate</b> — Need attention.';
+  
+  // Header summary
+  widgets.push({
+    decoratedText: {
+      topLabel: statusIcon + ' TEST EXECUTION REPORT',
+      text: statusMessage,
+      bottomLabel: projectData.timestamp
+    }
+  });
+  
+  widgets.push({ divider: {} });
+  
+  // Project summary
+  let summaryText = '<b>📊 Project Status</b><br>';
+  summaryText += '✅ Total Modules: ' + projectData.modules.length + '<br>';
+  if (modulesBelow80.length > 0) {
+    summaryText += '⚠️ Modules Below 80%: ' + modulesBelow80.length + '<br>';
+    summaryText += '   (' + modulesBelow80.map(m => m.modul).join(', ') + ')<br>';
+  }
+  if (totalWeb > 0) {
+    summaryText += '🎯 Avg WEB Pass Rate: ' + (avgWebRate * 100).toFixed(1) + '%<br>';
+  }
+  if (totalApi > 0) {
+    summaryText += '🎯 Avg API Pass Rate: ' + (avgApiRate * 100).toFixed(1) + '%';
+  }
+  
+  widgets.push({
+    textParagraph: {
+      text: summaryText
+    }
+  });
+  
+  widgets.push({ divider: {} });
+  
+  // Module details
+  widgets.push({
+    textParagraph: {
+      text: '<b>📈 Module Details</b>'
+    }
+  });
+  
+  projectData.modules.forEach(mod => {
+    const avgPassRate = mod.webTotal > 0 && mod.apiTotal > 0 
+      ? (mod.webPassRate + mod.apiPassRate) / 2 
+      : mod.webTotal > 0 ? mod.webPassRate : mod.apiPassRate;
+    
+    const statusIcon = avgPassRate >= 0.8 ? '🟢' : avgPassRate >= 0.5 ? '⚠️' : '🔴';
+    
+    let moduleText = '<b>' + statusIcon + ' ' + mod.modul + '</b><br>';
+    
+    if (mod.webTotal > 0) {
+      moduleText += 'WEB: ' + (mod.webPassRate * 100).toFixed(1) + '% (' + mod.webPass + '/' + mod.webTotal + ')';
+      if (mod.webPassRate < 0.8) {
+        moduleText += ' ⚠️ BELOW TARGET';
+      }
+      moduleText += '<br>';
+      if (mod.smokeWebTotal > 0) {
+        moduleText += '  └─ Smoke: ' + (mod.smokeWebPassRate * 100).toFixed(1) + '%<br>';
+      }
+    }
+    
+    if (mod.apiTotal > 0) {
+      moduleText += 'API: ' + (mod.apiPassRate * 100).toFixed(1) + '% (' + mod.apiPass + '/' + mod.apiTotal + ')';
+      if (mod.apiPassRate < 0.8) {
+        moduleText += ' ⚠️ BELOW TARGET';
+      }
+      moduleText += '<br>';
+      if (mod.smokeApiTotal > 0) {
+        moduleText += '  └─ Smoke: ' + (mod.smokeApiPassRate * 100).toFixed(1) + '%';
+      }
+    }
+    
+    widgets.push({
+      textParagraph: {
+        text: moduleText
+      }
+    });
+  });
+  
+  widgets.push({ divider: {} });
+  
+  // Dashboard button
+  widgets.push({
+    buttonList: {
+      buttons: [{
+        text: '📊 Open Dashboard',
+        onClick: { openLink: { url: dashboardUrl } }
+      }]
+    }
+  });
+  
+  return {
+    cardsV2: [{
+      cardId: 'test-execution-notification',
+      card: {
+        header: {
+          title: projectData.projectName + ' - Test Execution',
+          subtitle: 'Daily Test Execution Summary',
+          imageUrl: 'https://www.gstatic.com/images/branding/product/1x/keep_48dp.png',
+          imageType: 'CIRCLE'
+        },
+        sections: [{
+          widgets: widgets
+        }]
+      }
+    }]
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TEST EXECUTION NOTIFICATION TRIGGER MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Setup daily test execution notification trigger
+ * Uses same schedule as blocker notification (from Config tab col M)
+ */
+function setupTestExecutionNotification() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const cfg = ss.getSheetByName('Config');
+  const ui = SpreadsheetApp.getUi();
+  
+  if (!cfg) {
+    ui.alert('❌ Config tab not found!');
+    return;
+  }
+  
+  const instructionsMsg =
+    '🔔 SETUP TEST EXECUTION NOTIFICATION\n\n' +
+    'Notification akan menggunakan konfigurasi yang sama dengan Blocker Notification:\n\n' +
+    '📱 GOOGLE CHAT (kolom L-N) - Per Project\n' +
+    '📧 EMAIL (kolom O-P) - Per Project\n' +
+    '📲 WHATSAPP (kolom S-U) - Per Project\n' +
+    '⏰ SCHEDULE (kolom M) - Same as blocker notification\n\n' +
+    '💡 Test Execution Notification akan dikirim pada jam yang sama dengan Blocker Notification.\n\n' +
+    'Lanjutkan setup trigger?';
+  
+  const response = ui.alert('Setup Test Execution Notification', instructionsMsg, ui.ButtonSet.YES_NO);
+  
+  if (response === ui.Button.NO) {
+    return;
+  }
+  
+  // Check if ANY module has notifications enabled
+  const cfgData = cfg.getDataRange().getValues();
+  let hasAnyEnabled = false;
+  let scheduleStr = '17'; // Default schedule (5 PM)
+  
+  for (let i = 3; i < cfgData.length; i++) {
+    const chatEnabled = cfgData[i][13] === true; // Col N
+    const emailEnabled = cfgData[i][15] === true; // Col P
+    const whatsappEnabled = cfgData[i][20] === true; // Col U
+    const schedule = String(cfgData[i][12]).trim(); // Col M
+    
+    if (chatEnabled || emailEnabled || whatsappEnabled) {
+      hasAnyEnabled = true;
+      scheduleStr = schedule || '17';
+      break;
+    }
+  }
+  
+  if (!hasAnyEnabled) {
+    const openConfig = ui.alert(
+      '⚠️ No Notifications Enabled',
+      'Tidak ada notification yang aktif.\n\n' +
+      'Aktifkan minimal 1 channel di Config tab:\n' +
+      '• Kolom N = ☑ Enable Google Chat\n' +
+      '• Kolom P = ☑ Enable Email\n' +
+      '• Kolom U = ☑ Enable WhatsApp\n\n' +
+      'Buka Config tab sekarang?',
+      ui.ButtonSet.YES_NO
+    );
+    
+    if (openConfig === ui.Button.YES) {
+      ss.setActiveSheet(cfg);
+      ss.setActiveRange(cfg.getRange('N4'));
+    }
+    return;
+  }
+  
+  // Parse schedule
+  const parsedSchedule = parseSchedule_(scheduleStr);
+  
+  if (!parsedSchedule.success) {
+    ui.alert(
+      '❌ Invalid Schedule Format',
+      'Schedule format tidak valid: "' + scheduleStr + '"\n\n' +
+      '✅ FORMAT VALID:\n' +
+      '• Single: 17 atau "17"\n' +
+      '• Multiple: 7,12,18\n' +
+      '• Interval: 4h (support: 1h, 2h, 4h, 6h, 8h, 12h)\n\n' +
+      'Error: ' + parsedSchedule.error,
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+  
+  // Remove existing triggers
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'sendTestExecutionNotification') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  
+  // Create new triggers based on schedule type
+  let triggerCount = 0;
+  
+  if (parsedSchedule.type === 'interval') {
+    // Create hourly trigger
+    ScriptApp.newTrigger('sendTestExecutionNotification')
+      .timeBased()
+      .everyHours(parsedSchedule.intervalHours)
+      .create();
+    triggerCount = 1;
+    
+    Logger.log('✅ Created test execution notification trigger: Every ' + parsedSchedule.intervalHours + 'h');
+  } else {
+    // Create daily trigger for each hour
+    parsedSchedule.hours.forEach(hour => {
+      ScriptApp.newTrigger('sendTestExecutionNotification')
+        .timeBased()
+        .atHour(hour)
+        .everyDays(1)
+        .create();
+      triggerCount++;
+      
+      Logger.log('✅ Created test execution notification trigger: Daily at ' + hour + ':00');
+    });
+  }
+  
+  ui.alert(
+    '✅ Test Execution Notification Setup Complete!',
+    'Daily test execution notification trigger berhasil dibuat.\n\n' +
+    'Triggers created: ' + triggerCount + '\n' +
+    'Schedule: ' + scheduleStr + '\n\n' +
+    'Notification akan dikirim sesuai jadwal ke channels yang dikonfigurasi.',
+    ui.ButtonSet.OK
+  );
+}
+
+/**
+ * Remove test execution notification trigger
+ */
+function removeTestExecutionNotification() {
+  let removed = 0;
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'sendTestExecutionNotification') {
+      ScriptApp.deleteTrigger(t);
+      removed++;
+    }
+  });
+  
+  if (removed > 0) {
+    SpreadsheetApp.getUi().alert(
+      '✅ Trigger Removed',
+      'Test execution notification trigger telah dihapus.\n\n' +
+      'Triggers removed: ' + removed,
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+    Logger.log('Removed ' + removed + ' test execution notification trigger(s)');
+  } else {
+    SpreadsheetApp.getUi().alert(
+      'ℹ️ No Trigger Found',
+      'Tidak ada test execution notification trigger yang aktif.',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+  }
+}
