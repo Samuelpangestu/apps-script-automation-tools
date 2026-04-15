@@ -577,6 +577,117 @@ function removeDailyBlockerNotification() {
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
+ * Generic helper: Send WhatsApp message via Fonnte
+ * @param {string} fontteToken - Fonnte API token
+ * @param {string} groupId - WhatsApp group ID (format: 120363xxx@g.us)
+ * @param {string} message - Plain text message
+ * @returns {boolean} Success status
+ */
+function sendWhatsApp_(fontteToken, groupId, message) {
+  if (!fontteToken || !groupId || !message) {
+    Logger.log('⚠️ Missing required parameters for WhatsApp');
+    return false;
+  }
+
+  try {
+    const url = 'https://api.fonnte.com/send';
+    const payload = {
+      target: groupId,
+      message: message,
+      countryCode: '62'
+    };
+
+    const options = {
+      method: 'post',
+      headers: {
+        'Authorization': fontteToken
+      },
+      payload: payload,
+      muteHttpExceptions: true
+    };
+
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    const responseText = response.getContentText();
+
+    if (responseCode === 200) {
+      Logger.log('✅ WhatsApp sent to: ' + groupId);
+      return true;
+    } else {
+      Logger.log('❌ WhatsApp failed (' + responseCode + '): ' + responseText);
+      return false;
+    }
+  } catch (e) {
+    Logger.log('❌ WhatsApp error: ' + e.toString());
+    return false;
+  }
+}
+
+/**
+ * Generic helper: Send email with HTML body
+ * @param {string} recipients - Email recipients (comma separated)
+ * @param {string} subject - Email subject
+ * @param {string} htmlBody - HTML email body
+ * @returns {boolean} Success status
+ */
+function sendEmail_(recipients, subject, htmlBody) {
+  if (!recipients || !subject || !htmlBody) {
+    Logger.log('⚠️ Missing required parameters for Email');
+    return false;
+  }
+
+  try {
+    MailApp.sendEmail({
+      to: recipients,
+      subject: subject,
+      htmlBody: htmlBody
+    });
+    Logger.log('✅ Email sent to: ' + recipients);
+    return true;
+  } catch (e) {
+    Logger.log('❌ Email error: ' + e.toString());
+    return false;
+  }
+}
+
+/**
+ * Generic helper: Send Google Chat message
+ * @param {string} webhookUrl - Google Chat webhook URL
+ * @param {Object} payload - Chat card payload (cardsV2 format)
+ * @returns {boolean} Success status
+ */
+function sendGoogleChat_(webhookUrl, payload) {
+  if (!webhookUrl || !payload) {
+    Logger.log('⚠️ Missing required parameters for Google Chat');
+    return false;
+  }
+
+  try {
+    const options = {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    };
+
+    const response = UrlFetchApp.fetch(webhookUrl, options);
+    const responseCode = response.getResponseCode();
+    const responseText = response.getContentText();
+
+    if (responseCode === 200) {
+      Logger.log('✅ Google Chat sent');
+      return true;
+    } else {
+      Logger.log('❌ Google Chat failed (' + responseCode + '): ' + responseText);
+      return false;
+    }
+  } catch (e) {
+    Logger.log('❌ Google Chat error: ' + e.toString());
+    return false;
+  }
+}
+
+/**
  * Read notification config from Config tab
  * Google Chat: columns L-N (12-14), row 4
  * Email: columns O-P (15-16), row 4
