@@ -1328,6 +1328,12 @@
       historyData.forEach(row => {
         const project = String(row[1]).trim();
         const modul = String(row[2]).trim();
+
+        // Skip invalid/empty module names
+        if (!project || !modul || project === '-' || modul === '-') {
+          return;
+        }
+
         const moduleKey = `${project} - ${modul}`;
 
         if (!moduleData[moduleKey]) {
@@ -1348,6 +1354,12 @@
         bugsTable.forEach(row => {
           const project = String(row[0]).trim();
           const modul = String(row[1]).trim();
+
+          // Skip invalid/empty module names
+          if (!project || !modul || project === '-' || modul === '-') {
+            return;
+          }
+
           const moduleKey = `${project} - ${modul}`;
 
           if (moduleData[moduleKey]) {
