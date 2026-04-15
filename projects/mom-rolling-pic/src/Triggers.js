@@ -9,43 +9,43 @@
 /**
  * Setup all auto triggers for both projects
  * Creates time-based triggers for:
- * - Project A: Reminder + Summary
- * - Project B: Reminder + Summary
+ * - SIPGN: Reminder + Summary
+ * - INADigital/Internal: Reminder + Summary
  */
 function setupAllTriggers() {
   // Remove existing triggers first
   removeAllTriggers();
 
-  const configA = getProjectConfig('Project A');
-  const configB = getProjectConfig('Project B');
+  const configA = getProjectConfig('SIPGN');
+  const configB = getProjectConfig('INADigital/Internal');
 
   // Validate configs
   const validationA = validateProjectConfig(configA);
   const validationB = validateProjectConfig(configB);
 
   if (!validationA.valid) {
-    throw new Error(`Project A config invalid: ${validationA.errors.join(', ')}`);
+    throw new Error(`SIPGN config invalid: ${validationA.errors.join(', ')}`);
   }
 
   if (!validationB.valid) {
-    throw new Error(`Project B config invalid: ${validationB.errors.join(', ')}`);
+    throw new Error(`INADigital/Internal config invalid: ${validationB.errors.join(', ')}`);
   }
 
   // Setup triggers for each project
   if (configA.enableReminder) {
-    setupReminderTriggers('Project A', configA);
+    setupReminderTriggers('SIPGN', configA);
   }
 
   if (configA.enableSummary) {
-    setupSummaryTrigger('Project A', configA);
+    setupSummaryTrigger('SIPGN', configA);
   }
 
   if (configB.enableReminder) {
-    setupReminderTriggers('Project B', configB);
+    setupReminderTriggers('INADigital/Internal', configB);
   }
 
   if (configB.enableSummary) {
-    setupSummaryTrigger('Project B', configB);
+    setupSummaryTrigger('INADigital/Internal', configB);
   }
 
   Logger.log('✅ All triggers setup successfully');
@@ -53,11 +53,12 @@ function setupAllTriggers() {
 
 /**
  * Setup reminder triggers for a project (Mon, Wed, Fri)
- * @param {string} projectName - 'Project A' or 'Project B'
+ * @param {string} projectName - 'SIPGN' or 'INADigital/Internal'
  * @param {Object} config - Project config
  */
 function setupReminderTriggers(projectName, config) {
-  const projectKey = projectName.replace(' ', ''); // 'ProjectA' or 'ProjectB'
+  // Map project names to valid function suffixes
+  const projectKey = projectName === 'SIPGN' ? 'ProjectA' : 'ProjectB';
 
   // Monday reminder
   const mondayTimes = calculateReminderTime(config.mondayTime, config.reminderOffset);
@@ -95,11 +96,12 @@ function setupReminderTriggers(projectName, config) {
 
 /**
  * Setup summary trigger for a project (daily at configured time)
- * @param {string} projectName - 'Project A' or 'Project B'
+ * @param {string} projectName - 'SIPGN' or 'INADigital/Internal'
  * @param {Object} config - Project config
  */
 function setupSummaryTrigger(projectName, config) {
-  const projectKey = projectName.replace(' ', ''); // 'ProjectA' or 'ProjectB'
+  // Map project names to valid function suffixes
+  const projectKey = projectName === 'SIPGN' ? 'ProjectA' : 'ProjectB';
 
   const times = parseTime(config.summaryTime);
 
@@ -178,82 +180,82 @@ function removeAllTriggers() {
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Monday reminder for Project A
+ * Monday reminder for SIPGN
  */
 function triggerMondayReminderProjectA() {
-  Logger.log('📅 Monday Reminder - Project A');
-  sendStandupReminder('Project A');
+  Logger.log('📅 Monday Reminder - SIPGN');
+  sendStandupReminder('SIPGN');
 }
 
 /**
- * Monday reminder for Project B
+ * Monday reminder for INADigital/Internal
  */
 function triggerMondayReminderProjectB() {
-  Logger.log('📅 Monday Reminder - Project B');
-  sendStandupReminder('Project B');
+  Logger.log('📅 Monday Reminder - INADigital/Internal');
+  sendStandupReminder('INADigital/Internal');
 }
 
 /**
- * Wednesday reminder for Project A
+ * Wednesday reminder for SIPGN
  */
 function triggerWednesdayReminderProjectA() {
-  Logger.log('📅 Wednesday Reminder - Project A');
-  sendStandupReminder('Project A');
+  Logger.log('📅 Wednesday Reminder - SIPGN');
+  sendStandupReminder('SIPGN');
 }
 
 /**
- * Wednesday reminder for Project B
+ * Wednesday reminder for INADigital/Internal
  */
 function triggerWednesdayReminderProjectB() {
-  Logger.log('📅 Wednesday Reminder - Project B');
-  sendStandupReminder('Project B');
+  Logger.log('📅 Wednesday Reminder - INADigital/Internal');
+  sendStandupReminder('INADigital/Internal');
 }
 
 /**
- * Friday reminder for Project A
+ * Friday reminder for SIPGN
  */
 function triggerFridayReminderProjectA() {
-  Logger.log('📅 Friday Reminder - Project A');
-  sendStandupReminder('Project A');
+  Logger.log('📅 Friday Reminder - SIPGN');
+  sendStandupReminder('SIPGN');
 }
 
 /**
- * Friday reminder for Project B
+ * Friday reminder for INADigital/Internal
  */
 function triggerFridayReminderProjectB() {
-  Logger.log('📅 Friday Reminder - Project B');
-  sendStandupReminder('Project B');
+  Logger.log('📅 Friday Reminder - INADigital/Internal');
+  sendStandupReminder('INADigital/Internal');
 }
 
 /**
- * Daily summary for Project A
+ * Daily summary for SIPGN
  */
 function triggerSummaryProjectA() {
-  Logger.log('📊 Daily Summary - Project A');
+  Logger.log('📊 Daily Summary - SIPGN');
 
   const today = new Date();
   const dayName = Utilities.formatDate(today, Session.getScriptTimeZone(), 'EEEE');
 
   // Only send summary on standup days
   if (['Monday', 'Wednesday', 'Friday'].includes(dayName)) {
-    sendStandupSummary('Project A');
+    sendStandupSummary('SIPGN');
   } else {
     Logger.log(`⚠️ Today is ${dayName}, not a standup day. Skipping summary.`);
   }
 }
 
 /**
- * Daily summary for Project B
+ * Daily summary for INADigital/Internal
  */
 function triggerSummaryProjectB() {
-  Logger.log('📊 Daily Summary - Project B');
+  Logger.log('📊 Daily Summary - INADigital/Internal');
 
   const today = new Date();
   const dayName = Utilities.formatDate(today, Session.getScriptTimeZone(), 'EEEE');
 
   // Only send summary on standup days
   if (['Monday', 'Wednesday', 'Friday'].includes(dayName)) {
-    sendStandupSummary('Project B');
+    sendStandupSummary('INADigital/Internal');
   } else {
     Logger.log(`⚠️ Today is ${dayName}, not a standup day. Skipping summary.`);
   }

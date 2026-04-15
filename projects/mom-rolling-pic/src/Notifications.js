@@ -8,13 +8,14 @@
 /**
  * Send WhatsApp reminder before standup
  * Triggered automatically based on schedule
- * @param {string} projectName - 'Project A' or 'Project B'
+ * @param {string} projectName - 'SIPGN' or 'INADigital/Internal'
+ * @param {boolean} isTest - If true, skip day validation (for testing)
  */
-function sendStandupReminder(projectName) {
+function sendStandupReminder(projectName, isTest = false) {
   try {
     const config = getProjectConfig(projectName);
 
-    if (!config.enableReminder) {
+    if (!config.enableReminder && !isTest) {
       Logger.log(`⚠️ Reminder disabled for ${projectName}`);
       return;
     }
@@ -30,8 +31,14 @@ function sendStandupReminder(projectName) {
     const dayName = Utilities.formatDate(now, Session.getScriptTimeZone(), 'EEEE');
     const dateStr = Utilities.formatDate(now, Session.getScriptTimeZone(), 'EEEE, dd MMMM yyyy');
 
-    // Get standup time for today
-    const standupTime = getStandupTimeForDay(config, dayName);
+    // Get standup time for today (already formatted as HH:MM from config)
+    let standupTime = getStandupTimeForDay(config, dayName);
+
+    // For testing, use Monday time if no standup scheduled today
+    if (!standupTime && isTest) {
+      standupTime = config.mondayTime;
+      Logger.log(`ℹ️ Test mode: Using Monday time ${standupTime}`);
+    }
 
     if (!standupTime) {
       Logger.log(`⚠️ No standup scheduled for ${dayName}`);
@@ -39,10 +46,15 @@ function sendStandupReminder(projectName) {
     }
 
     // Generate standup rows for today (if not exists)
-    try {
-      generateStandupRows(projectName, now, true); // skipIfExists = true
-    } catch (e) {
-      Logger.log(`⚠️ Error generating rows: ${e.message}`);
+    // Skip generation in test mode if not a standup day
+    if (!isTest || ['Monday', 'Wednesday', 'Friday'].includes(dayName)) {
+      try {
+        generateStandupRows(projectName, now, true); // skipIfExists = true
+      } catch (e) {
+        Logger.log(`⚠️ Error generating rows: ${e.message}`);
+      }
+    } else {
+      Logger.log(`ℹ️ Test mode on ${dayName}: Skipping row generation (not a standup day)`);
     }
 
     // Build reminder message
@@ -51,19 +63,20 @@ function sendStandupReminder(projectName) {
 
     const message =
       `🔔 *BI-DAILY STANDUP REMINDER*\n` +
-      `📅 ${dateStr}\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `⏰ Standup Time: *${standupTime}*\n` +
-      `📋 Project: *${config.projectName}*\n\n` +
-      `👥 Team: ${config.teamMembers.join(', ')}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `📝 *PLEASE UPDATE:*\n` +
-      `✅ Done - Tasks completed since last standup\n` +
-      `📋 In Progress - Tasks until next standup\n` +
-      `🚨 Blockers - Any blockers or help needed\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `📊 Update sheet: ${sheetUrl}\n\n` +
-      `_Automated Reminder - Bi-Daily Standup_`;
+      `${dateStr}\n` +
+      `━━━━━━━━━━━━━━\n\n` +
+      `Waktu: *${standupTime} WIB*\n` +
+      `Project: *${config.projectName}*\n` +
+      `Google Meet: ${config.googleMeetLink}\n\n` +
+      `@all\n\n` +
+      `━━━━━━━━━━━━━━\n\n` +
+      `*Please update:*\n` +
+      `• Task progress\n` +
+      `• Test execution status\n` +
+      `• Jira ticket updates\n` +
+      `• Create new Jira tasks if needed\n\n` +
+      `Standup Sheet: ${sheetUrl}\n\n` +
+      `_Auto Reminder - Bi-Daily Standup_`;
 
     // Send via Fonnte
     const success = sendWhatsAppMessage(config.whatsappGroupId, config.fontteToken, message);
@@ -83,7 +96,7 @@ function sendStandupReminder(projectName) {
 /**
  * Send WhatsApp summary with detailed task breakdown
  * Triggered at configured summary time
- * @param {string} projectName - 'Project A' or 'Project B'
+ * @param {string} projectName - 'SIPGN' or 'INADigital/Internal'
  */
 function sendStandupSummary(projectName) {
   try {
@@ -119,45 +132,47 @@ function sendStandupSummary(projectName) {
       return;
     }
 
-    // Build summary message (Opsi 2: Detailed with task names)
+    // Build summary message
     let message = '';
 
     message += `📊 *BI-DAILY STANDUP SUMMARY*\n`;
-    message += `📅 ${dateStr}\n`;
-    message += `📋 Project: *${config.projectName}*\n`;
-    message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+    message += `${dateStr}\n`;
+    message += `Project: *${config.projectName}*\n`;
+    message += `@all\n`;
+    message += `━━━━━━━━━━━━━━\n\n`;
 
     summaryByPerson.forEach(personSummary => {
-      message += `👤 *${personSummary.person}:*\n`;
+      message += `*${personSummary.person}:*\n`;
 
-      // Done tasks
+      // Done Since Last
       if (personSummary.done.length > 0) {
         message += `  ✅ *Done:*\n`;
-        personSummary.done.forEach(task => {
-          message += `    • ${task}\n`;
+        personSummary.done.forEach(item => {
+          message += `    • ${item}\n`;
         });
-      } else {
-        message += `  ✅ *Done:* None\n`;
       }
 
-      // In Progress tasks
-      if (personSummary.inProgress.length > 0) {
-        message += `  📋 *In Progress:*\n`;
-        personSummary.inProgress.forEach(task => {
-          message += `    • ${task}\n`;
+      // Plan Next 2 Days
+      if (personSummary.plan.length > 0) {
+        message += `  📋 *Plan:*\n`;
+        personSummary.plan.forEach(item => {
+          message += `    • ${item}\n`;
         });
-      } else {
-        message += `  📋 *In Progress:* None\n`;
       }
 
       // Blockers
       if (personSummary.blockers.length > 0) {
-        message += `  🚨 *Blockers:*\n`;
-        personSummary.blockers.forEach(blocker => {
-          message += `    • ${blocker}\n`;
+        message += `  🚫 *Blockers:*\n`;
+        personSummary.blockers.forEach(item => {
+          message += `    • ${item}\n`;
         });
-      } else {
-        message += `  🚨 *Blockers:* None\n`;
+      }
+
+      // If no updates at all
+      if (personSummary.done.length === 0 &&
+          personSummary.plan.length === 0 &&
+          personSummary.blockers.length === 0) {
+        message += `  • No updates\n`;
       }
 
       message += `\n`;
@@ -165,22 +180,21 @@ function sendStandupSummary(projectName) {
 
     // Total summary
     const totalDone = summaryByPerson.reduce((sum, p) => sum + p.done.length, 0);
-    const totalInProgress = summaryByPerson.reduce((sum, p) => sum + p.inProgress.length, 0);
+    const totalPlan = summaryByPerson.reduce((sum, p) => sum + p.plan.length, 0);
     const totalBlockers = summaryByPerson.reduce((sum, p) => sum + p.blockers.length, 0);
 
-    message += `━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `📊 *TOTAL:*\n`;
-    message += `  ✅ ${totalDone} tasks completed\n`;
-    message += `  📋 ${totalInProgress} tasks in progress\n`;
-    message += `  🚨 ${totalBlockers} blocker(s)\n\n`;
+    message += `━━━━━━━━━━━━━━\n`;
+    message += `*TOTAL:*\n`;
+    message += `  • ${totalDone} completed items\n`;
+    message += `  • ${totalPlan} planned items\n`;
+    message += `  • ${totalBlockers} blockers\n\n`;
 
     // Sheet link
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheetUrl = ss.getUrl() + '#gid=' + ss.getSheetByName(projectName + ' Standup').getSheetId();
 
-    message += `━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `📋 Full details: ${sheetUrl}\n\n`;
-    message += `_Automated Summary - Bi-Daily Standup_`;
+    message += `Standup Sheet: ${sheetUrl}\n\n`;
+    message += `_Auto Summary - Bi-Daily Standup_`;
 
     // Send via Fonnte
     const success = sendWhatsAppMessage(config.whatsappGroupId, config.fontteToken, message);

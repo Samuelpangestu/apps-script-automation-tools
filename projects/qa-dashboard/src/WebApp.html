@@ -1115,66 +1115,63 @@
         return;
       }
 
-      // VAPT History structure:
+      // VAPT History structure (NEW - Per-Project):
       // row[0] = timestamp
-      // row[1] = type ('Ad Hoc', 'Regular', 'Combined')
-      // row[2] = totalFindings
-      // row[3] = critical (total findings, not blocker)
-      // row[4] = high (total findings, not blocker)
-      // row[5] = medium (total findings, not blocker)
-      // row[6] = low
-      // row[7] = info
-      // row[8] = readyToRetest
-      // row[9] = open (THIS IS THE BLOCKER - open findings needing action!)
-      // row[10] = closed
-      // row[11] = totalApps
-      // row[12] = appsDone
-      // row[13] = appsInProgress
-      // row[14] = prodCount
-      //
-      // IMPORTANT: For blocker trend, we should use row[9] (Open findings),
-      // NOT row[3]+row[4]+row[5] which are total findings across all statuses
+      // row[1] = Project Name (e.g., "SIPGN")
+      // row[2] = Blocker (Critical + High + Medium OPEN)
+      // row[3] = Critical
+      // row[4] = High
+      // row[5] = Medium
+      // row[6] = Low
+      // row[7] = Info
+      // row[8] = Total Apps
+      // row[9] = Apps with Blocker
 
-      // Filter only "Combined" type rows (we don't want Ad Hoc and Regular separately)
-      const combinedRows = vaptHistoryData.filter(row => String(row[1]).trim() === 'Combined');
+      // Aggregate by date - take LATEST entry per project per date
+      // (there can be multiple refreshes per day, we only want the latest one per project)
+      const dailyProjectData = {};
 
-      if (combinedRows.length === 0) {
-        document.getElementById('vaptTrendChart').innerHTML =
-          '<p class="text-muted text-center">No Combined VAPT data available</p>';
-        return;
-      }
-
-      // Aggregate by date (keep only latest entry per date)
-      const dailyData = {};
-      combinedRows.forEach(row => {
+      vaptHistoryData.forEach(row => {
         const dateStr = row[0].split('T')[0]; // "2026-04-04"
         const timestamp = new Date(row[0]).getTime();
+        const projectName = String(row[1]).trim(); // Project name
+        const blocker = Number(row[2]) || 0; // Blocker already calculated in row[2]
 
-        // Keep only latest timestamp for this date
-        if (!dailyData[dateStr] || timestamp > dailyData[dateStr].timestamp) {
-          // IMPORTANT: Use row[9] for blocker (Open findings needing action)
-          // NOT row[3]+row[4]+row[5] which are total findings across all statuses
-          const blocker = Number(row[9]) || 0; // Open findings
-          const critical = Number(row[3]) || 0; // Total critical findings
-          const high = Number(row[4]) || 0;     // Total high findings
-          const medium = Number(row[5]) || 0;   // Total medium findings
+        const key = dateStr + '|' + projectName; // Unique key per date+project
 
-          dailyData[dateStr] = {
+        // Keep only latest entry per project per date
+        if (!dailyProjectData[key] || timestamp > dailyProjectData[key].timestamp) {
+          dailyProjectData[key] = {
             date: dateStr,
+            project: projectName,
             timestamp: timestamp,
-            blocker: blocker,      // Use Open column for blocker count
-            critical: critical,    // Total critical (for reference)
-            high: high,           // Total high (for reference)
-            medium: medium        // Total medium (for reference)
+            blocker: blocker
           };
+        }
+      });
+
+      // Now aggregate by date (sum blocker from latest entries per project)
+      const dailyData = {};
+      Object.values(dailyProjectData).forEach(entry => {
+        if (!dailyData[entry.date]) {
+          dailyData[entry.date] = {
+            date: entry.date,
+            timestamp: entry.timestamp,
+            blocker: 0
+          };
+        }
+
+        // Sum blocker from latest entries only
+        dailyData[entry.date].blocker += entry.blocker;
+
+        // Keep latest timestamp for this date
+        if (entry.timestamp > dailyData[entry.date].timestamp) {
+          dailyData[entry.date].timestamp = entry.timestamp;
         }
       });
 
       const dailyArray = Object.keys(dailyData).sort().map(date => ({
         date: date,
-        critical: dailyData[date].critical,
-        high: dailyData[date].high,
-        medium: dailyData[date].medium,
         blocker: dailyData[date].blocker
       }));
 
