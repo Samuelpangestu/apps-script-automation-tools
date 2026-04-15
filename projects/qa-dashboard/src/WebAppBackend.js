@@ -478,8 +478,8 @@ function getDefaultSummary_() {
  * @returns {Array} Aggregated row
  */
 function aggregateOverviewData_(data) {
-  // Skip header rows (first 4 rows)
-  const dataRows = data.slice(4);
+  // Skip header rows (first 5 rows: web app link, timestamp, title, group headers, column headers)
+  const dataRows = data.slice(5);
 
   // Initialize totals
   const totals = new Array(26).fill(0);
