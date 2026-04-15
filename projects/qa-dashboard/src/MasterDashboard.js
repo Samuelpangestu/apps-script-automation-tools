@@ -112,9 +112,9 @@ function onOpen() {
  */
 function menuOpenWebAppDashboard() {
   const webAppUrl = PropertiesService.getScriptProperties().getProperty('WEB_APP_URL') || '';
+  const ui = SpreadsheetApp.getUi();
 
   if (!webAppUrl) {
-    const ui = SpreadsheetApp.getUi();
     const response = ui.alert(
       '📊 Web App Dashboard URL Not Set',
       'Web App Dashboard URL has not been configured yet.\n\n' +
@@ -128,14 +128,13 @@ function menuOpenWebAppDashboard() {
     return;
   }
 
-  // Open URL in new tab
-  const htmlOutput = HtmlService.createHtmlOutput(
-    '<script>window.open("' + webAppUrl + '", "_blank");google.script.host.close();</script>'
-  )
-    .setWidth(1)
-    .setHeight(1);
-
-  SpreadsheetApp.getUi().showModelessDialog(htmlOutput, 'Opening Dashboard...');
+  // Show URL in alert box for user to copy and open in browser
+  ui.alert(
+    '📊 Interactive Dashboard',
+    'Copy URL berikut dan buka di browser:\n\n' + webAppUrl + '\n\n' +
+    '💡 Tip: Klik link di tab Overview (row 1) untuk langsung membuka dashboard.',
+    ui.ButtonSet.OK
+  );
 }
 
 /**
