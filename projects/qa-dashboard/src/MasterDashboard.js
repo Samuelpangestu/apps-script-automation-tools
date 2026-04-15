@@ -100,7 +100,68 @@ function onOpen() {
       .addItem('_Raw', 'rebuildRaw'))
     .addSubMenu(ui.createMenu('🔧 Broadcast Fixes')
       .addItem('Fix BUG BLOCKER (Rename + Formula)', 'broadcastBugBlockerFix'))
+    .addSubMenu(ui.createMenu('⚙️ Settings')
+      .addItem('Set Web App Dashboard URL', 'menuSetWebAppUrl'))
     .addToUi();
+}
+
+/**
+ * Menu function to set Web App Dashboard URL
+ * URL will be displayed as a hyperlink in Overview tab row 1
+ */
+function menuSetWebAppUrl() {
+  const ui = SpreadsheetApp.getUi();
+
+  // Get current URL
+  const currentUrl = PropertiesService.getScriptProperties().getProperty('WEB_APP_URL') || '';
+
+  const promptText = currentUrl
+    ? 'Current URL:\n' + currentUrl + '\n\nEnter new Web App Dashboard URL (or leave blank to clear):'
+    : 'Enter Web App Dashboard URL:';
+
+  const response = ui.prompt(
+    '📊 Set Web App Dashboard URL',
+    promptText,
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response.getSelectedButton() === ui.Button.OK) {
+    const newUrl = response.getResponseText().trim();
+
+    if (newUrl) {
+      // Validate URL format
+      if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+        ui.alert('❌ Invalid URL', 'URL must start with http:// or https://', ui.ButtonSet.OK);
+        return;
+      }
+
+      PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', newUrl);
+      ui.alert(
+        '✅ URL Set Successfully!',
+        'Web App Dashboard URL has been set.\n\n' +
+        'Refresh data to update the link in Overview tab.',
+        ui.ButtonSet.OK
+      );
+
+      // Refresh Overview tab header to show new link
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const ws = ss.getSheetByName('Overview');
+      if (ws) {
+        initOverviewHeaders_(ws);
+      }
+    } else {
+      // Clear URL
+      PropertiesService.getScriptProperties().deleteProperty('WEB_APP_URL');
+      ui.alert('✅ URL Cleared', 'Web App Dashboard URL has been removed.', ui.ButtonSet.OK);
+
+      // Refresh Overview tab header
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const ws = ss.getSheetByName('Overview');
+      if (ws) {
+        initOverviewHeaders_(ws);
+      }
+    }
+  }
 }
 
 /**
@@ -281,7 +342,8 @@ function refreshDashboard() {
   const ts = 'Last refreshed: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss');
   ['Overview','Bugs','VAPT','Smoke'].forEach(name => {
     const sh = ss.getSheetByName(name);
-    if (sh) sh.getRange(1,1).setValue(ts);
+    // Overview has web app link in row 1, "Last refreshed" is in row 2
+    if (sh) sh.getRange(name === 'Overview' ? 2 : 1, 1).setValue(ts);
   });
 
   const totalTime = ((new Date() - startTime) / 1000).toFixed(1);
@@ -335,7 +397,8 @@ function refreshBugOnly() {
   const ts = 'Last refreshed: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss');
   ['Overview', 'Bugs'].forEach(name => {
     const sh = ss.getSheetByName(name);
-    if (sh) sh.getRange(1,1).setValue(ts);
+    // Overview has web app link in row 1, "Last refreshed" is in row 2
+    if (sh) sh.getRange(name === 'Overview' ? 2 : 1, 1).setValue(ts);
   });
 
   const totalTime = ((new Date() - startTime) / 1000).toFixed(1);
@@ -1451,10 +1514,23 @@ function buildOverview(ss) {
   ws.setFrozenRows(4);
 }
 
+/**
+ * Get Web App Dashboard URL from script properties
+ * URL should be set via: PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', 'https://...')
+ */
+function getWebAppUrl_() {
+  try {
+    return PropertiesService.getScriptProperties().getProperty('WEB_APP_URL') || '';
+  } catch (e) {
+    Logger.log('Error getting web app URL: ' + e.toString());
+    return '';
+  }
+}
+
 function initOverviewHeaders_(ws) {
   const lastCol = Math.max(ws.getLastColumn()||1, 26);
-  try { ws.getRange(1,1,4,lastCol).breakApart(); } catch(e) {}
-  ws.getRange(1,1,4,lastCol).clearContent().clearFormat();
+  try { ws.getRange(1,1,5,lastCol).breakApart(); } catch(e) {}
+  ws.getRange(1,1,5,lastCol).clearContent().clearFormat();
 
   function h_(r,c,nr,nc,txt,bg,fg,sz){
     const rng=(nr>1||nc>1)?ws.getRange(r,c,nr,nc).merge():ws.getRange(r,c);
@@ -1469,29 +1545,44 @@ function initOverviewHeaders_(ws) {
   [80,80,90,80, 48,52,56,52, 48,52,48,48,60, 56,60,52, 48,52,48,48,60, 56,60,52, 60, 140]
       .forEach((w,i)=>ws.setColumnWidth(i+1,w));
 
-  // Row 1 — last refresh
-  ws.getRange(1,1,1,26).merge().setValue('Last refreshed: —')
+  // Row 1 — Web App Dashboard Link
+  const webAppUrl = getWebAppUrl_();
+  if (webAppUrl) {
+    ws.getRange(1,1,1,26).merge()
+        .setFormula('=HYPERLINK("' + webAppUrl + '","📊 Open Interactive Dashboard (Charts & Trends)")')
+        .setBackground('#4CAF50').setFontColor('#FFFFFF').setFontWeight('bold')
+        .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
+  } else {
+    ws.getRange(1,1,1,26).merge()
+        .setValue('📊 Interactive Dashboard Available (Deploy web app to get link)')
+        .setBackground('#FF9800').setFontColor('#FFFFFF').setFontWeight('bold')
+        .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
+  }
+  ws.setRowHeight(1,28);
+
+  // Row 2 — last refresh
+  ws.getRange(2,1,1,26).merge().setValue('Last refreshed: —')
       .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic')
       .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
-  ws.setRowHeight(1,16);
+  ws.setRowHeight(2,16);
 
-  // Row 2 — title
-  h_(2,1,1,26,'QA DASHBOARD  |  PORTFOLIO OVERVIEW','#0D47A1','#FFFFFF',13);
-  ws.setRowHeight(2,30);
+  // Row 3 — title
+  h_(3,1,1,26,'QA DASHBOARD  |  PORTFOLIO OVERVIEW','#0D47A1','#FFFFFF',13);
+  ws.setRowHeight(3,30);
 
-  // Row 3 — group headers
+  // Row 4 — group headers
   // NEW: Bugs moved after MODULE INFO, added Prod Bugs
-  h_(3,1, 1,4, 'MODULE INFO',    '#263238');
-  h_(3,5, 1,4, 'BUGS',           '#B71C1C');
-  h_(3,9, 1,5, 'WEB / MOBILE',   '#1565C0');
-  h_(3,14,1,3, '🔥 SMOKE WEB',   '#BF360C');
-  h_(3,17,1,5, 'API',             '#283593');
-  h_(3,22,1,3, '🔥 SMOKE API',   '#4A148C');
-  h_(3,25,1,1, 'PERF',            '#004D40');
-  h_(3,26,1,1, 'NOTES',           '#37474F');
-  ws.setRowHeight(3,22);
+  h_(4,1, 1,4, 'MODULE INFO',    '#263238');
+  h_(4,5, 1,4, 'BUGS',           '#B71C1C');
+  h_(4,9, 1,5, 'WEB / MOBILE',   '#1565C0');
+  h_(4,14,1,3, '🔥 SMOKE WEB',   '#BF360C');
+  h_(4,17,1,5, 'API',             '#283593');
+  h_(4,22,1,3, '🔥 SMOKE API',   '#4A148C');
+  h_(4,25,1,1, 'PERF',            '#004D40');
+  h_(4,26,1,1, 'NOTES',           '#37474F');
+  ws.setRowHeight(4,22);
 
-  // Row 4 — column headers
+  // Row 5 — column headers
   // NEW: Added Prod Bugs column
   ['Project','Modul','Submodul','PIC QA',
     'Bugs','Blocker','Critical','Prod',
@@ -1500,19 +1591,19 @@ function initOverviewHeaders_(ws) {
     'Total','Pass','Fail','Block','Pass%',
     'Total','Pass%','Exec%',
     'Perf','Notes'
-  ].forEach((lbl,i)=>h_(4,i+1,1,1,lbl,'#1565C0'));
-  ws.getRange(4,5).setNote('Total bugs (all status kecuali Closed)');
-  ws.getRange(4,6).setNote('Bug Blocker (Priority Critical/High/Medium, Status Open/In Progress/Reopen)');
-  ws.getRange(4,7).setNote('Bugs dengan Priority Critical');
-  ws.getRange(4,8).setNote('Bugs di Production environment (belum Closed)');
-  ws.getRange(4,14).setNote('Smoke Web: TC Priority Critical+High+Medium');
-  ws.getRange(4,15).setNote('Smoke Web Pass Rate (target ≥80%)');
-  ws.getRange(4,16).setNote('Smoke Web Exec Rate (% TC sudah ada hasil)');
-  ws.getRange(4,22).setNote('Smoke API: TC Priority Critical+High+Medium');
-  ws.getRange(4,23).setNote('Smoke API Pass Rate (target ≥80%)');
-  ws.getRange(4,24).setNote('Smoke API Exec Rate');
-  ws.setRowHeight(4,26);
-  ws.setFrozenRows(4);
+  ].forEach((lbl,i)=>h_(5,i+1,1,1,lbl,'#1565C0'));
+  ws.getRange(5,5).setNote('Total bugs (all status kecuali Closed)');
+  ws.getRange(5,6).setNote('Bug Blocker (Priority Critical/High/Medium, Status Open/In Progress/Reopen)');
+  ws.getRange(5,7).setNote('Bugs dengan Priority Critical');
+  ws.getRange(5,8).setNote('Bugs di Production environment (belum Closed)');
+  ws.getRange(5,14).setNote('Smoke Web: TC Priority Critical+High+Medium');
+  ws.getRange(5,15).setNote('Smoke Web Pass Rate (target ≥80%)');
+  ws.getRange(5,16).setNote('Smoke Web Exec Rate (% TC sudah ada hasil)');
+  ws.getRange(5,22).setNote('Smoke API: TC Priority Critical+High+Medium');
+  ws.getRange(5,23).setNote('Smoke API Pass Rate (target ≥80%)');
+  ws.getRange(5,24).setNote('Smoke API Exec Rate');
+  ws.setRowHeight(5,26);
+  ws.setFrozenRows(5);
 }
 
 function writeOverview(ss, allData) {
@@ -1523,12 +1614,12 @@ function writeOverview(ss, allData) {
 
   // Clear ALL data rows (not just lastRow which may have old inactive module data)
   const lastRow = ws.getMaxRows();
-  if (lastRow>=5) ws.getRange(5,1,lastRow-4,26).clearContent().clearFormat();
+  if (lastRow>=6) ws.getRange(6,1,lastRow-5,26).clearContent().clearFormat();
 
   const rules = [];
 
   allData.forEach((d,i)=>{
-    const r  = 5+i;
+    const r  = 6+i;
     const bg = i%2===0 ? '#F9FAFB' : '#FFFFFF';
     const bs = d.bugStats||{};
     const hasSmoke = d.wSmokeTotal>0||d.aSmokeTotal>0;
