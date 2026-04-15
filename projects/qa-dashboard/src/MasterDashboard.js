@@ -576,18 +576,57 @@ function safeAlert_(msg) {
   try { SpreadsheetApp.getUi().alert(msg); } catch(e) {}
 }
 
+/**
+ * Helper function to rebuild a tab (delete old + create new)
+ */
+function rebuildTab_(ss, tabName, buildFunction, successMessage) {
+  // Delete old tab if exists
+  const oldSheet = ss.getSheetByName(tabName);
+  if (oldSheet) {
+    ss.deleteSheet(oldSheet);
+  }
+
+  // Create new tab
+  buildFunction(ss);
+
+  // Show success message
+  safeAlert_(successMessage || tabName + ' tab rebuilt!');
+}
+
 // Wrapper functions for manual execution from menu
-function rebuildConfig() { buildConfig(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Config tab rebuilt!'); }
-function rebuildCredentials() { buildCredentials(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Credentials tab rebuilt!'); }
-function rebuildOverview() { buildOverview(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Overview tab rebuilt!'); }
-function rebuildBugs() { buildBugs(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Bugs tab rebuilt!'); }
-function rebuildVAPT() { buildVAPT(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('VAPT tab rebuilt!\n\nStructure: Per-Project (8 columns)'); }
-function rebuildVAPTHistory() { buildVAPTHistory(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('VAPT History tab rebuilt!\n\nStructure: Per-Project tracking'); }
-function rebuildSmoke() { buildSmoke(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Smoke tab rebuilt!'); }
-function rebuildFailureScenario() { buildFailureScenario(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Failure Scenario tab rebuilt!'); }
-function rebuildCoverage() { buildCoverage(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('Coverage tab rebuilt!'); }
-function rebuildHistory() { buildHistory(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('History tab rebuilt!'); }
-function rebuildRaw() { buildRaw(SpreadsheetApp.getActiveSpreadsheet()); safeAlert_('_Raw tab rebuilt!'); }
+function rebuildConfig() {
+  rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'Config', buildConfig, 'Config tab rebuilt!');
+}
+function rebuildCredentials() {
+  rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'Credentials', buildCredentials, 'Credentials tab rebuilt!');
+}
+function rebuildOverview() {
+  rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'Overview', buildOverview, 'Overview tab rebuilt!');
+}
+function rebuildBugs() {
+  rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'Bugs', buildBugs, 'Bugs tab rebuilt!');
+}
+function rebuildVAPT() {
+  rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'VAPT', buildVAPT, 'VAPT tab rebuilt!\n\nStructure: Per-Project (8 columns)');
+}
+function rebuildVAPTHistory() {
+  rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'VAPT History', buildVAPTHistory, 'VAPT History tab rebuilt!\n\nStructure: Per-Project tracking');
+}
+function rebuildSmoke() {
+  rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'Smoke', buildSmoke, 'Smoke tab rebuilt!');
+}
+function rebuildFailureScenario() {
+  rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'Failure Scenario', buildFailureScenario, 'Failure Scenario tab rebuilt!');
+}
+function rebuildCoverage() {
+  rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'Coverage', buildCoverage, 'Coverage tab rebuilt!');
+}
+function rebuildHistory() {
+  rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'History', buildHistory, 'History tab rebuilt!');
+}
+function rebuildRaw() {
+  rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), '_Raw', buildRaw, '_Raw tab rebuilt!');
+}
 
 /**
  * Update Config structure: add Project column (col C) and shift existing data
