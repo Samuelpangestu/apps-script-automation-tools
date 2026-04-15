@@ -28,15 +28,15 @@ function onOpen() {
       .addItem('🔮 Bulk: Next 3 Months', 'menuGenerateBulk3Months')
       .addItem('🔮 Bulk: Custom Period...', 'menuGenerateBulkCustom')
       .addSeparator()
-      .addItem('Generate Project A Today', 'menuGenerateProjectAToday')
-      .addItem('Generate Project B Today', 'menuGenerateProjectBToday'))
+      .addItem('Generate SIPGN Today', 'menuGenerateProjectAToday')
+      .addItem('Generate INADigital/Internal Today', 'menuGenerateProjectBToday'))
     .addSeparator()
     .addSubMenu(ui.createMenu('📱 Test Notifications')
-      .addItem('Test Reminder (Project A)', 'menuTestReminderA')
-      .addItem('Test Reminder (Project B)', 'menuTestReminderB')
+      .addItem('Test Reminder (SIPGN)', 'menuTestReminderA')
+      .addItem('Test Reminder (INADigital/Internal)', 'menuTestReminderB')
       .addSeparator()
-      .addItem('Test Summary (Project A)', 'menuTestSummaryA')
-      .addItem('Test Summary (Project B)', 'menuTestSummaryB')
+      .addItem('Test Summary (SIPGN)', 'menuTestSummaryA')
+      .addItem('Test Summary (INADigital/Internal)', 'menuTestSummaryB')
       .addSeparator()
       .addItem('Get WhatsApp Groups', 'menuGetWhatsAppGroups'))
     .addSeparator()
@@ -49,12 +49,12 @@ function onOpen() {
  */
 function initializeAllStandupSheets() {
   try {
-    initializeStandupSheet('Project A');
-    initializeStandupSheet('Project B');
+    initializeStandupSheet('SIPGN');
+    initializeStandupSheet('INADigital/Internal');
 
     SpreadsheetApp.getUi().alert(
       '✅ Standup Sheets Initialized!\n\n' +
-      'Both Project A and Project B standup sheets have been created.\n\n' +
+      'Both SIPGN and INADigital/Internal standup sheets have been created.\n\n' +
       'Next steps:\n' +
       '1. Update Config settings (team members, WhatsApp, times)\n' +
       '2. Setup Auto Triggers from menu\n' +
@@ -70,39 +70,89 @@ function initializeAllStandupSheets() {
  */
 function menuGenerateToday() {
   try {
+    const ui = SpreadsheetApp.getUi();
     const today = new Date();
     const dateStr = Utilities.formatDate(today, Session.getScriptTimeZone(), 'dd MMMM yyyy');
+    const dayName = Utilities.formatDate(today, Session.getScriptTimeZone(), 'EEEE');
+
+    // Check if today is a standup day
+    if (!['Monday', 'Wednesday', 'Friday'].includes(dayName)) {
+      ui.alert(
+        '⚠️ Not a Standup Day',
+        `Today is ${dayName}, ${dateStr}\n\n` +
+        `Bi-daily standup is scheduled for Monday, Wednesday, Friday only.\n\n` +
+        `Use "📅 Generate for Specific Date" to generate for a standup day.`,
+        ui.ButtonSet.OK
+      );
+      return;
+    }
 
     let countA = 0;
     let countB = 0;
+    let errorA = null;
+    let errorB = null;
 
     try {
-      countA = generateStandupRows('Project A', today, true);
+      countA = generateStandupRows('SIPGN', today, true);
     } catch (e) {
-      Logger.log('Error generating Project A: ' + e.message);
+      errorA = e.message;
+      Logger.log('Error generating SIPGN: ' + e.message);
     }
 
     try {
-      countB = generateStandupRows('Project B', today, true);
+      countB = generateStandupRows('INADigital/Internal', today, true);
     } catch (e) {
-      Logger.log('Error generating Project B: ' + e.message);
+      errorB = e.message;
+      Logger.log('Error generating INADigital/Internal: ' + e.message);
+    }
+
+    // Get project names from config
+    let projectNameA = 'SIPGN';
+    let projectNameB = 'INADigital/Internal';
+
+    try {
+      const configA = getProjectConfig('SIPGN');
+      projectNameA = configA.projectName || 'SIPGN';
+    } catch (e) {
+      // Use default if config not found
+    }
+
+    try {
+      const configB = getProjectConfig('INADigital/Internal');
+      projectNameB = configB.projectName || 'INADigital/Internal';
+    } catch (e) {
+      // Use default if config not found
     }
 
     let message = `📅 Generate Standup for ${dateStr}\n\n`;
 
-    if (countA > 0) {
-      message += `✅ Project A: ${countA} rows generated\n`;
+    // Project A result
+    if (errorA) {
+      message += `❌ ${projectNameA}: ${errorA}\n`;
+    } else if (countA > 0) {
+      message += `✅ ${projectNameA}: ${countA} rows generated\n`;
     } else {
-      message += `⚠️ Project A: Already exists or error\n`;
+      message += `ℹ️ ${projectNameA}: Already exists (skipped)\n`;
     }
 
-    if (countB > 0) {
-      message += `✅ Project B: ${countB} rows generated\n`;
+    // Project B result
+    if (errorB) {
+      message += `❌ ${projectNameB}: ${errorB}\n`;
+    } else if (countB > 0) {
+      message += `✅ ${projectNameB}: ${countB} rows generated\n`;
     } else {
-      message += `⚠️ Project B: Already exists or error\n`;
+      message += `ℹ️ ${projectNameB}: Already exists (skipped)\n`;
     }
 
-    SpreadsheetApp.getUi().alert(message);
+    // Suggestions if both failed
+    if (errorA && errorB) {
+      message += `\n💡 Suggestions:\n`;
+      message += `• Initialize Standup Sheets first\n`;
+      message += `• Check Config (team members set?)\n`;
+      message += `• Check Execution log for details`;
+    }
+
+    ui.alert(message);
 
   } catch (e) {
     SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
@@ -136,28 +186,70 @@ function menuGenerateForDate() {
     const date = new Date(dateStr);
     const dayName = Utilities.formatDate(date, Session.getScriptTimeZone(), 'EEEE');
 
+    // Block generation for non-standup days
     if (!['Monday', 'Wednesday', 'Friday'].includes(dayName)) {
-      ui.alert(`⚠️ Warning: ${dateStr} is ${dayName}\n\nBi-daily standup is scheduled for Monday, Wednesday, Friday only.\n\nContinue anyway?`);
+      ui.alert(
+        '⚠️ Cannot Generate',
+        `${dateStr} is ${dayName}\n\n` +
+        `Bi-daily standup is scheduled for Monday, Wednesday, Friday only.\n\n` +
+        `Please select a standup day.`,
+        ui.ButtonSet.OK
+      );
+      return;
     }
 
     let countA = 0;
     let countB = 0;
+    let errorA = null;
+    let errorB = null;
 
     try {
-      countA = generateStandupRows('Project A', date, false); // Don't skip if exists
+      countA = generateStandupRows('SIPGN', date, false); // Don't skip if exists
     } catch (e) {
-      Logger.log('Error generating Project A: ' + e.message);
+      errorA = e.message;
+      Logger.log('Error generating SIPGN: ' + e.message);
     }
 
     try {
-      countB = generateStandupRows('Project B', date, false);
+      countB = generateStandupRows('INADigital/Internal', date, false);
     } catch (e) {
-      Logger.log('Error generating Project B: ' + e.message);
+      errorB = e.message;
+      Logger.log('Error generating INADigital/Internal: ' + e.message);
+    }
+
+    // Get project names from config
+    let projectNameA = 'SIPGN';
+    let projectNameB = 'INADigital/Internal';
+
+    try {
+      const configA = getProjectConfig('SIPGN');
+      projectNameA = configA.projectName || 'SIPGN';
+    } catch (e) {
+      // Use default if config not found
+    }
+
+    try {
+      const configB = getProjectConfig('INADigital/Internal');
+      projectNameB = configB.projectName || 'INADigital/Internal';
+    } catch (e) {
+      // Use default if config not found
     }
 
     let message = `📅 Generate Standup for ${dateStr} (${dayName})\n\n`;
-    message += `✅ Project A: ${countA} rows generated\n`;
-    message += `✅ Project B: ${countB} rows generated`;
+
+    // Project A result
+    if (errorA) {
+      message += `❌ ${projectNameA}: ${errorA}\n`;
+    } else {
+      message += `✅ ${projectNameA}: ${countA} rows generated\n`;
+    }
+
+    // Project B result
+    if (errorB) {
+      message += `❌ ${projectNameB}: ${errorB}`;
+    } else {
+      message += `✅ ${projectNameB}: ${countB} rows generated`;
+    }
 
     ui.alert(message);
 
@@ -248,6 +340,24 @@ function menuGenerateBulkCustom() {
 function menuGenerateBulkPeriod(startDate, endDate) {
   const ui = SpreadsheetApp.getUi();
 
+  // Get project names from config
+  let projectNameA = 'SIPGN';
+  let projectNameB = 'INADigital/Internal';
+
+  try {
+    const configA = getProjectConfig('SIPGN');
+    projectNameA = configA.projectName || 'SIPGN';
+  } catch (e) {
+    // Use default if config not found
+  }
+
+  try {
+    const configB = getProjectConfig('INADigital/Internal');
+    projectNameB = configB.projectName || 'INADigital/Internal';
+  } catch (e) {
+    // Use default if config not found
+  }
+
   const startStr = Utilities.formatDate(startDate, Session.getScriptTimeZone(), 'dd MMM yyyy');
   const endStr = Utilities.formatDate(endDate, Session.getScriptTimeZone(), 'dd MMM yyyy');
 
@@ -255,7 +365,7 @@ function menuGenerateBulkPeriod(startDate, endDate) {
     'Bulk Generate Confirmation',
     `Generate standup rows for:\n\n` +
     `📅 Period: ${startStr} - ${endStr}\n` +
-    `📋 Projects: Project A & Project B\n` +
+    `📋 Projects: ${projectNameA} & ${projectNameB}\n` +
     `🗓️ Days: Monday, Wednesday, Friday only\n\n` +
     `This may take a few seconds...\n\n` +
     `Continue?`,
@@ -282,15 +392,15 @@ function menuGenerateBulkPeriod(startDate, endDate) {
         let countB = 0;
 
         try {
-          countA = generateStandupRows('Project A', new Date(currentDate), true); // skipIfExists = true
+          countA = generateStandupRows('SIPGN', new Date(currentDate), true); // skipIfExists = true
         } catch (e) {
-          Logger.log(`Error generating Project A for ${currentDate}: ${e.message}`);
+          Logger.log(`Error generating SIPGN for ${currentDate}: ${e.message}`);
         }
 
         try {
-          countB = generateStandupRows('Project B', new Date(currentDate), true); // skipIfExists = true
+          countB = generateStandupRows('INADigital/Internal', new Date(currentDate), true); // skipIfExists = true
         } catch (e) {
-          Logger.log(`Error generating Project B for ${currentDate}: ${e.message}`);
+          Logger.log(`Error generating INADigital/Internal for ${currentDate}: ${e.message}`);
         }
 
         if (countA > 0 || countB > 0) {
@@ -311,8 +421,8 @@ function menuGenerateBulkPeriod(startDate, endDate) {
     message += `📅 Period: ${startStr} - ${endStr}\n\n`;
     message += `📊 Results:\n`;
     message += `• Total standup days: ${totalDays}\n`;
-    message += `• Project A rows: ${totalCountA}\n`;
-    message += `• Project B rows: ${totalCountB}\n\n`;
+    message += `• ${projectNameA} rows: ${totalCountA}\n`;
+    message += `• ${projectNameB} rows: ${totalCountB}\n\n`;
     message += `ℹ️ Existing dates were skipped (data protected)`;
 
     ui.alert(message);
@@ -323,17 +433,17 @@ function menuGenerateBulkPeriod(startDate, endDate) {
 }
 
 /**
- * MENU: Generate Project A today only
+ * MENU: Generate SIPGN today only
  */
 function menuGenerateProjectAToday() {
   try {
     const today = new Date();
-    const count = generateStandupRows('Project A', today, true);
+    const count = generateStandupRows('SIPGN', today, true);
 
     if (count > 0) {
-      SpreadsheetApp.getUi().alert(`✅ Project A: ${count} rows generated`);
+      SpreadsheetApp.getUi().alert(`✅ SIPGN: ${count} rows generated`);
     } else {
-      SpreadsheetApp.getUi().alert('⚠️ Project A: Rows already exist for today');
+      SpreadsheetApp.getUi().alert('⚠️ SIPGN: Rows already exist for today');
     }
   } catch (e) {
     SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
@@ -341,17 +451,17 @@ function menuGenerateProjectAToday() {
 }
 
 /**
- * MENU: Generate Project B today only
+ * MENU: Generate INADigital/Internal today only
  */
 function menuGenerateProjectBToday() {
   try {
     const today = new Date();
-    const count = generateStandupRows('Project B', today, true);
+    const count = generateStandupRows('INADigital/Internal', today, true);
 
     if (count > 0) {
-      SpreadsheetApp.getUi().alert(`✅ Project B: ${count} rows generated`);
+      SpreadsheetApp.getUi().alert(`✅ INADigital/Internal: ${count} rows generated`);
     } else {
-      SpreadsheetApp.getUi().alert('⚠️ Project B: Rows already exist for today');
+      SpreadsheetApp.getUi().alert('⚠️ INADigital/Internal: Rows already exist for today');
     }
   } catch (e) {
     SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
@@ -359,48 +469,48 @@ function menuGenerateProjectBToday() {
 }
 
 /**
- * MENU: Test reminder notification for Project A
+ * MENU: Test reminder notification for SIPGN
  */
 function menuTestReminderA() {
   try {
-    sendStandupReminder('Project A');
-    SpreadsheetApp.getUi().alert('✅ Test reminder sent for Project A\n\nCheck your WhatsApp group');
+    sendStandupReminder('SIPGN', true); // isTest = true (skip day validation)
+    SpreadsheetApp.getUi().alert('✅ Test reminder sent for SIPGN\n\nCheck your WhatsApp group');
   } catch (e) {
     SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
   }
 }
 
 /**
- * MENU: Test reminder notification for Project B
+ * MENU: Test reminder notification for INADigital/Internal
  */
 function menuTestReminderB() {
   try {
-    sendStandupReminder('Project B');
-    SpreadsheetApp.getUi().alert('✅ Test reminder sent for Project B\n\nCheck your WhatsApp group');
+    sendStandupReminder('INADigital/Internal', true); // isTest = true (skip day validation)
+    SpreadsheetApp.getUi().alert('✅ Test reminder sent for INADigital/Internal\n\nCheck your WhatsApp group');
   } catch (e) {
     SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
   }
 }
 
 /**
- * MENU: Test summary notification for Project A
+ * MENU: Test summary notification for SIPGN
  */
 function menuTestSummaryA() {
   try {
-    sendStandupSummary('Project A');
-    SpreadsheetApp.getUi().alert('✅ Test summary sent for Project A\n\nCheck your WhatsApp group');
+    sendStandupSummary('SIPGN');
+    SpreadsheetApp.getUi().alert('✅ Test summary sent for SIPGN\n\nCheck your WhatsApp group');
   } catch (e) {
     SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
   }
 }
 
 /**
- * MENU: Test summary notification for Project B
+ * MENU: Test summary notification for INADigital/Internal
  */
 function menuTestSummaryB() {
   try {
-    sendStandupSummary('Project B');
-    SpreadsheetApp.getUi().alert('✅ Test summary sent for Project B\n\nCheck your WhatsApp group');
+    sendStandupSummary('INADigital/Internal');
+    SpreadsheetApp.getUi().alert('✅ Test summary sent for INADigital/Internal\n\nCheck your WhatsApp group');
   } catch (e) {
     SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
   }
@@ -496,8 +606,8 @@ function menuSetupAllTriggers() {
     SpreadsheetApp.getUi().alert(
       '✅ Triggers Setup Complete!\n\n' +
       'Auto triggers have been created for:\n' +
-      '• Project A reminder & summary\n' +
-      '• Project B reminder & summary\n\n' +
+      '• SIPGN reminder & summary\n' +
+      '• INADigital/Internal reminder & summary\n\n' +
       'Check Config sheet for schedule times.'
     );
   } catch (e) {
@@ -528,7 +638,7 @@ function menuShowHelp() {
     '1. Setup → Initialize Config\n' +
     '   Set team members, WhatsApp config, times\n\n' +
     '2. Setup → Initialize Standup Sheets\n' +
-    '   Create Project A & B sheets\n\n' +
+    '   Create SIPGN & B sheets\n\n' +
     '3. Setup → Setup Auto Triggers\n' +
     '   Enable automatic reminders & summaries\n\n' +
     '4. Test Notifications\n' +

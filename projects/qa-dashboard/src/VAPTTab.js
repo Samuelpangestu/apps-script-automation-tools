@@ -125,8 +125,8 @@ function writeVAPT(ss, vaptData) {
   // Calculate blocker for each row
   const now = new Date();
   let data = vaptData.table.map(row => {
-    // Calculate blocker: Medium + High + Critical yang Open
-    const blocker = (row.open.medium || 0) + (row.open.high || 0) + (row.open.critical || 0);
+    // Calculate blocker: Critical + High + Medium yang Open
+    const blocker = (row.open.critical || 0) + (row.open.high || 0) + (row.open.medium || 0);
     return {...row, blocker: blocker};
   });
 
@@ -316,8 +316,11 @@ function appendVAPTHistory(ss, vaptData) {
   const historyRows = [];
 
   if (vaptData.projectSummaries && vaptData.projectSummaries.length > 0) {
+    Logger.log('📊 Creating history rows for ' + vaptData.projectSummaries.length + ' project(s)...');
     vaptData.projectSummaries.forEach(projectSum => {
-      historyRows.push(createHistoryRow_(ts, projectSum.project, projectSum.summary, vaptData.table));
+      const historyRow = createHistoryRow_(ts, projectSum.project, projectSum.summary, vaptData.table);
+      Logger.log('  📝 ' + projectSum.project + ': Blocker=' + historyRow[2] + ' (C=' + historyRow[3] + ' H=' + historyRow[4] + ' M=' + historyRow[5] + ')');
+      historyRows.push(historyRow);
     });
   } else {
     Logger.log('⚠️ No project summaries found in vaptData');
@@ -342,7 +345,7 @@ function appendVAPTHistory(ss, vaptData) {
  * Create history row from per-project summary data
  */
 function createHistoryRow_(timestamp, projectName, summary, allData) {
-  // Calculate blocker (Critical + High + Medium OPEN findings only)
+  // Calculate blocker (Critical + High + Medium OPEN findings)
   const blocker = summary.blocker || 0;
 
   // Count apps for this project

@@ -268,7 +268,7 @@ function calculateSimpleVAPTSummary_(entries) {
   const summary = {
     totalApps: entries.length,
     totalFindings: 0,
-    blocker: 0,  // Medium + High + Critical Open
+    blocker: 0,  // Critical + High + Medium Open
     bySeverity: {
       critical: 0,
       high: 0,
@@ -293,7 +293,7 @@ function calculateSimpleVAPTSummary_(entries) {
   let appsWithBlocker = 0;
 
   entries.forEach(entry => {
-    // BLOCKER CALCULATION (Medium + High + Critical Open)
+    // BLOCKER CALCULATION (Critical + High + Medium Open)
     const critical = entry.open.critical || 0;
     const high = entry.open.high || 0;
     const medium = entry.open.medium || 0;

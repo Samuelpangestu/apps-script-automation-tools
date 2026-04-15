@@ -299,17 +299,25 @@ function getSummaryData_(ss) {
       const b5Value = vaptTab.getRange(5, 2).getValue();
       vaptBlocker = Number(b5Value) || 0;
 
-      // Calculate breakdown from app rows (starting row 10)
+      // Calculate breakdown from app rows (data starts from row 10)
       // This gives us the severity breakdown for today's blocker
       const vaptData = vaptTab.getDataRange().getValues();
-      // VAPT columns: [Aplikasi, Total, Critical, High, Medium, Low, Open, In Progress, Fixed, Verified, Closed]
-      for (let i = 9; i < vaptData.length; i++) { // Row 10 = index 9
+      // VAPT columns (NEW): Project(0) | Aplikasi(1) | Blocker(2) | Critical(3) | High(4) | Medium(5) | Low(6) | Info(7)
+      for (let i = 9; i < vaptData.length; i++) { // FIXED: Start from index 9 (row 10)
         const row = vaptData[i];
-        if (!row[0]) continue; // Skip empty rows
 
-        const critical = Number(row[2]) || 0;
-        const high = Number(row[3]) || 0;
-        const medium = Number(row[4]) || 0;
+        // Skip empty rows
+        if (!row[0] && !row[1]) continue;
+
+        // Skip section headers (merged cells with "═══ PROJECTNAME ═══")
+        if (String(row[0]).includes('═══')) continue;
+
+        // Skip column header rows (row with "Aplikasi" in col 1)
+        if (String(row[1]).trim() === 'Aplikasi') continue;
+
+        const critical = Number(row[3]) || 0;
+        const high = Number(row[4]) || 0;
+        const medium = Number(row[5]) || 0;
 
         vaptCritical += critical;
         vaptHigh += high;
@@ -573,14 +581,20 @@ function getVAPTHistoryData_(ss) {
   }
 
   try {
-    // Get all data (skip header row 1-4)
+    // Get all data (skip header row 1-2, data starts from row 3)
     const data = vaptHistory.getDataRange().getValues();
 
     // Filter valid rows (skip empty and header rows)
     const historyRows = [];
-    for (let i = 4; i < data.length; i++) {
+    for (let i = 2; i < data.length; i++) {  // FIXED: Start from index 2 (row 3)
       const row = data[i];
-      if (!row[0]) continue; // Skip empty timestamp rows
+
+      // Skip empty timestamp rows
+      if (!row[0]) continue;
+
+      // Skip header rows (timestamp column should be a date string, not "Timestamp" text)
+      if (String(row[0]).toLowerCase().includes('timestamp')) continue;
+      if (String(row[0]).toLowerCase().includes('date')) continue;
 
       historyRows.push(row);
     }
@@ -588,7 +602,16 @@ function getVAPTHistoryData_(ss) {
     // Sort by timestamp (newest first)
     historyRows.sort((a, b) => new Date(b[0]) - new Date(a[0]));
 
-    Logger.log('VAPT History rows loaded: ' + historyRows.length);
+    Logger.log('📊 VAPT History rows loaded: ' + historyRows.length);
+
+    // Log latest entries for debugging
+    if (historyRows.length > 0) {
+      Logger.log('  Latest entry: ' + historyRows[0][0] + ' | Project=' + historyRows[0][1] + ' | Blocker=' + historyRows[0][2]);
+      if (historyRows.length > 1) {
+        Logger.log('  2nd entry: ' + historyRows[1][0] + ' | Project=' + historyRows[1][1] + ' | Blocker=' + historyRows[1][2]);
+      }
+    }
+
     return historyRows;
 
   } catch (error) {
@@ -624,31 +647,45 @@ function getVAPTDashboardData() {
     let vaptMedium = 0;
     const vaptApps = [];
 
-    // Skip header rows (first 4 rows)
-    for (let i = 4; i < vaptData.length; i++) {
+    // Skip header and summary rows (rows 1-9), data starts from row 10
+    // VAPT tab columns: Project(0) | Aplikasi(1) | Blocker(2) | Critical(3) | High(4) | Medium(5) | Low(6) | Info(7)
+    Logger.log('📊 Reading VAPT tab data for dashboard...');
+    for (let i = 9; i < vaptData.length; i++) {  // FIXED: Start from index 9 (row 10)
       const row = vaptData[i];
-      if (!row[0]) continue;
 
-      const critical = Number(row[2]) || 0;
-      const high = Number(row[3]) || 0;
-      const medium = Number(row[4]) || 0;
-      const low = Number(row[5]) || 0;
-      const total = Number(row[1]) || 0;
+      // Skip empty rows
+      if (!row[0] && !row[1]) continue;
+
+      // Skip section headers (merged cells with "═══ PROJECTNAME ═══")
+      if (String(row[0]).includes('═══')) continue;
+
+      // Skip column header rows (row with "Aplikasi" in col 1)
+      if (String(row[1]).trim() === 'Aplikasi') continue;
+
+      const blocker = Number(row[2]) || 0;   // Blocker already calculated (Critical + High + Medium)
+      const critical = Number(row[3]) || 0;
+      const high = Number(row[4]) || 0;
+      const medium = Number(row[5]) || 0;
+      const low = Number(row[6]) || 0;
+
+      Logger.log('  Row ' + (i+1) + ': ' + row[1] + ' | B=' + blocker + ' C=' + critical + ' H=' + high + ' M=' + medium);
 
       vaptCritical += critical;
       vaptHigh += high;
       vaptMedium += medium;
-      vaptBlocker += (critical + high + medium);
+      vaptBlocker += blocker;  // Use pre-calculated blocker from col 2
 
       vaptApps.push({
-        aplikasi: row[0],
-        total: total,
+        aplikasi: row[1],  // FIXED: Aplikasi is in col 1, not col 0
+        blocker: blocker,
         critical: critical,
         high: high,
         medium: medium,
         low: low
       });
     }
+
+    Logger.log('📊 VAPT Summary: Blocker=' + vaptBlocker + ' | C=' + vaptCritical + ' | H=' + vaptHigh + ' | M=' + vaptMedium);
 
     // Get VAPT history
     const vaptHistory = getVAPTHistoryData_(ss);
