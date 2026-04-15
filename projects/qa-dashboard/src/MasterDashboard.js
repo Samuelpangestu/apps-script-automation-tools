@@ -67,6 +67,8 @@ function forceReloadMenu() {
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('🎯 QA Dashboard')
+    .addItem('📊 Open Interactive Dashboard', 'menuOpenWebAppDashboard')
+    .addSeparator()
     .addSubMenu(ui.createMenu('📊 Dashboard')
       .addItem('Create Dashboard (First Time)', 'createDashboard')
       .addSeparator()
@@ -103,6 +105,37 @@ function onOpen() {
     .addSubMenu(ui.createMenu('⚙️ Settings')
       .addItem('Set Web App Dashboard URL', 'menuSetWebAppUrl'))
     .addToUi();
+}
+
+/**
+ * Menu function to open Web App Dashboard in new tab
+ */
+function menuOpenWebAppDashboard() {
+  const webAppUrl = PropertiesService.getScriptProperties().getProperty('WEB_APP_URL') || '';
+
+  if (!webAppUrl) {
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.alert(
+      '📊 Web App Dashboard URL Not Set',
+      'Web App Dashboard URL has not been configured yet.\n\n' +
+      'Would you like to set it now?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (response === ui.Button.YES) {
+      menuSetWebAppUrl();
+    }
+    return;
+  }
+
+  // Open URL in new tab
+  const htmlOutput = HtmlService.createHtmlOutput(
+    '<script>window.open("' + webAppUrl + '", "_blank");google.script.host.close();</script>'
+  )
+    .setWidth(1)
+    .setHeight(1);
+
+  SpreadsheetApp.getUi().showModelessDialog(htmlOutput, 'Opening Dashboard...');
 }
 
 /**
