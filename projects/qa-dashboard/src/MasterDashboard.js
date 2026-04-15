@@ -67,8 +67,6 @@ function forceReloadMenu() {
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('🎯 QA Dashboard')
-    .addItem('📊 Open Interactive Dashboard', 'menuOpenWebAppDashboard')
-    .addSeparator()
     .addSubMenu(ui.createMenu('📊 Dashboard')
       .addItem('Create Dashboard (First Time)', 'createDashboard')
       .addSeparator()
