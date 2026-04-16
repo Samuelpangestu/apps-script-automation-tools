@@ -2424,7 +2424,7 @@ function getTestExecutionData_(overview, cfg) {
  */
 function buildWhatsAppTestExecution_(projectData) {
   let message = '';
-  
+
   // Header
   message += '📊 *TEST EXECUTION REPORT*';
   if (projectData.projectName) {
@@ -2432,77 +2432,29 @@ function buildWhatsAppTestExecution_(projectData) {
   }
   message += '\n📅 ' + projectData.timestamp + '\n';
   message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-  
-  // Module summaries
-  message += '📈 *MODULE SUMMARY*\n\n';
-  
-  projectData.modules.forEach((mod, idx) => {
-    // Module header with status indicator
-    const avgPassRate = mod.webTotal > 0 && mod.apiTotal > 0 
-      ? (mod.webPassRate + mod.apiPassRate) / 2 
-      : mod.webTotal > 0 ? mod.webPassRate : mod.apiPassRate;
-    
-    const statusIcon = avgPassRate >= 0.8 ? '🟢' : avgPassRate >= 0.5 ? '⚠️' : '🔴';
-    message += statusIcon + ' *' + mod.modul + '*\n';
-    
-    // WEB Test
-    if (mod.webTotal > 0) {
-      const webIcon = mod.webPassRate >= 0.8 ? '✅' : mod.webPassRate >= 0.5 ? '⚠️' : '❌';
-      message += '├─ WEB: ' + (mod.webPassRate * 100).toFixed(1) + '% ';
-      message += '(' + mod.webPass + '/' + mod.webTotal + ' pass)';
-      if (mod.webPassRate < 0.8) {
-        message += ' ' + webIcon + ' BELOW TARGET';
-      }
-      message += '\n';
-      
-      // Smoke WEB
-      if (mod.smokeWebTotal > 0) {
-        message += '│  └─ Smoke: ' + (mod.smokeWebPassRate * 100).toFixed(1) + '%\n';
-      }
-    }
-    
-    // API Test
-    if (mod.apiTotal > 0) {
-      const apiIcon = mod.apiPassRate >= 0.8 ? '✅' : mod.apiPassRate >= 0.5 ? '⚠️' : '❌';
-      message += '├─ API: ' + (mod.apiPassRate * 100).toFixed(1) + '% ';
-      message += '(' + mod.apiPass + '/' + mod.apiTotal + ' pass)';
-      if (mod.apiPassRate < 0.8) {
-        message += ' ' + apiIcon + ' BELOW TARGET';
-      }
-      message += '\n';
-      
-      // Smoke API
-      if (mod.smokeApiTotal > 0) {
-        message += '│  └─ Smoke: ' + (mod.smokeApiPassRate * 100).toFixed(1) + '%\n';
-      }
-    }
-    
-    message += '\n';
-  });
-  
-  // Project summary
-  message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-  message += '📊 *PROJECT STATUS*\n\n';
-  message += '✅ Total Modules: ' + projectData.modules.length + '\n';
-  
-  const modulesBelow80 = projectData.modules.filter(m => {
-    const avgRate = m.webTotal > 0 && m.apiTotal > 0 
-      ? (m.webPassRate + m.apiPassRate) / 2 
-      : m.webTotal > 0 ? m.webPassRate : m.apiPassRate;
-    return avgRate < 0.8;
-  });
-  
-  if (modulesBelow80.length > 0) {
-    message += '⚠️ Modules Below 80%: ' + modulesBelow80.length + '\n';
-    message += '   (' + modulesBelow80.map(m => m.modul).join(', ') + ')\n';
-  }
-  
-  // Average pass rate
+
+  // Calculate summary stats
   const totalWeb = projectData.modules.reduce((sum, m) => sum + m.webTotal, 0);
   const totalWebPass = projectData.modules.reduce((sum, m) => sum + m.webPass, 0);
   const totalApi = projectData.modules.reduce((sum, m) => sum + m.apiTotal, 0);
   const totalApiPass = projectData.modules.reduce((sum, m) => sum + m.apiPass, 0);
-  
+
+  const modulesBelow80 = projectData.modules.filter(m => {
+    const avgRate = m.webTotal > 0 && m.apiTotal > 0
+      ? (m.webPassRate + m.apiPassRate) / 2
+      : m.webTotal > 0 ? m.webPassRate : m.apiPassRate;
+    return avgRate < 0.8;
+  });
+
+  // SUMMARY (like blocker notif - summary first)
+  message += '📈 *SUMMARY*\n';
+  message += '✅ Total Modules: ' + projectData.modules.length + '\n';
+
+  if (modulesBelow80.length > 0) {
+    message += '⚠️ Modules Below 80%: ' + modulesBelow80.length;
+    message += ' (' + modulesBelow80.map(m => m.modul).join(', ') + ')\n';
+  }
+
   if (totalWeb > 0) {
     const avgWebRate = totalWebPass / totalWeb;
     message += '🎯 Avg WEB Pass Rate: ' + (avgWebRate * 100).toFixed(1) + '%\n';
@@ -2511,15 +2463,64 @@ function buildWhatsAppTestExecution_(projectData) {
     const avgApiRate = totalApiPass / totalApi;
     message += '🎯 Avg API Pass Rate: ' + (avgApiRate * 100).toFixed(1) + '%\n';
   }
-  
+
+  // MODULE DETAILS (per modul, no tree structure)
+  message += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+  message += '📋 *MODULE DETAILS*\n\n';
+
+  projectData.modules.forEach((mod, idx) => {
+    // Module header with status indicator
+    const avgPassRate = mod.webTotal > 0 && mod.apiTotal > 0
+      ? (mod.webPassRate + mod.apiPassRate) / 2
+      : mod.webTotal > 0 ? mod.webPassRate : mod.apiPassRate;
+
+    const statusIcon = avgPassRate >= 0.8 ? '🟢' : avgPassRate >= 0.5 ? '⚠️' : '🔴';
+    message += statusIcon + ' *' + mod.modul + '*\n';
+
+    // WEB Test (simple format, no tree)
+    if (mod.webTotal > 0) {
+      const webIcon = mod.webPassRate >= 0.8 ? '✅' : mod.webPassRate >= 0.5 ? '⚠️' : '❌';
+      message += 'WEB: ' + (mod.webPassRate * 100).toFixed(1) + '% ';
+      message += '(' + mod.webPass + '/' + mod.webTotal + ' pass)';
+      if (mod.webPassRate < 0.8) {
+        message += ' ' + webIcon + ' BELOW TARGET';
+      }
+      message += '\n';
+
+      // Smoke WEB (no tree structure)
+      if (mod.smokeWebTotal > 0) {
+        message += 'Smoke WEB: ' + (mod.smokeWebPassRate * 100).toFixed(1) + '%\n';
+      }
+    }
+
+    // API Test (simple format, no tree)
+    if (mod.apiTotal > 0) {
+      const apiIcon = mod.apiPassRate >= 0.8 ? '✅' : mod.apiPassRate >= 0.5 ? '⚠️' : '❌';
+      message += 'API: ' + (mod.apiPassRate * 100).toFixed(1) + '% ';
+      message += '(' + mod.apiPass + '/' + mod.apiTotal + ' pass)';
+      if (mod.apiPassRate < 0.8) {
+        message += ' ' + apiIcon + ' BELOW TARGET';
+      }
+      message += '\n';
+
+      // Smoke API (no tree structure)
+      if (mod.smokeApiTotal > 0) {
+        message += 'Smoke API: ' + (mod.smokeApiPassRate * 100).toFixed(1) + '%\n';
+      }
+    }
+
+    message += '\n';
+  });
+
   // Dashboard link
+  message += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
   const overviewSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Overview');
   const overviewGid = overviewSheet ? overviewSheet.getSheetId() : 0;
-  const dashboardUrl = 'https://docs.google.com/spreadsheets/d/' + 
+  const dashboardUrl = 'https://docs.google.com/spreadsheets/d/' +
     SpreadsheetApp.getActiveSpreadsheet().getId() + '/edit#gid=' + overviewGid;
-  
-  message += '\n🔗 View Dashboard:\n' + dashboardUrl;
-  
+
+  message += '🔗 View Dashboard:\n' + dashboardUrl;
+
   return message;
 }
 
