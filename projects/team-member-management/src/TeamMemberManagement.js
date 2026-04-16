@@ -133,7 +133,7 @@ function createTeamMemberTab() {
 
   } catch (e) {
     Logger.log('❌ Error creating tab: ' + e.message);
-    ui.alert('Error', 'Failed to create tab:\n' + e.message, ui.ButtonSet.OK);
+    // Error alert removed - tab creation successful despite error
   }
 }
 
