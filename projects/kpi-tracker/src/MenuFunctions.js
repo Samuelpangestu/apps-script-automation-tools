@@ -18,6 +18,12 @@ function onOpen() {
       .addItem('📋 Setup Config Tab', 'setupConfigTab')
       .addItem('📊 Setup KPI Definition Tab', 'setupKPIDefinitionTab'))
     .addSeparator()
+    .addSubMenu(ui.createMenu('👥 Team Members (SSOT)')
+      .addItem('🔄 Sync from SSOT', 'syncFromSSOT')
+      .addSeparator()
+      .addItem('ℹ️ Show SSOT Info', 'showSSOTInfo')
+      .addItem('🔧 Test SSOT Connection', 'testSSOTConnection'))
+    .addSeparator()
     .addSubMenu(ui.createMenu('📈 KPI Tracking')
       .addItem('➕ Create Period Tracker', 'menuCreateKPITracker')
       .addSeparator()
@@ -72,17 +78,31 @@ function initialSetup() {
 
     Logger.log('✅ Initial setup complete');
 
-    ui.alert(
+    // Ask if user wants to sync from SSOT
+    const syncResponse = ui.alert(
       'Setup Complete! ✅',
       'KPI Tracker has been set up successfully.\n\n' +
-      'Next steps:\n' +
-      '1. Update team members in Config tab\n' +
-      '2. Review and adjust KPI definitions if needed\n' +
-      '3. Create period tracker (Menu: KPI Tracking → Create Period Tracker)\n' +
-      '4. Create 360 Review Form (Menu: 360 Review → Create Review Form)\n\n' +
-      'Tip: Dashboard shows overview of all periods. Refresh anytime from menu.',
-      ui.ButtonSet.OK
+      'Do you want to sync team members from SSOT now?\n' +
+      '(Team Member spreadsheet)\n\n' +
+      'Click YES to sync from SSOT\n' +
+      'Click NO to use sample data (can sync later from menu)',
+      ui.ButtonSet.YES_NO
     );
+
+    if (syncResponse === ui.Button.YES) {
+      syncFromSSOT();  // From SSOTSync.js
+    } else {
+      ui.alert(
+        'Next Steps',
+        '1. Sync team members: Menu → Team Members (SSOT) → Sync from SSOT\n' +
+        '   OR update manually in Config tab\n' +
+        '2. Review and adjust KPI definitions if needed\n' +
+        '3. Create period tracker (Menu: KPI Tracking → Create Period Tracker)\n' +
+        '4. Create 360 Review Form (Menu: 360 Review → Create Review Form)\n\n' +
+        'Tip: Dashboard shows overview of all periods. Refresh anytime from menu.',
+        ui.ButtonSet.OK
+      );
+    }
 
   } catch (e) {
     Logger.log('❌ Setup failed: ' + e.message);
@@ -101,10 +121,19 @@ function showUserGuide() {
     '═══════════════════════════════════════════\n\n' +
     '🚀 GETTING STARTED:\n\n' +
     '1. Run "Initial Setup" from menu (once only)\n' +
-    '2. Update team members in Config tab\n' +
+    '2. Sync team members from SSOT (recommended)\n' +
+    '   OR update manually in Config tab\n' +
     '3. Review KPI definitions (already pre-populated)\n' +
     '4. Create period tracker (Menu → KPI Tracking)\n' +
     '5. Create 360 Review Form\n\n' +
+    '═══════════════════════════════════════════\n\n' +
+    '👥 TEAM MEMBERS (SSOT):\n\n' +
+    '• SSOT = Single Source of Truth\n' +
+    '• Central team member database\n' +
+    '• Sync from SSOT: Menu → Team Members → Sync from SSOT\n' +
+    '• Auto-maps roles and status\n' +
+    '• Filters only QA/QE roles\n' +
+    '• One-click synchronization\n\n' +
     '═══════════════════════════════════════════\n\n' +
     '📊 DASHBOARD TAB:\n\n' +
     '• Overview of all tracking periods\n' +
@@ -113,8 +142,8 @@ function showUserGuide() {
     '• Refresh anytime from menu\n\n' +
     '═══════════════════════════════════════════\n\n' +
     '📋 CONFIG TAB:\n\n' +
-    '• Manage team members here\n' +
-    '• Add/remove members as needed\n' +
+    '• Team members data (synced from SSOT or manual)\n' +
+    '• Can manually edit if needed\n' +
     '• Set status to "Aktif" or "Non-Aktif"\n' +
     '• Role dropdown auto-populated\n\n' +
     '═══════════════════════════════════════════\n\n' +
@@ -139,7 +168,8 @@ function showUserGuide() {
     '• Weighted scoring: TL 35% + PM 25% + Peer 15% + Self 10% + Other 15%\n\n' +
     '═══════════════════════════════════════════\n\n' +
     '🔄 UPDATING:\n\n' +
-    '• Team members: Edit Config tab directly\n' +
+    '• Team members: Menu → Team Members → Sync from SSOT\n' +
+    '  OR edit Config tab directly\n' +
     '• KPI definitions: Edit KPI Definition tab\n' +
     '• Period tracker: Fill Actual values\n' +
     '• Dashboard: Menu → KPI Tracking → Refresh Dashboard\n' +

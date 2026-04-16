@@ -12,6 +12,21 @@ const DASHBOARD_TAB_NAME = 'Dashboard';
  */
 function createDashboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Check if Config tab exists, if not create it
+  let configSheet = ss.getSheetByName(CONFIG_TAB_NAME);
+  if (!configSheet) {
+    Logger.log('Config tab not found, creating it first...');
+    setupConfigTab();  // From TeamConfig.js
+  }
+
+  // Check if KPI Definition tab exists, if not create it
+  let kpiDefSheet = ss.getSheetByName(KPI_DEF_TAB_NAME);
+  if (!kpiDefSheet) {
+    Logger.log('KPI Definition tab not found, creating it first...');
+    setupKPIDefinitionTab();  // From KPIDefinition.js
+  }
+
   let dashboard = ss.getSheetByName(DASHBOARD_TAB_NAME);
 
   if (!dashboard) {
