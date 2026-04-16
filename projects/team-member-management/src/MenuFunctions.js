@@ -20,6 +20,8 @@ function onOpen() {
     .addSeparator()
     .addItem('➕ Add Team Member', 'menuAddTeamMember')
     .addItem('📊 View Summary', 'menuViewSummary')
+    .addSeparator()
+    .addItem('📥 Import Existing Data', 'menuImportData')
     .addItem('📤 Export Data', 'menuExportData')
     .addSeparator()
     .addItem('ℹ️ About', 'menuShowAbout')
@@ -213,6 +215,73 @@ function menuExportData() {
       ui.ButtonSet.OK
     );
     Logger.log('Error exporting data: ' + error.message);
+  }
+}
+
+/**
+ * Menu handler: Import Existing Data
+ * Imports team member data from a backup/source tab
+ */
+function menuImportData() {
+  const ui = SpreadsheetApp.getUi();
+
+  // Show instructions
+  const response = ui.alert(
+    'Import Existing Data',
+    'This will import team member data from another tab.\n\n' +
+    'INSTRUCTIONS:\n' +
+    '1. Rename your existing data tab to "Team Member Backup"\n' +
+    '2. Make sure the tab has headers in row 1\n' +
+    '3. Data should start from row 2\n\n' +
+    'IMPORTANT:\n' +
+    '• Current Team Member tab data will be REPLACED\n' +
+    '• Export current data first if you want to keep it\n' +
+    '• Section headers (MBG, Riset, etc.) will be skipped\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    // Call import function
+    const result = importExistingData('Team Member Backup');
+
+    if (result.success) {
+      ui.alert(
+        '✅ Import Successful',
+        'Team member data has been imported!\n\n' +
+        'Imported: ' + result.imported + ' team members\n' +
+        'Skipped: ' + result.skipped + ' rows (sections/empty)\n\n' +
+        'The data has been formatted with:\n' +
+        '• Professional styling\n' +
+        '• Data validation (dropdowns)\n' +
+        '• Conditional formatting (status colors)\n' +
+        '• Proper date formatting\n\n' +
+        'You can now delete the "Team Member Backup" tab if you want.',
+        ui.ButtonSet.OK
+      );
+    } else {
+      ui.alert(
+        '❌ Import Failed',
+        result.message + '\n\n' +
+        'Please check:\n' +
+        '1. Tab "Team Member Backup" exists\n' +
+        '2. Tab has data starting from row 2\n' +
+        '3. Headers are in row 1',
+        ui.ButtonSet.OK
+      );
+    }
+  } catch (error) {
+    ui.alert(
+      '❌ Error',
+      'Failed to import data:\n\n' + error.message + '\n\n' +
+      'Make sure you renamed your existing tab to "Team Member Backup"',
+      ui.ButtonSet.OK
+    );
+    Logger.log('Error importing data: ' + error.message);
   }
 }
 
