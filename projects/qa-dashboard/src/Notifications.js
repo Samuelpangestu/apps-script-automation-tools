@@ -2260,53 +2260,53 @@ function sendTestExecutionNotification() {
   });
   
   let totalSent = 0;
-  
+
   Object.keys(projectGroups).forEach(projectName => {
     const projectModules = projectGroups[projectName];
-    
+
     // Aggregate project data
     const projectData = {
       projectName: projectName,
       timestamp: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm'),
       modules: projectModules
     };
-    
-    // Send to each module's configured channels
-    projectModules.forEach(moduleData => {
-      let sent = 0;
-      
-      // WhatsApp
-      if (moduleData.whatsappEnabled && moduleData.whatsappGroupId && fontteToken) {
-        const message = buildWhatsAppTestExecution_(projectData);
-        const success = sendWhatsApp_(fontteToken, moduleData.whatsappGroupId, message);
-        if (success) sent++;
-      }
-      
-      // Email
-      if (moduleData.emailEnabled && moduleData.emailRecipients) {
-        const subject = '[' + projectName + '] Daily Test Execution Summary';
-        const htmlBody = buildEmailTestExecution_(projectData, ss);
-        const success = sendEmail_(moduleData.emailRecipients, subject, htmlBody);
-        if (success) sent++;
-      }
-      
-      // Google Chat
-      if (moduleData.chatEnabled && moduleData.chatWebhook) {
-        const payload = buildGoogleChatTestExecution_(projectData, ss);
-        const success = sendGoogleChat_(moduleData.chatWebhook, payload);
-        if (success) sent++;
-      }
-      
-      if (sent > 0) {
-        Logger.log('✅ Sent test execution notification for: ' + moduleData.modul + ' (' + sent + ' channels)');
-        totalSent++;
-      }
-    });
+
+    // Get notification config from FIRST module (all modules in same project use same config)
+    const firstModule = projectModules[0];
+
+    let sent = 0;
+
+    // WhatsApp - Send ONCE per project
+    if (firstModule.whatsappEnabled && firstModule.whatsappGroupId && fontteToken) {
+      const message = buildWhatsAppTestExecution_(projectData);
+      const success = sendWhatsApp_(fontteToken, firstModule.whatsappGroupId, message);
+      if (success) sent++;
+    }
+
+    // Email - Send ONCE per project
+    if (firstModule.emailEnabled && firstModule.emailRecipients) {
+      const subject = '[' + projectName + '] Daily Test Execution Summary';
+      const htmlBody = buildEmailTestExecution_(projectData, ss);
+      const success = sendEmail_(firstModule.emailRecipients, subject, htmlBody);
+      if (success) sent++;
+    }
+
+    // Google Chat - Send ONCE per project
+    if (firstModule.chatEnabled && firstModule.chatWebhook) {
+      const payload = buildGoogleChatTestExecution_(projectData, ss);
+      const success = sendGoogleChat_(firstModule.chatWebhook, payload);
+      if (success) sent++;
+    }
+
+    if (sent > 0) {
+      Logger.log('✅ Sent test execution notification for project: ' + projectName + ' (' + sent + ' channels)');
+      totalSent++;
+    }
   });
-  
+
   SpreadsheetApp.getUi().alert(
     '✅ Test Execution Notifications Sent!',
-    'Successfully sent test execution summary to ' + totalSent + ' module(s).\n\n' +
+    'Successfully sent test execution summary to ' + totalSent + ' project(s).\n\n' +
     'Projects: ' + Object.keys(projectGroups).join(', '),
     SpreadsheetApp.getUi().ButtonSet.OK
   );
