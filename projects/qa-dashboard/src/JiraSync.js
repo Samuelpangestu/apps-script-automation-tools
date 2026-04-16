@@ -45,7 +45,7 @@ const JIRA_JQL_ =
   'ORDER BY priority ASC, updated DESC';
 // Custom fields for Feature/Environment/Steps/Expected/Actual/Submodul/Screenshot (per instance)
 const JIRA_CUSTOM_FIELDS_ = {
-  'digitalperuri': ',customfield_11090,customfield_10095,customfield_10560,customfield_10561,customfield_10562,customfield_11354,customfield_10179',  // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result, Submodul, Screenshot/Video
+  'digitalperuri': ',customfield_11090,customfield_10095,customfield_10091,customfield_10092,customfield_10178,customfield_11354,customfield_10179',  // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result, Submodul, Screenshot/Video
   'bgn-peruri': ',customfield_10298,customfield_10291,customfield_10292,customfield_10293,customfield_10294,customfield_10300,customfield_10296'     // Feature, Environment, Step To Reproduce, Expectation Result, Actual Result, Submodul, Screenshot/Video
 };
 
@@ -54,9 +54,9 @@ const JIRA_FIELD_MAP_ = {
   'digitalperuri': {
     feature: 'customfield_11090',
     environment: 'customfield_10095',
-    steps: 'customfield_10560',
-    expected: 'customfield_10561',
-    actual: 'customfield_10562',
+    steps: 'customfield_10091',      // Step To Reproduce (project 10045)
+    expected: 'customfield_10092',   // Expectation Result (project 10045)
+    actual: 'customfield_10178',     // Actual Result (project 10045)
     submodul: 'customfield_11354',
     screenshot: 'customfield_10179'
   },
