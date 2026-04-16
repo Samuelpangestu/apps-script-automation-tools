@@ -18,6 +18,11 @@ function onOpen() {
       .addItem('📋 Setup Config Tab', 'setupConfigTab')
       .addItem('📊 Setup KPI Definition Tab', 'setupKPIDefinitionTab'))
     .addSeparator()
+    .addSubMenu(ui.createMenu('📈 KPI Tracking')
+      .addItem('➕ Create Period Tracker', 'menuCreateKPITracker')
+      .addSeparator()
+      .addItem('🔄 Refresh Dashboard', 'menuRefreshDashboard'))
+    .addSeparator()
     .addSubMenu(ui.createMenu('📝 360 Review')
       .addItem('✨ Create Review Form', 'create360ReviewForm')
       .addItem('🔄 Update Reviewee List', 'update360RevieweeList')
@@ -39,6 +44,7 @@ function initialSetup() {
     'KPI Tracker — Initial Setup',
     'This will create all necessary tabs and structure for the KPI Tracker.\n\n' +
     'The following will be created:\n' +
+    '• Dashboard tab (overview & summary)\n' +
     '• Config tab (team members management)\n' +
     '• KPI Definition tab (maintainable KPI definitions)\n\n' +
     'Continue?',
@@ -53,12 +59,16 @@ function initialSetup() {
     Logger.log('Starting initial setup...');
 
     // Step 1: Setup Config tab
-    ui.alert('Step 1/2: Creating Config tab...');
+    ui.alert('Step 1/3: Creating Config tab...');
     setupConfigTab();
 
     // Step 2: Setup KPI Definition tab
-    ui.alert('Step 2/2: Creating KPI Definition tab...');
+    ui.alert('Step 2/3: Creating KPI Definition tab...');
     setupKPIDefinitionTab();
+
+    // Step 3: Setup Dashboard tab
+    ui.alert('Step 3/3: Creating Dashboard tab...');
+    createDashboard();
 
     Logger.log('✅ Initial setup complete');
 
@@ -68,8 +78,9 @@ function initialSetup() {
       'Next steps:\n' +
       '1. Update team members in Config tab\n' +
       '2. Review and adjust KPI definitions if needed\n' +
-      '3. Create 360 Review Form (Menu: 360 Review → Create Review Form)\n\n' +
-      'Tip: All KPI definitions are maintainable in the KPI Definition tab.',
+      '3. Create period tracker (Menu: KPI Tracking → Create Period Tracker)\n' +
+      '4. Create 360 Review Form (Menu: 360 Review → Create Review Form)\n\n' +
+      'Tip: Dashboard shows overview of all periods. Refresh anytime from menu.',
       ui.ButtonSet.OK
     );
 
@@ -92,7 +103,14 @@ function showUserGuide() {
     '1. Run "Initial Setup" from menu (once only)\n' +
     '2. Update team members in Config tab\n' +
     '3. Review KPI definitions (already pre-populated)\n' +
-    '4. Create 360 Review Form\n\n' +
+    '4. Create period tracker (Menu → KPI Tracking)\n' +
+    '5. Create 360 Review Form\n\n' +
+    '═══════════════════════════════════════════\n\n' +
+    '📊 DASHBOARD TAB:\n\n' +
+    '• Overview of all tracking periods\n' +
+    '• Quick stats: periods, members, KPIs\n' +
+    '• Success rate per period\n' +
+    '• Refresh anytime from menu\n\n' +
     '═══════════════════════════════════════════\n\n' +
     '📋 CONFIG TAB:\n\n' +
     '• Manage team members here\n' +
@@ -106,6 +124,13 @@ function showUserGuide() {
     '• Add new KPIs by adding rows\n' +
     '• Color-coded by role for easy reading\n\n' +
     '═══════════════════════════════════════════\n\n' +
+    '📈 KPI TRACKING:\n\n' +
+    '• Create period tracker: Menu → KPI Tracking → Create Period Tracker\n' +
+    '• Choose period type: Sprint / Monthly / Quarterly\n' +
+    '• Fill "Actual" column with real values\n' +
+    '• Achievement % and Status auto-calculate\n' +
+    '• One sheet per period (e.g., "KPI - Sprint 24")\n\n' +
+    '═══════════════════════════════════════════\n\n' +
     '📝 360 REVIEW:\n\n' +
     '• Create form once: Menu → 360 Review → Create Form\n' +
     '• Form auto-linked to this spreadsheet\n' +
@@ -116,12 +141,16 @@ function showUserGuide() {
     '🔄 UPDATING:\n\n' +
     '• Team members: Edit Config tab directly\n' +
     '• KPI definitions: Edit KPI Definition tab\n' +
+    '• Period tracker: Fill Actual values\n' +
+    '• Dashboard: Menu → KPI Tracking → Refresh Dashboard\n' +
     '• Reviewee list: Menu → 360 Review → Update Reviewee List\n\n' +
     '═══════════════════════════════════════════\n\n' +
     '💡 TIPS:\n\n' +
     '• Keep Config tab updated for accurate tracking\n' +
     '• Review KPI definitions quarterly\n' +
+    '• Create tracker per sprint/month/quarter\n' +
     '• Run 360 Review per semester/contract period\n' +
+    '• Refresh Dashboard after updating trackers\n' +
     '• All changes are immediately reflected\n\n' +
     '═══════════════════════════════════════════';
 
@@ -195,6 +224,21 @@ function testSetup() {
     const reviewees = getRevieweesFromConfig_();
     Logger.log('✅ Found ' + reviewees.length + ' reviewees');
 
+    // Test KPI Tracker functions
+    Logger.log('Testing KPI Tracker functions...');
+    const trackers = getAllKPITrackers();
+    Logger.log('✅ Found ' + trackers.length + ' tracker period(s)');
+
+    // Test Dashboard functions
+    Logger.log('Testing Dashboard functions...');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const dashboard = ss.getSheetByName(DASHBOARD_TAB_NAME);
+    if (dashboard) {
+      Logger.log('✅ Dashboard exists');
+    } else {
+      Logger.log('⚠️ Dashboard not found (run Initial Setup)');
+    }
+
     Logger.log('');
     Logger.log('═══════════════════════════════════════');
     Logger.log('✅ All tests passed!');
@@ -204,7 +248,9 @@ function testSetup() {
       'Test Successful! ✅\n\n' +
       'Team members: ' + members.length + '\n' +
       'Roles: ' + roles.length + '\n' +
-      'Reviewees: ' + reviewees.length + '\n\n' +
+      'Reviewees: ' + reviewees.length + '\n' +
+      'Tracker periods: ' + trackers.length + '\n' +
+      'Dashboard: ' + (dashboard ? 'Yes' : 'No') + '\n\n' +
       'All functions working correctly.'
     );
 
