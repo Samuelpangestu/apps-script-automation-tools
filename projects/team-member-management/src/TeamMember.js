@@ -168,6 +168,97 @@ function addTeamConditionalFormatting(sheet) {
 }
 
 /**
+ * Select projects from Config list
+ * Shows HTML dialog with checkboxes for multi-select
+ */
+function selectProjectsForMember(rowNumber) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const teamSheet = ss.getSheetByName(TEAM_TAB_NAME);
+
+  if (!teamSheet) {
+    throw new Error('Team Members tab not found');
+  }
+
+  // Get current projects for this member
+  const currentProjects = teamSheet.getRange(rowNumber, TEAM_COLUMNS.PROJECTS.index).getValue().toString();
+  const selectedProjects = currentProjects ? currentProjects.split(',').map(p => p.trim()) : [];
+
+  // Get available projects from Config
+  const projects = getActiveProjects();
+
+  if (projects.length === 0) {
+    SpreadsheetApp.getUi().alert('No projects found in Config tab. Please add projects first.');
+    return;
+  }
+
+  // Build HTML for project selection
+  let html = '<style>' +
+    'body { font-family: Arial, sans-serif; padding: 20px; }' +
+    '.project-item { margin: 10px 0; padding: 8px; background: #f5f5f5; border-radius: 4px; }' +
+    '.project-item input { margin-right: 8px; }' +
+    '.difficulty { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 10px; }' +
+    '.easy { background: #d4edda; }' +
+    '.medium { background: #fff3cd; }' +
+    '.hard { background: #f8d7da; }' +
+    'button { margin: 20px 10px 0 0; padding: 10px 20px; }' +
+    '#select-all { margin-bottom: 10px; }' +
+    '</style>';
+
+  html += '<h3>Select Projects</h3>';
+  html += '<div><input type="checkbox" id="select-all" onclick="toggleAll(this)"> <strong>Select All</strong></div>';
+  html += '<hr>';
+
+  projects.forEach((project, index) => {
+    const checked = selectedProjects.includes(project.name) ? 'checked' : '';
+    const diffClass = project.difficulty.toLowerCase();
+    html += '<div class="project-item">';
+    html += '<input type="checkbox" id="proj' + index + '" value="' + project.name + '" ' + checked + '>';
+    html += '<label for="proj' + index + '">' + project.name + '</label>';
+    html += '<span class="difficulty ' + diffClass + '">' + project.difficulty + '</span>';
+    html += '</div>';
+  });
+
+  html += '<div style="margin-top: 20px;">';
+  html += '<button onclick="saveSelection()">Save</button>';
+  html += '<button onclick="google.script.host.close()">Cancel</button>';
+  html += '</div>';
+
+  html += '<script>';
+  html += 'function toggleAll(checkbox) {';
+  html += '  var checkboxes = document.querySelectorAll(\'input[type="checkbox"]:not(#select-all)\');';
+  html += '  checkboxes.forEach(cb => cb.checked = checkbox.checked);';
+  html += '}';
+  html += 'function saveSelection() {';
+  html += '  var selected = [];';
+  html += '  var checkboxes = document.querySelectorAll(\'input[type="checkbox"]:checked:not(#select-all)\');';
+  html += '  checkboxes.forEach(cb => selected.push(cb.value));';
+  html += '  google.script.run.withSuccessHandler(function() {';
+  html += '    google.script.host.close();';
+  html += '  }).updateMemberProjects(' + rowNumber + ', selected.join(", "));';
+  html += '}';
+  html += '</script>';
+
+  const htmlOutput = HtmlService.createHtmlOutput(html)
+    .setWidth(500)
+    .setHeight(600);
+
+  SpreadsheetApp.getUi().showModalDialog(htmlOutput, 'Select Projects for Team Member');
+}
+
+/**
+ * Update member projects (called from HTML dialog)
+ */
+function updateMemberProjects(rowNumber, projectsString) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(TEAM_TAB_NAME);
+
+  if (!sheet) return;
+
+  sheet.getRange(rowNumber, TEAM_COLUMNS.PROJECTS.index).setValue(projectsString);
+  SpreadsheetApp.getUi().alert('Projects updated successfully!');
+}
+
+/**
  * Add new team member
  */
 function addTeamMember() {
@@ -205,7 +296,7 @@ function addTeamMember() {
     .setBackground(bg)
     .setBorder(true, true, true, true, false, false, '#e0e0e0', SpreadsheetApp.BorderStyle.SOLID);
 
-  ui.alert('Success', 'Team member added: ' + name, ui.ButtonSet.OK);
+  ui.alert('Success', 'Team member added: ' + name + '\n\nClick on Projects column and use Menu → Assign Projects to select projects.', ui.ButtonSet.OK);
 }
 
 /**

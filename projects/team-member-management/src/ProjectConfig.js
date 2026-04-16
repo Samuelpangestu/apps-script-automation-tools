@@ -6,8 +6,8 @@
  */
 
 const CONFIG_TAB_NAME = 'Config - Projects';
-const CONFIG_HEADER_ROW = 1;
-const CONFIG_DATA_START_ROW = 2;
+const CONFIG_HEADER_ROW = 9; // Updated due to definitions section
+const CONFIG_DATA_START_ROW = 10;
 
 const CONFIG_COLUMNS = {
   NO: { index: 1, letter: 'A', width: 50, header: 'No' },
@@ -34,9 +34,105 @@ function createConfigTab() {
   // Create new sheet
   const sheet = ss.insertSheet(CONFIG_TAB_NAME, 0);
 
-  // Setup structure
-  sheet.setRowHeight(CONFIG_HEADER_ROW, 40);
-  sheet.setFrozenRows(CONFIG_HEADER_ROW);
+  // Add title and difficulty definitions first
+  let currentRow = 1;
+
+  // Title
+  sheet.getRange(currentRow, 1, 1, 5).merge()
+    .setValue('⚙️ PROJECT CONFIGURATION')
+    .setBackground('#1a73e8')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setFontSize(14)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+  sheet.setRowHeight(currentRow, 45);
+  currentRow += 2;
+
+  // Difficulty Definitions
+  sheet.getRange(currentRow, 1, 1, 5).merge()
+    .setValue('📋 DIFFICULTY LEVEL DEFINITIONS')
+    .setBackground('#34a853')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setFontSize(11)
+    .setHorizontalAlignment('center');
+  sheet.setRowHeight(currentRow, 30);
+  currentRow++;
+
+  const definitions = [
+    ['Level', 'Description', 'Characteristics', 'Team Size', 'Example'],
+    [
+      '🟢 Easy',
+      'Straightforward projects with minimal complexity',
+      '• Well-documented requirements\n• Simple workflows\n• Minimal integrations\n• Low risk',
+      '1-2 QE',
+      'COTS, Wahana, Peruri ID'
+    ],
+    [
+      '🟡 Medium',
+      'Moderate complexity with some challenges',
+      '• Multiple modules\n• Some integrations\n• Moderate risk\n• Regular updates needed',
+      '1 PIC + 2-3 QE',
+      'INAgov, Emeterai, Digidoc 2.0, Penjaminan Online'
+    ],
+    [
+      '🔴 Hard',
+      'Complex projects requiring significant expertise',
+      '• High complexity\n• Multiple integrations\n• Critical systems\n• High risk\n• Requires senior oversight',
+      '1 Team Lead + 1 PIC + 3-5 QE',
+      'SIPGN, Peruri Shield, Integrasi Data Omnyx'
+    ]
+  ];
+
+  sheet.getRange(currentRow, 1, definitions.length, 5).setValues(definitions);
+
+  // Format definition header
+  sheet.getRange(currentRow, 1, 1, 5)
+    .setBackground('#666666')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+  currentRow++;
+
+  // Format definition rows
+  for (let i = 0; i < definitions.length - 1; i++) {
+    const rowNum = currentRow + i;
+    let bg = '#ffffff';
+    if (definitions[i + 1][0].includes('Easy')) bg = '#d4edda';
+    else if (definitions[i + 1][0].includes('Medium')) bg = '#fff3cd';
+    else if (definitions[i + 1][0].includes('Hard')) bg = '#f8d7da';
+
+    sheet.getRange(rowNum, 1, 1, 5)
+      .setBackground(bg)
+      .setBorder(true, true, true, true, false, false, '#000000', SpreadsheetApp.BorderStyle.SOLID)
+      .setWrap(true)
+      .setVerticalAlignment('top');
+
+    sheet.setRowHeight(rowNum, 80);
+  }
+
+  // Set column widths for definition section
+  sheet.setColumnWidth(1, 100);
+  sheet.setColumnWidth(2, 200);
+  sheet.setColumnWidth(3, 250);
+  sheet.setColumnWidth(4, 120);
+  sheet.setColumnWidth(5, 230);
+
+  currentRow += definitions.length;
+  currentRow++; // Empty row
+
+  // Project List Section
+  const projectListRow = currentRow;
+  sheet.getRange(currentRow, 1, 1, 5).merge()
+    .setValue('📁 PROJECT LIST')
+    .setBackground('#1a73e8')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setFontSize(11)
+    .setHorizontalAlignment('center');
+  sheet.setRowHeight(currentRow, 35);
+  currentRow++;
 
   // Create header
   const headers = [
@@ -47,15 +143,16 @@ function createConfigTab() {
     CONFIG_COLUMNS.STATUS.header
   ];
 
-  sheet.getRange(CONFIG_HEADER_ROW, 1, 1, CONFIG_TOTAL_COLUMNS)
+  sheet.getRange(currentRow, 1, 1, CONFIG_TOTAL_COLUMNS)
     .setValues([headers])
-    .setBackground('#1a73e8')
+    .setBackground('#666666')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
     .setHorizontalAlignment('center')
     .setVerticalAlignment('middle');
+  currentRow++;
 
-  // Set column widths
+  // Set column widths for project list
   sheet.setColumnWidth(CONFIG_COLUMNS.NO.index, CONFIG_COLUMNS.NO.width);
   sheet.setColumnWidth(CONFIG_COLUMNS.PROJECT_NAME.index, CONFIG_COLUMNS.PROJECT_NAME.width);
   sheet.setColumnWidth(CONFIG_COLUMNS.DIFFICULTY.index, CONFIG_COLUMNS.DIFFICULTY.width);
@@ -76,12 +173,13 @@ function createConfigTab() {
     [10, 'Integrasi Data Omnyx', 'Hard', 'Omnyx Data Integration', 'Active']
   ];
 
-  sheet.getRange(CONFIG_DATA_START_ROW, 1, sampleProjects.length, CONFIG_TOTAL_COLUMNS)
+  const projectStartRow = currentRow;
+  sheet.getRange(projectStartRow, 1, sampleProjects.length, CONFIG_TOTAL_COLUMNS)
     .setValues(sampleProjects);
 
   // Apply formatting
   for (let i = 0; i < sampleProjects.length; i++) {
-    const rowNum = CONFIG_DATA_START_ROW + i;
+    const rowNum = projectStartRow + i;
     const bg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
     sheet.getRange(rowNum, 1, 1, CONFIG_TOTAL_COLUMNS)
       .setBackground(bg)
@@ -89,14 +187,14 @@ function createConfigTab() {
   }
 
   // Add data validation for Difficulty
-  const difficultyRange = sheet.getRange(CONFIG_DATA_START_ROW, CONFIG_COLUMNS.DIFFICULTY.index, 100);
+  const difficultyRange = sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 100);
   const difficultyRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Easy', 'Medium', 'Hard'], true)
     .build();
   difficultyRange.setDataValidation(difficultyRule);
 
   // Add data validation for Status
-  const statusRange = sheet.getRange(CONFIG_DATA_START_ROW, CONFIG_COLUMNS.STATUS.index, 100);
+  const statusRange = sheet.getRange(projectStartRow, CONFIG_COLUMNS.STATUS.index, 100);
   const statusRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Active', 'Inactive', 'Completed'], true)
     .build();
@@ -106,19 +204,19 @@ function createConfigTab() {
   const easyRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('Easy')
     .setBackground('#d4edda')
-    .setRanges([sheet.getRange(CONFIG_DATA_START_ROW, CONFIG_COLUMNS.DIFFICULTY.index, 100, 1)])
+    .setRanges([sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 100, 1)])
     .build();
 
   const mediumRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('Medium')
     .setBackground('#fff3cd')
-    .setRanges([sheet.getRange(CONFIG_DATA_START_ROW, CONFIG_COLUMNS.DIFFICULTY.index, 100, 1)])
+    .setRanges([sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 100, 1)])
     .build();
 
   const hardRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('Hard')
     .setBackground('#f8d7da')
-    .setRanges([sheet.getRange(CONFIG_DATA_START_ROW, CONFIG_COLUMNS.DIFFICULTY.index, 100, 1)])
+    .setRanges([sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 100, 1)])
     .build();
 
   sheet.setConditionalFormatRules([easyRule, mediumRule, hardRule]);
