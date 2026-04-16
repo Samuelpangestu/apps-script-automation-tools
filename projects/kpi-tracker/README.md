@@ -24,10 +24,11 @@ Maintainable and flexible KPI tracking tool for QA team with integrated 360 Revi
 
 ```
 📁 Tabs
+├── Dashboard                 # Overview & summary of all periods
 ├── Config                    # Team members management
 ├── KPI Definition            # Maintainable KPI definitions per role
-├── Form Responses 1          # Auto-created by 360 Review Form
-└── (Future: KPI Tracker)     # Actual KPI tracking per period
+├── KPI - <Period>            # Actual KPI tracking per period (dynamic)
+└── Form Responses 1          # Auto-created by 360 Review Form
 ```
 
 ## Roles & KPIs
@@ -71,6 +72,30 @@ Maintainable and flexible KPI tracking tool for QA team with integrated 360 Revi
 2. Edit targets, formulas, or data sources directly
 3. Add new rows for new KPIs
 4. Changes are immediately effective
+
+### Tracking KPIs per Period
+
+**Creating Period Tracker:**
+1. Menu → **KPI Tracking** → **Create Period Tracker**
+2. Enter period name (e.g., "Sprint 24", "Jan 2026", "Q1 2026")
+3. Select period type:
+   - **Sprint**: Tracks sprint-based KPIs only
+   - **Monthly**: Tracks monthly KPIs only
+   - **Quarterly**: Tracks quarterly KPIs only
+4. New sheet created (e.g., "KPI - Sprint 24")
+
+**Filling Actual Values:**
+1. Open the period tracker sheet
+2. Fill **Actual** column with real measured values
+3. **Achievement %** auto-calculates
+4. **Status** auto-updates (✅ Met / ❌ Not Met / ⚪ Pending)
+5. Summary stats update automatically
+
+**Viewing Dashboard:**
+1. Open **Dashboard** tab
+2. See overview of all periods
+3. Check success rates
+4. Refresh: Menu → **KPI Tracking** → **Refresh Dashboard**
 
 ### 360 Review Process
 
@@ -118,6 +143,8 @@ projects/kpi-tracker/
 │   ├── appsscript.json       # Apps Script manifest
 │   ├── TeamConfig.js         # Team member management
 │   ├── KPIDefinition.js      # KPI definitions
+│   ├── KPITracker.js         # Period tracker creation
+│   ├── Dashboard.js          # Dashboard & overview
 │   ├── Review360.js          # 360 Review form & scoring
 │   └── MenuFunctions.js      # Menu UI & setup
 ├── .clasp.json               # Deployment config
@@ -140,6 +167,9 @@ clasp pull
 - **v1.0.0** (2026-04-16): Initial release
   - Config tab with team member management
   - KPI Definition tab with all QA KPIs
+  - Period tracker creation (Sprint/Monthly/Quarterly)
+  - Dashboard with overview & summary
+  - Auto-calculation of achievement % and status
   - 360 Review Form integration
   - Weighted scoring calculation
 
