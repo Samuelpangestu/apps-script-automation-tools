@@ -453,164 +453,29 @@ function addTeamMember() {
 }
 
 /**
- * Import existing team member data
- * Reads from backup/source tab and imports to Team Member tab
- *
- * @param {string} sourceTabName - Name of source tab (default: 'Team Member Backup')
+ * Apply formatting to existing data
+ * Use this after manually importing data
  */
-function importExistingData(sourceTabName) {
-  sourceTabName = sourceTabName || 'Team Member Backup';
-
+function applyFormattingToData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sourceSheet = ss.getSheetByName(sourceTabName);
+  const sheet = ss.getSheetByName(TAB_NAME);
 
-  if (!sourceSheet) {
-    throw new Error('Source tab "' + sourceTabName + '" not found. Please rename your existing tab to "Team Member Backup" first.');
-  }
-
-  Logger.log('📥 Starting import from: ' + sourceTabName);
-
-  // Get all data from source (assuming header in row 1, data starts row 2)
-  const lastRow = sourceSheet.getLastRow();
-  if (lastRow < 2) {
-    Logger.log('⚠️ No data to import');
-    return { success: false, message: 'No data found in source tab' };
-  }
-
-  const sourceData = sourceSheet.getRange(2, 1, lastRow - 1, 14).getValues();
-  Logger.log('Found ' + sourceData.length + ' rows to process');
-
-  // Get or create Team Member sheet
-  let sheet = ss.getSheetByName(TAB_NAME);
   if (!sheet) {
-    Logger.log('Team Member tab not found, creating new one...');
-    createTeamMemberTab();
-    sheet = ss.getSheetByName(TAB_NAME);
+    throw new Error('Team Member tab not found');
   }
 
-  // Clear existing data (keep header)
-  const lastExistingRow = sheet.getLastRow();
-  if (lastExistingRow > 1) {
-    sheet.deleteRows(DATA_START_ROW, lastExistingRow - 1);
+  Logger.log('🎨 Applying formatting to existing data...');
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < DATA_START_ROW) {
+    Logger.log('No data to format');
+    return { success: false, message: 'No data found' };
   }
 
-  // Process and import data
-  const importedData = [];
-  let skippedSections = 0;
-  let skippedEmpty = 0;
+  const dataRowCount = lastRow - DATA_START_ROW + 1;
 
-  sourceData.forEach((row, index) => {
-    const name = row[0] ? row[0].toString().trim() : '';
-
-    // Skip completely empty rows
-    if (!name) {
-      skippedEmpty++;
-      return;
-    }
-
-    // Skip section headers (MBG, Riset/Security, "Tidak Lolos", etc.)
-    const lowerName = name.toLowerCase();
-    if (lowerName === 'mbg' ||
-        lowerName.includes('tidak lolos') ||
-        lowerName.includes('riset') ||
-        lowerName.includes('security') ||
-        name.length < 3) {
-      skippedSections++;
-      Logger.log('  Skipped section header: ' + name);
-      return;
-    }
-
-    // Parse join date
-    let joinDate = '';
-    if (row[1]) {
-      if (row[1] instanceof Date) {
-        joinDate = row[1];
-      } else {
-        const dateStr = row[1].toString().trim();
-        if (dateStr) {
-          try {
-            // Try parsing MM-DD-YYYY format
-            if (dateStr.includes('-')) {
-              const parts = dateStr.split('-');
-              if (parts.length === 3) {
-                joinDate = new Date(parts[2], parts[0] - 1, parts[1]);
-              }
-            } else {
-              joinDate = new Date(dateStr);
-            }
-          } catch (e) {
-            Logger.log('  Warning: Could not parse date "' + dateStr + '" for ' + name);
-            joinDate = '';
-          }
-        }
-      }
-    }
-
-    // Parse automation checkbox
-    let automation = false;
-    if (row[9] !== undefined && row[9] !== null && row[9] !== '') {
-      const automationVal = row[9].toString().trim().toUpperCase();
-      automation = (automationVal === 'TRUE' || automationVal === 'YES' || automationVal === '1');
-    }
-
-    // Parse VPN ABC checkbox
-    let vpnABC = false;
-    if (row[13] !== undefined && row[13] !== null && row[13] !== '') {
-      const vpnVal = row[13].toString().trim().toUpperCase();
-      vpnABC = (vpnVal === 'TRUE' || vpnVal === 'YES' || vpnVal === '1');
-    }
-
-    // Clean status value
-    let status = row[8] ? row[8].toString().trim() : 'Onboard';
-    // Normalize status values
-    if (status.toLowerCase().includes('tidak ada kabar')) {
-      status = 'Tidak Ada Kabar';
-    } else if (status.toLowerCase() === 'onboard') {
-      status = 'Onboard';
-    } else if (status.toLowerCase() === 'digispark') {
-      status = 'Digispark';
-    } else if (status.toLowerCase() === 'resign') {
-      status = 'Resign';
-    } else if (status.toLowerCase().includes('contract')) {
-      status = 'Contract End';
-    }
-
-    // Map data to new structure (15 columns)
-    const mappedRow = [
-      name,                                           // Col A: Name
-      joinDate,                                       // Col B: Join Date
-      row[2] ? row[2].toString().trim() : '',        // Col C: Title
-      row[3] ? row[3].toString().trim() : '',        // Col D: Lead/PIC
-      row[4] ? row[4].toString().trim() : '',        // Col E: Project
-      row[5] ? row[5].toString().trim() : '',        // Col F: NP
-      row[6] ? row[6].toString().trim() : '',        // Col G: Email
-      row[7] ? row[7].toString().trim() : '',        // Col H: Email 2
-      status,                                         // Col I: Status
-      automation,                                     // Col J: Automation
-      row[10] ? row[10].toString().trim() : '',      // Col K: Github
-      row[11] ? row[11].toString().trim() : '',      // Col L: Phone
-      row[12] ? row[12].toString().trim() : '',      // Col M: Role
-      vpnABC,                                         // Col N: VPN ABC
-      false                                           // Col O: VPN Huwawei (default false)
-    ];
-
-    importedData.push(mappedRow);
-    Logger.log('  ✓ Imported: ' + name);
-  });
-
-  Logger.log('Processed ' + importedData.length + ' team members (skipped ' + skippedSections + ' sections, ' + skippedEmpty + ' empty rows)');
-
-  if (importedData.length === 0) {
-    Logger.log('⚠️ No valid data to import');
-    return { success: false, message: 'No valid team member data found' };
-  }
-
-  // Write imported data to sheet
-  sheet.getRange(DATA_START_ROW, 1, importedData.length, TOTAL_COLUMNS).setValues(importedData);
-  Logger.log('✅ Data written to sheet');
-
-  // Apply formatting to imported rows
-  for (let i = 0; i < importedData.length; i++) {
+  // Apply row formatting
+  for (let i = 0; i < dataRowCount; i++) {
     const rowNum = DATA_START_ROW + i;
     const bg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
     sheet.getRange(rowNum, 1, 1, TOTAL_COLUMNS)
@@ -618,11 +483,9 @@ function importExistingData(sourceTabName) {
       .setBorder(true, true, true, true, false, false, '#e0e0e0', SpreadsheetApp.BorderStyle.SOLID);
 
     // Date format for Join Date column
-    if (importedData[i][1]) {
-      sheet.getRange(rowNum, COLUMNS.JOIN.index).setNumberFormat('yyyy-mm-dd');
-    }
+    sheet.getRange(rowNum, COLUMNS.JOIN.index).setNumberFormat('yyyy-mm-dd');
   }
-  Logger.log('✅ Formatting applied');
+  Logger.log('✅ Row formatting applied');
 
   // Reapply data validation
   addDataValidation(sheet);
@@ -632,18 +495,12 @@ function importExistingData(sourceTabName) {
   addConditionalFormatting(sheet);
   Logger.log('✅ Conditional formatting added');
 
-  // Add instructions
-  addInstructions(sheet);
-  Logger.log('✅ Instructions added');
-
-  const message = 'Successfully imported ' + importedData.length + ' team members';
-  Logger.log('🎉 ' + message);
+  Logger.log('🎉 Formatting complete!');
 
   return {
     success: true,
-    imported: importedData.length,
-    skipped: skippedSections + skippedEmpty,
-    message: message
+    formatted: dataRowCount,
+    message: 'Successfully formatted ' + dataRowCount + ' rows'
   };
 }
 

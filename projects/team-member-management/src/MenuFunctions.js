@@ -21,7 +21,7 @@ function onOpen() {
     .addItem('➕ Add Team Member', 'menuAddTeamMember')
     .addItem('📊 View Summary', 'menuViewSummary')
     .addSeparator()
-    .addItem('📥 Import Existing Data', 'menuImportData')
+    .addItem('🎨 Apply Formatting', 'menuApplyFormatting')
     .addItem('📤 Export Data', 'menuExportData')
     .addSeparator()
     .addItem('ℹ️ About', 'menuShowAbout')
@@ -219,24 +219,21 @@ function menuExportData() {
 }
 
 /**
- * Menu handler: Import Existing Data
- * Imports team member data from a backup/source tab
+ * Menu handler: Apply Formatting
+ * Applies professional formatting to existing data
  */
-function menuImportData() {
+function menuApplyFormatting() {
   const ui = SpreadsheetApp.getUi();
 
-  // Show instructions
   const response = ui.alert(
-    'Import Existing Data',
-    'This will import team member data from another tab.\n\n' +
-    'INSTRUCTIONS:\n' +
-    '1. Rename your existing data tab to "Team Member Backup"\n' +
-    '2. Make sure the tab has headers in row 1\n' +
-    '3. Data should start from row 2\n\n' +
-    'IMPORTANT:\n' +
-    '• Current Team Member tab data will be REPLACED\n' +
-    '• Export current data first if you want to keep it\n' +
-    '• Section headers (MBG, Riset, etc.) will be skipped\n\n' +
+    'Apply Formatting',
+    'This will apply professional formatting to your existing data:\n\n' +
+    '✓ Alternating row colors (white/gray)\n' +
+    '✓ Data validation (dropdowns for Status, Role, etc.)\n' +
+    '✓ Conditional formatting (status colors)\n' +
+    '✓ Date formatting\n' +
+    '✓ Cell borders\n\n' +
+    'Use this after manually importing data.\n\n' +
     'Continue?',
     ui.ButtonSet.YES_NO
   );
@@ -246,42 +243,35 @@ function menuImportData() {
   }
 
   try {
-    // Call import function
-    const result = importExistingData('Team Member Backup');
+    const result = applyFormattingToData();
 
     if (result.success) {
       ui.alert(
-        '✅ Import Successful',
-        'Team member data has been imported!\n\n' +
-        'Imported: ' + result.imported + ' team members\n' +
-        'Skipped: ' + result.skipped + ' rows (sections/empty)\n\n' +
-        'The data has been formatted with:\n' +
-        '• Professional styling\n' +
+        '✅ Formatting Applied',
+        'Professional formatting has been applied!\n\n' +
+        'Formatted: ' + result.formatted + ' rows\n\n' +
+        'Applied:\n' +
+        '• Row styling (alternating colors)\n' +
         '• Data validation (dropdowns)\n' +
         '• Conditional formatting (status colors)\n' +
-        '• Proper date formatting\n\n' +
-        'You can now delete the "Team Member Backup" tab if you want.',
+        '• Date formatting (yyyy-mm-dd)\n' +
+        '• Cell borders',
         ui.ButtonSet.OK
       );
     } else {
       ui.alert(
-        '❌ Import Failed',
-        result.message + '\n\n' +
-        'Please check:\n' +
-        '1. Tab "Team Member Backup" exists\n' +
-        '2. Tab has data starting from row 2\n' +
-        '3. Headers are in row 1',
+        '⚠️ No Data',
+        result.message,
         ui.ButtonSet.OK
       );
     }
   } catch (error) {
     ui.alert(
       '❌ Error',
-      'Failed to import data:\n\n' + error.message + '\n\n' +
-      'Make sure you renamed your existing tab to "Team Member Backup"',
+      'Failed to apply formatting:\n\n' + error.message,
       ui.ButtonSet.OK
     );
-    Logger.log('Error importing data: ' + error.message);
+    Logger.log('Error applying formatting: ' + error.message);
   }
 }
 
