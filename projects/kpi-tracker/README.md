@@ -116,7 +116,7 @@ Maintainable and flexible KPI tracking tool for QA team with integrated 360 Revi
 projects/kpi-tracker/
 ├── src/
 │   ├── appsscript.json       # Apps Script manifest
-│   ├── Config.js             # Team member management
+│   ├── TeamConfig.js         # Team member management
 │   ├── KPIDefinition.js      # KPI definitions
 │   ├── Review360.js          # 360 Review form & scoring
 │   └── MenuFunctions.js      # Menu UI & setup

@@ -57,7 +57,7 @@ const RATING_CRITERIA = [
  * @returns {Array} Array of reviewee names
  */
 function getRevieweesFromConfig_() {
-  const members = getTeamMembers();  // From Config.js
+  const members = getTeamMembers();  // From TeamConfig.js
   const reviewees = [];
 
   members.forEach(member => {
@@ -86,7 +86,7 @@ function create360ReviewForm() {
   const reviewees = getRevieweesFromConfig_();
 
   // Check if form already exists
-  const existingSettings = getFormSettings();  // From Config.js
+  const existingSettings = getFormSettings();  // From TeamConfig.js
   if (existingSettings.formId) {
     const ui = SpreadsheetApp.getUi();
     const res = ui.alert(
@@ -177,7 +177,7 @@ function create360ReviewForm() {
 
   // Save form settings to Config
   const shortUrl = form.shortenFormUrl(form.getPublishedUrl());
-  saveFormSettings(form.getId(), shortUrl, form.getEditUrl());  // From Config.js
+  saveFormSettings(form.getId(), shortUrl, form.getEditUrl());  // From TeamConfig.js
 
   Logger.log('Form ID  : ' + form.getId());
   Logger.log('Form URL : ' + shortUrl);
@@ -198,7 +198,7 @@ function create360ReviewForm() {
  * Run this when team members change
  */
 function update360RevieweeList() {
-  const settings = getFormSettings();  // From Config.js
+  const settings = getFormSettings();  // From TeamConfig.js
 
   if (!settings.formId) {
     SpreadsheetApp.getUi().alert(
@@ -241,7 +241,7 @@ function update360RevieweeList() {
  * Show 360 Review Form info
  */
 function show360ReviewFormInfo() {
-  const settings = getFormSettings();  // From Config.js
+  const settings = getFormSettings();  // From TeamConfig.js
 
   if (!settings.formId) {
     SpreadsheetApp.getUi().alert('Belum ada form. Jalankan create360ReviewForm() terlebih dahulu.');
