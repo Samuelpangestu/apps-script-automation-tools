@@ -19,6 +19,7 @@ function onOpen() {
     .addItem('📊 Create Dashboard', 'menuCreateDashboard')
     .addSeparator()
     .addItem('➕ Add Team Member', 'menuAddMember')
+    .addItem('📋 Assign Projects', 'menuAssignProjects')
     .addItem('🔄 Refresh Dashboard', 'menuRefreshDashboard')
     .addSeparator()
     .addItem('ℹ️ About', 'menuShowAbout')
@@ -163,6 +164,46 @@ function menuAddMember() {
 }
 
 /**
+ * Assign projects to team member
+ */
+function menuAssignProjects() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+
+  // Check if we're on Team Members sheet
+  if (sheet.getName() !== TEAM_TAB_NAME) {
+    ui.alert(
+      'Wrong Sheet',
+      'Please select a row in the Team Members sheet first.\n\n' +
+      '1. Go to Team Members tab\n' +
+      '2. Click on the team member row\n' +
+      '3. Then run this menu again',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  // Get active row
+  const activeRow = sheet.getActiveCell().getRow();
+
+  if (activeRow < TEAM_DATA_START_ROW) {
+    ui.alert(
+      'Select Team Member',
+      'Please click on a team member row (not the header).',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  try {
+    selectProjectsForMember(activeRow);
+  } catch (error) {
+    ui.alert('Error', 'Failed to assign projects: ' + error.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
  * Refresh dashboard
  */
 function menuRefreshDashboard() {
@@ -189,25 +230,38 @@ function menuShowAbout() {
     'Author: QA Team\n\n' +
     '📋 FEATURES\n\n' +
     '• Project configuration with difficulty levels\n' +
+    '• Difficulty definitions (Easy/Medium/Hard)\n' +
     '• Team member management\n' +
-    '• Multiple project assignments per member\n' +
+    '• Multi-select project assignment dialog\n' +
     '• Project distribution dashboard\n' +
-    '• Visual difficulty indicators\n\n' +
+    '• Visual difficulty indicators\n' +
+    '• Long-term maintainable structure\n' +
+    '• Ready for KPI integration\n\n' +
     '═══════════════════════════════\n\n' +
     'TABS:\n\n' +
     '1. Config - Projects\n' +
-    '   Manage project list and difficulty\n\n' +
+    '   • Difficulty level definitions table\n' +
+    '   • Project list with difficulty & status\n' +
+    '   • Add/remove projects anytime\n\n' +
     '2. Team Members\n' +
-    '   Manage team with project assignments\n\n' +
+    '   • Team member info (6 columns)\n' +
+    '   • Multiple project assignments\n' +
+    '   • Role-based management\n\n' +
     '3. Dashboard\n' +
-    '   View team distribution across projects\n\n' +
+    '   • Team summary by role\n' +
+    '   • Project distribution table\n' +
+    '   • Auto-refresh capability\n\n' +
     '═══════════════════════════════\n\n' +
     'USAGE:\n\n' +
     '1. Setup all tabs (Menu → Setup All Tabs)\n' +
-    '2. Add projects in Config tab\n' +
-    '3. Add team members in Team Members tab\n' +
-    '4. Assign projects (comma-separated)\n' +
+    '2. Add/edit projects in Config tab\n' +
+    '3. Add team members (Menu → Add Team Member)\n' +
+    '4. Select member row → Assign Projects\n' +
     '5. Refresh dashboard to see distribution\n\n' +
+    'DIFFICULTY LEVELS:\n\n' +
+    '🟢 Easy: 1-2 QE (COTS, Wahana)\n' +
+    '🟡 Medium: 1 PIC + 2-3 QE (INAgov)\n' +
+    '🔴 Hard: 1 Lead + 1 PIC + 3-5 QE (SIPGN)\n\n' +
     '═══════════════════════════════\n\n' +
     '© 2024 QA Department';
 
