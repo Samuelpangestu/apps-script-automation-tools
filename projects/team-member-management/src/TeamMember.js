@@ -13,13 +13,14 @@ const TEAM_COLUMNS = {
   NO: { index: 1, letter: 'A', width: 50, header: 'No' },
   NAME: { index: 2, letter: 'B', width: 200, header: 'Name' },
   ROLE: { index: 3, letter: 'C', width: 150, header: 'Role' },
-  MODUL: { index: 4, letter: 'D', width: 150, header: 'Modul' },
-  SUBMODUL: { index: 5, letter: 'E', width: 300, header: 'Submodul' },
-  EMAIL: { index: 6, letter: 'F', width: 250, header: 'Email' },
-  STATUS: { index: 7, letter: 'G', width: 100, header: 'Status' }
+  PROJECTS: { index: 4, letter: 'D', width: 200, header: 'Projects' },
+  MODUL: { index: 5, letter: 'E', width: 200, header: 'Modul' },
+  SUBMODUL: { index: 6, letter: 'F', width: 300, header: 'Submodul' },
+  EMAIL: { index: 7, letter: 'G', width: 250, header: 'Email' },
+  STATUS: { index: 8, letter: 'H', width: 100, header: 'Status' }
 };
 
-const TEAM_TOTAL_COLUMNS = 7;
+const TEAM_TOTAL_COLUMNS = 8;
 
 /**
  * Create Team Members tab
@@ -44,6 +45,7 @@ function createTeamMemberTab() {
     TEAM_COLUMNS.NO.header,
     TEAM_COLUMNS.NAME.header,
     TEAM_COLUMNS.ROLE.header,
+    TEAM_COLUMNS.PROJECTS.header,
     TEAM_COLUMNS.MODUL.header,
     TEAM_COLUMNS.SUBMODUL.header,
     TEAM_COLUMNS.EMAIL.header,
@@ -63,12 +65,12 @@ function createTeamMemberTab() {
     sheet.setColumnWidth(col.index, col.width);
   });
 
-  // Add sample data
+  // Add sample data (Project → Modul → Submodul)
   const sampleData = [
-    [1, 'Samuel Pangestu', 'QA Team Lead', 'SIPGN', 'Core System, Integration Module', 'samuel.gonggom@inadigital.co.id', 'Active'],
-    [2, 'Muhammad Lutfi', 'QA Team Lead', 'INADigital', 'INAgov, Emeterai', 'muhamad.ramdani@inadigital.co.id', 'Active'],
-    [3, 'Irvan Muhandis', 'PIC Project', 'INADigital', 'INAgov, Wahana', 'irvan.muhandis@inadigital.co.id', 'Active'],
-    [4, 'Muhammad Rizky', 'Quality Engineer', 'INADigital', 'Wahana, COTS', 'muhammad.ferdiansyah@inadigital.co.id', 'Active']
+    [1, 'Samuel Pangestu', 'QA Team Lead', 'Government Systems', 'SIPGN', 'Core System, Integration Module', 'samuel.gonggom@inadigital.co.id', 'Active'],
+    [2, 'Muhammad Lutfi', 'QA Team Lead', 'Digital Peruri', 'INADigital', 'INAgov, Emeterai', 'muhamad.ramdani@inadigital.co.id', 'Active'],
+    [3, 'Irvan Muhandis', 'PIC Project', 'Digital Peruri', 'INADigital', 'INAgov, Wahana', 'irvan.muhandis@inadigital.co.id', 'Active'],
+    [4, 'Muhammad Rizky', 'Quality Engineer', 'Digital Peruri', 'INADigital', 'Wahana, COTS', 'muhammad.ferdiansyah@inadigital.co.id', 'Active']
   ];
 
   sheet.getRange(TEAM_DATA_START_ROW, 1, sampleData.length, TEAM_TOTAL_COLUMNS)
@@ -220,17 +222,19 @@ function getTeamMembersByRole(role) {
   data.forEach(row => {
     const name = row[1] ? row[1].toString().trim() : '';
     const memberRole = row[2] ? row[2].toString().trim() : '';
-    const modul = row[3] ? row[3].toString().trim() : '';
-    const submodul = row[4] ? row[4].toString().trim() : '';
-    const status = row[6] ? row[6].toString().trim() : '';
+    const projects = row[3] ? row[3].toString().trim() : '';
+    const modul = row[4] ? row[4].toString().trim() : '';
+    const submodul = row[5] ? row[5].toString().trim() : '';
+    const status = row[7] ? row[7].toString().trim() : '';
 
     if (name && status === 'Active' && memberRole === role) {
       members.push({
         name: name,
         role: memberRole,
-        modul: modul,
+        projects: projects.split(',').map(p => p.trim()).filter(p => p),
+        modul: modul.split(',').map(m => m.trim()).filter(m => m),
         submodul: submodul.split(',').map(s => s.trim()).filter(s => s),
-        email: row[5] ? row[5].toString().trim() : ''
+        email: row[6] ? row[6].toString().trim() : ''
       });
     }
   });
@@ -255,15 +259,16 @@ function getAllActiveTeamMembers() {
   const members = [];
   data.forEach(row => {
     const name = row[1] ? row[1].toString().trim() : '';
-    const status = row[6] ? row[6].toString().trim() : '';
+    const status = row[7] ? row[7].toString().trim() : '';
 
     if (name && status === 'Active') {
       members.push({
         name: name,
         role: row[2] ? row[2].toString().trim() : '',
-        modul: row[3] ? row[3].toString().trim() : '',
-        submodul: row[4] ? row[4].toString().split(',').map(s => s.trim()).filter(s => s) : [],
-        email: row[5] ? row[5].toString().trim() : ''
+        projects: row[3] ? row[3].toString().split(',').map(p => p.trim()).filter(p => p) : [],
+        modul: row[4] ? row[4].toString().split(',').map(m => m.trim()).filter(m => m) : [],
+        submodul: row[5] ? row[5].toString().split(',').map(s => s.trim()).filter(s => s) : [],
+        email: row[6] ? row[6].toString().trim() : ''
       });
     }
   });

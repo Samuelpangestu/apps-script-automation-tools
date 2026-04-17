@@ -29,8 +29,8 @@ function createDashboard() {
   let currentRow = 1;
 
   // Title
-  sheet.getRange(currentRow, 1, 1, 7).merge()
-    .setValue('📊 QA TEAM MODUL & SUBMODUL DISTRIBUTION')
+  sheet.getRange(currentRow, 1, 1, 10).merge()
+    .setValue('📊 QA TEAM PROJECT & SUBMODUL DISTRIBUTION')
     .setBackground('#1a73e8')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
@@ -41,12 +41,17 @@ function createDashboard() {
   currentRow += 2;
 
   // Get data
+  const projects = getActiveProjects();
   const moduls = getActiveModul();
   const submoduls = getActiveSubmodul();
   const teamMembers = getAllActiveTeamMembers();
 
   // Summary section
   sheet.getRange(currentRow, 1).setValue('📈 SUMMARY').setFontWeight('bold').setFontSize(12);
+  currentRow++;
+
+  sheet.getRange(currentRow, 1).setValue('Total Active Projects:');
+  sheet.getRange(currentRow, 2).setValue(projects.length);
   currentRow++;
 
   sheet.getRange(currentRow, 1).setValue('Total Active Modul:');
@@ -87,8 +92,8 @@ function createDashboard() {
   currentRow += 2;
 
   // Submodul distribution section
-  sheet.getRange(currentRow, 1, 1, 7).merge()
-    .setValue('🎯 SUBMODUL TEAM ASSIGNMENTS')
+  sheet.getRange(currentRow, 1, 1, 10).merge()
+    .setValue('🎯 SUBMODUL TEAM ASSIGNMENTS (with Ratings)')
     .setBackground('#34a853')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
@@ -99,8 +104,8 @@ function createDashboard() {
   currentRow++;
 
   // Table header
-  const tableHeaders = ['Modul', 'Submodul', 'Difficulty', 'QA Team Lead', 'QA Lead', 'PIC Project', 'Quality Engineer'];
-  sheet.getRange(currentRow, 1, 1, 7)
+  const tableHeaders = ['Project', 'Modul', 'Submodul', 'Diff.', 'Risk', 'Comp.', 'QA Team Lead', 'QA Lead', 'PIC Project', 'QE'];
+  sheet.getRange(currentRow, 1, 1, 10)
     .setValues([tableHeaders])
     .setBackground('#666666')
     .setFontColor('#ffffff')
@@ -112,6 +117,10 @@ function createDashboard() {
 
   // Build submodul distribution table
   submoduls.forEach((submodul, index) => {
+    // Find project from modul
+    const modul = moduls.find(m => m.name === submodul.modul);
+    const projectName = modul ? modul.project : '-';
+
     // Get team members for this submodul
     const qaTeamLeads = [];
     const qaLeads = [];
@@ -133,46 +142,55 @@ function createDashboard() {
     });
 
     const rowData = [
+      projectName,
       submodul.modul,
       submodul.name,
       submodul.difficulty,
+      submodul.risk,
+      submodul.complexity,
       qaTeamLeads.join(', ') || '-',
       qaLeads.join(', ') || '-',
       pics.join(', ') || '-',
       qes.join(', ') || '-'
     ];
 
-    sheet.getRange(currentRow, 1, 1, 7).setValues([rowData]);
+    sheet.getRange(currentRow, 1, 1, 10).setValues([rowData]);
 
     // Row styling
     const bg = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
-    sheet.getRange(currentRow, 1, 1, 7)
+    sheet.getRange(currentRow, 1, 1, 10)
       .setBackground(bg)
       .setWrap(true)
       .setVerticalAlignment('top');
 
-    // Difficulty color coding
-    let difficultyBg = '#ffffff';
-    if (submodul.difficulty === 'Easy') {
-      difficultyBg = '#d4edda';
-    } else if (submodul.difficulty === 'Medium') {
-      difficultyBg = '#fff3cd';
-    } else if (submodul.difficulty === 'Hard') {
-      difficultyBg = '#f8d7da';
+    // Rating color coding (difficulty/risk/complexity)
+    const avgRating = (submodul.difficulty + submodul.risk + submodul.complexity) / 3;
+    let ratingBg = '#ffffff';
+    if (avgRating <= 3) {
+      ratingBg = '#d4edda'; // Low (green)
+    } else if (avgRating <= 6) {
+      ratingBg = '#fff3cd'; // Medium (yellow)
+    } else {
+      ratingBg = '#f8d7da'; // High (red)
     }
-    sheet.getRange(currentRow, 3).setBackground(difficultyBg);
+    sheet.getRange(currentRow, 4).setBackground(ratingBg);
+    sheet.getRange(currentRow, 5).setBackground(ratingBg);
+    sheet.getRange(currentRow, 6).setBackground(ratingBg);
 
     currentRow++;
   });
 
   // Set column widths
-  sheet.setColumnWidth(1, 150); // Modul
-  sheet.setColumnWidth(2, 200); // Submodul
-  sheet.setColumnWidth(3, 100); // Difficulty
-  sheet.setColumnWidth(4, 180); // QA Team Lead
-  sheet.setColumnWidth(5, 180); // QA Lead
-  sheet.setColumnWidth(6, 180); // PIC Project
-  sheet.setColumnWidth(7, 180); // Quality Engineer
+  sheet.setColumnWidth(1, 150); // Project
+  sheet.setColumnWidth(2, 150); // Modul
+  sheet.setColumnWidth(3, 200); // Submodul
+  sheet.setColumnWidth(4, 70);  // Difficulty
+  sheet.setColumnWidth(5, 70);  // Risk
+  sheet.setColumnWidth(6, 70);  // Complexity
+  sheet.setColumnWidth(7, 160); // QA Team Lead
+  sheet.setColumnWidth(8, 160); // QA Lead
+  sheet.setColumnWidth(9, 160); // PIC Project
+  sheet.setColumnWidth(10, 160); // Quality Engineer
 
   // Auto-resize rows for wrapped text
   for (let i = tableStartRow; i < currentRow; i++) {
@@ -194,7 +212,7 @@ function createDashboard() {
   currentRow += 2;
 
   // Footer
-  sheet.getRange(currentRow, 1, 1, 7).merge()
+  sheet.getRange(currentRow, 1, 1, 10).merge()
     .setValue('Last updated: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'))
     .setFontStyle('italic')
     .setFontSize(9)
