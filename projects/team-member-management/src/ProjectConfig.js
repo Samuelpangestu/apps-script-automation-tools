@@ -1,52 +1,30 @@
 /**
  * ProjectConfig.js — Centralized Configuration Management
  * ═══════════════════════════════════════════════════════════════════════
- * Manage modul, submodul, and difficulty levels - all in one place
+ * Flat table format (Portfolio style) for team management
  * ═══════════════════════════════════════════════════════════════════════
  */
 
 const CONFIG_TAB_NAME = 'Config';
 
-// Project section
-const PROJECT_HEADER_ROW = 9;
-const PROJECT_DATA_START_ROW = 10;
-const PROJECT_COLUMNS = {
-  NO: { index: 1, letter: 'A', width: 50, header: 'No' },
-  PROJECT_NAME: { index: 2, letter: 'B', width: 200, header: 'Project' },
-  DESCRIPTION: { index: 3, letter: 'C', width: 300, header: 'Description' },
-  STATUS: { index: 4, letter: 'D', width: 100, header: 'Status' }
-};
-const PROJECT_TOTAL_COLUMNS = 4;
-
-// Modul section
-const MODUL_HEADER_ROW = 14; // Dynamic
-const MODUL_DATA_START_ROW = 15;
-const MODUL_COLUMNS = {
-  NO: { index: 1, letter: 'A', width: 50, header: 'No' },
-  MODUL_NAME: { index: 2, letter: 'B', width: 200, header: 'Modul' },
-  PROJECT: { index: 3, letter: 'C', width: 150, header: 'Project' },
-  DESCRIPTION: { index: 4, letter: 'D', width: 300, header: 'Description' },
-  STATUS: { index: 5, letter: 'E', width: 100, header: 'Status' }
-};
-const MODUL_TOTAL_COLUMNS = 5;
-
-// Submodul section
-const SUBMODUL_HEADER_ROW = 20; // Dynamic
-const SUBMODUL_DATA_START_ROW = 21;
-const SUBMODUL_COLUMNS = {
-  NO: { index: 1, letter: 'A', width: 50, header: 'No' },
-  SUBMODUL_NAME: { index: 2, letter: 'B', width: 250, header: 'Submodul' },
+// Flat table structure (Portfolio style)
+const CONFIG_HEADER_ROW = 5;
+const CONFIG_DATA_START_ROW = 6;
+const CONFIG_COLUMNS = {
+  ACTIVE: { index: 1, letter: 'A', width: 80, header: 'Active' },
+  PROJECT: { index: 2, letter: 'B', width: 150, header: 'Project' },
   MODUL: { index: 3, letter: 'C', width: 150, header: 'Modul' },
-  DIFFICULTY: { index: 4, letter: 'D', width: 100, header: 'Difficulty (1-10)' },
-  RISK: { index: 5, letter: 'E', width: 100, header: 'Risk (1-10)' },
-  COMPLEXITY: { index: 6, letter: 'F', width: 100, header: 'Complexity (1-10)' },
-  DESCRIPTION: { index: 7, letter: 'G', width: 250, header: 'Description' },
-  STATUS: { index: 8, letter: 'H', width: 100, header: 'Status' }
+  SUBMODUL: { index: 4, letter: 'D', width: 200, header: 'Submodul' },
+  DIFFICULTY: { index: 5, letter: 'E', width: 80, header: 'Diff (1-10)' },
+  RISK: { index: 6, letter: 'F', width: 80, header: 'Risk (1-10)' },
+  COMPLEXITY: { index: 7, letter: 'G', width: 80, header: 'Comp (1-10)' },
+  DESCRIPTION: { index: 8, letter: 'H', width: 250, header: 'Description' },
+  STATUS: { index: 9, letter: 'I', width: 100, header: 'Status' }
 };
-const SUBMODUL_TOTAL_COLUMNS = 8;
+const CONFIG_TOTAL_COLUMNS = 9;
 
 /**
- * Create Config tab (centralized configuration)
+ * Create Config tab (flat table format - Portfolio style)
  */
 function createConfigTab() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -63,361 +41,127 @@ function createConfigTab() {
   let currentRow = 1;
 
   // Title
-  sheet.getRange(currentRow, 1, 1, 8).merge()
-    .setValue('⚙️ CENTRALIZED CONFIGURATION')
+  sheet.getRange(currentRow, 1, 1, CONFIG_TOTAL_COLUMNS).merge()
+    .setValue('⚙️ QA TEAM MANAGEMENT — Module Configuration')
     .setBackground('#1a73e8')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
-    .setFontSize(14)
+    .setFontSize(12)
     .setHorizontalAlignment('center')
     .setVerticalAlignment('middle');
-  sheet.setRowHeight(currentRow, 45);
+  sheet.setRowHeight(currentRow, 35);
   currentRow++;
 
-  // Production Spreadsheet ID Section (Simple & Direct)
-  const syncSettings = getSyncSettings();
-
-  sheet.getRange(currentRow, 1).setValue('Production Spreadsheet ID:').setFontWeight('bold').setBackground('#fff3cd');
-  sheet.getRange(currentRow, 2, 1, 7).merge()
-    .setValue(syncSettings.spreadsheetId || 'Not configured — Paste production spreadsheet ID here or full URL')
-    .setBackground('#ffffff')
-    .setFontStyle('italic');
-  sheet.setRowHeight(currentRow, 25);
-  currentRow++;
-
-  sheet.getRange(currentRow, 1, 1, 8).merge()
-    .setValue('ℹ️ To configure: Paste production spreadsheet ID above, then use Menu → Sync from Production Now')
-    .setBackground('#e8f0fe')
-    .setFontSize(9)
-    .setFontStyle('italic')
-    .setHorizontalAlignment('center');
-  sheet.setRowHeight(currentRow, 20);
-  currentRow += 2;
-
-  // Dashboard Status Section
-  const autoRefreshSettings = getAutoRefreshSetting();
-
-  sheet.getRange(currentRow, 1, 1, 8).merge()
-    .setValue('📊 DASHBOARD STATUS & SYNC CONFIGURATION')
-    .setBackground('#ea4335')
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setFontSize(10)
-    .setHorizontalAlignment('center');
-  sheet.setRowHeight(currentRow, 28);
-  currentRow++;
-
-  // Status info
-  const statusData = [
-    ['Dashboard Mode:', syncSettings.enabled ? 'PRODUCTION SYNC ✅' : 'LOCAL MODE 📍', '', ''],
-    ['Production Source:', syncSettings.enabled ? syncSettings.spreadsheetName : 'N/A (using local data)', '', ''],
-    ['Production ID:', syncSettings.enabled ? syncSettings.spreadsheetId : 'Not configured', '', ''],
-    ['Auto Sync & Refresh:', autoRefreshSettings.enabled ? 'ENABLED (Every ' + autoRefreshSettings.hours + ' hours) ✅' : 'DISABLED ❌', '', ''],
-    ['Last Updated:', Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'), '', '']
-  ];
-
-  sheet.getRange(currentRow, 1, statusData.length, 4).setValues(statusData);
-
-  // Format status section
-  for (let i = 0; i < statusData.length; i++) {
-    const rowNum = currentRow + i;
-    sheet.getRange(rowNum, 1).setFontWeight('bold').setBackground('#f8f9fa');
-    sheet.getRange(rowNum, 2, 1, 3).setBackground('#ffffff');
-  }
-
-  sheet.getRange(currentRow, 1, statusData.length, 4)
-    .setBorder(true, true, true, true, true, true, '#e0e0e0', SpreadsheetApp.BorderStyle.SOLID);
-
-  currentRow += statusData.length;
-
-  // Configuration instructions
-  sheet.getRange(currentRow, 1, 1, 8).merge()
-    .setValue('ℹ️ To configure production sync: Use Menu → 👥 QA Team Management → Configure Production Sync')
+  // Instruction row
+  sheet.getRange(currentRow, 1, 1, CONFIG_TOTAL_COLUMNS).merge()
+    .setValue('Spreadsheet ID ada di URL modul: docs.google.com/spreadsheets/d/[ID]/edit  |  Data akan otomatis diambil dari production saat sync')
     .setBackground('#fff3cd')
     .setFontSize(9)
     .setFontStyle('italic')
     .setHorizontalAlignment('center');
-  sheet.setRowHeight(currentRow, 25);
-  currentRow += 2;
-
-  // Rating Scale Definitions
-  sheet.getRange(currentRow, 1, 1, 8).merge()
-    .setValue('📋 RATING SCALE DEFINITIONS (1-10)')
-    .setBackground('#34a853')
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setFontSize(11)
-    .setHorizontalAlignment('center');
   sheet.setRowHeight(currentRow, 30);
   currentRow++;
 
-  const definitions = [
-    ['Rating', 'Difficulty', 'Risk', 'Complexity', 'Team Size Recommendation'],
-    [
-      '1-3 (Low)',
-      'Simple, well-documented',
-      'Low impact if fails',
-      'Few components, straightforward',
-      '1-2 QE'
-    ],
-    [
-      '4-6 (Medium)',
-      'Moderate complexity',
-      'Moderate business impact',
-      'Multiple modules, some integration',
-      '1 PIC + 2-3 QE'
-    ],
-    [
-      '7-10 (High)',
-      'Highly complex, critical',
-      'High business/security impact',
-      'Many integrations, critical systems',
-      '1 Team Lead + 1 PIC + 3-5 QE'
-    ]
+  // Production Spreadsheet ID field
+  const syncSettings = getSyncSettings();
+  sheet.getRange(currentRow, 1).setValue('Production Spreadsheet ID:').setFontWeight('bold').setBackground('#f8f9fa');
+  sheet.getRange(currentRow, 2, 1, CONFIG_TOTAL_COLUMNS - 1).merge()
+    .setValue(syncSettings.spreadsheetId || 'Paste production ID or URL here')
+    .setBackground('#ffffff')
+    .setFontStyle('italic')
+    .setHorizontalAlignment('left');
+  sheet.setRowHeight(currentRow, 25);
+  currentRow += 2;
+
+  // Main table header
+  const headers = [
+    CONFIG_COLUMNS.ACTIVE.header,
+    CONFIG_COLUMNS.PROJECT.header,
+    CONFIG_COLUMNS.MODUL.header,
+    CONFIG_COLUMNS.SUBMODUL.header,
+    CONFIG_COLUMNS.DIFFICULTY.header,
+    CONFIG_COLUMNS.RISK.header,
+    CONFIG_COLUMNS.COMPLEXITY.header,
+    CONFIG_COLUMNS.DESCRIPTION.header,
+    CONFIG_COLUMNS.STATUS.header
   ];
 
-  sheet.getRange(currentRow, 1, definitions.length, 5).setValues(definitions);
-
-  // Format definition header
-  sheet.getRange(currentRow, 1, 1, 5)
-    .setBackground('#666666')
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center');
-  currentRow++;
-
-  // Format definition rows
-  for (let i = 0; i < definitions.length - 1; i++) {
-    const rowNum = currentRow + i;
-    let bg = '#ffffff';
-    if (definitions[i + 1][0].includes('Low')) bg = '#d4edda';
-    else if (definitions[i + 1][0].includes('Medium')) bg = '#fff3cd';
-    else if (definitions[i + 1][0].includes('High')) bg = '#f8d7da';
-
-    sheet.getRange(rowNum, 1, 1, 5)
-      .setBackground(bg)
-      .setWrap(true)
-      .setVerticalAlignment('top');
-
-    sheet.setRowHeight(rowNum, 60);
-  }
-
-  // Set column widths for definition section
-  sheet.setColumnWidth(1, 120);
-  sheet.setColumnWidth(2, 180);
-  sheet.setColumnWidth(3, 180);
-  sheet.setColumnWidth(4, 200);
-  sheet.setColumnWidth(5, 200);
-
-  currentRow += definitions.length;
-  currentRow++; // Empty row
-
-  // ═════════════════════════════════════════════════════════════
-  // PROJECT LIST SECTION
-  // ═════════════════════════════════════════════════════════════
-  sheet.getRange(currentRow, 1, 1, 8).merge()
-    .setValue('📁 PROJECT LIST')
-    .setBackground('#ea4335')
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setFontSize(11)
-    .setHorizontalAlignment('center');
-  sheet.setRowHeight(currentRow, 35);
-  currentRow++;
-
-  // Project headers
-  const projectHeaders = [
-    PROJECT_COLUMNS.NO.header,
-    PROJECT_COLUMNS.PROJECT_NAME.header,
-    PROJECT_COLUMNS.DESCRIPTION.header,
-    PROJECT_COLUMNS.STATUS.header
-  ];
-
-  sheet.getRange(currentRow, 1, 1, PROJECT_TOTAL_COLUMNS)
-    .setValues([projectHeaders])
-    .setBackground('#666666')
+  sheet.getRange(CONFIG_HEADER_ROW, 1, 1, CONFIG_TOTAL_COLUMNS)
+    .setValues([headers])
+    .setBackground('#1a73e8')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
     .setHorizontalAlignment('center')
-    .setVerticalAlignment('middle');
-  currentRow++;
+    .setVerticalAlignment('middle')
+    .setWrap(true);
+  sheet.setRowHeight(CONFIG_HEADER_ROW, 40);
+  sheet.setFrozenRows(CONFIG_HEADER_ROW);
 
-  // Project data
-  const projectData = [
-    [1, 'Digital Peruri', 'Digital transformation initiatives', 'Active'],
-    [2, 'Government Systems', 'Government integration projects', 'Active']
+  // Sample data (flat table format)
+  const sampleData = [
+    [true, 'SIPGN', 'E2E DAPUR', 'E2E DAPUR', 7, 6, 7, 'E2E DAPUR module', 'Active'],
+    [true, 'SIPGN', 'AtomAPI', 'AtomAPI PM', 6, 5, 6, 'AtomAPI Project Management', 'Active'],
+    [true, 'SIPGN', '1', '1.1', 8, 7, 8, 'SIPGN Module 1.1', 'Active'],
+    [true, 'SIPGN', '1', '1.2', 7, 6, 7, 'SIPGN Module 1.2', 'Active'],
+    [true, 'SIPGN', '1', '1.3', 6, 5, 6, 'SIPGN Module 1.3', 'Active'],
+    [true, 'SIPGN', '2', '2.1', 7, 6, 7, 'SIPGN Module 2.1', 'Active'],
+    [true, 'SIPGN', '2', '2.2', 6, 5, 6, 'SIPGN Module 2.2', 'Active'],
+    [true, 'SIPGN', '2', '2.3', 7, 7, 7, 'SIPGN Module 2.3', 'Active'],
+    [true, 'SIPGN', '2', '2.4', 6, 5, 6, 'SIPGN Module 2.4', 'Active'],
+    [true, 'INADigital', 'INAgov', 'INAgov', 8, 7, 8, 'Indonesia Government Portal', 'Active'],
+    [true, 'INADigital', 'POS', 'POS', 5, 4, 5, 'Point of Sale system', 'Active'],
+    [true, 'INADigital', 'SCM', 'SCM', 6, 5, 6, 'Supply Chain Management', 'Active'],
+    [true, 'INADigital', 'PERURIID', 'PERURIID', 7, 6, 7, 'Peruri ID system', 'Active'],
+    [false, 'COTS', 'COTS', 'CODEBASE', 3, 2, 3, 'COTS Codebase', 'Inactive'],
+    [false, 'COTS', 'COTS', 'GEODIPA', 3, 2, 3, 'COTS Geodipa', 'Inactive']
   ];
 
-  const projectStartRow = currentRow;
-  sheet.getRange(projectStartRow, 1, projectData.length, PROJECT_TOTAL_COLUMNS)
-    .setValues(projectData);
+  sheet.getRange(CONFIG_DATA_START_ROW, 1, sampleData.length, CONFIG_TOTAL_COLUMNS)
+    .setValues(sampleData);
 
   // Apply formatting
-  for (let i = 0; i < projectData.length; i++) {
-    const rowNum = projectStartRow + i;
+  for (let i = 0; i < sampleData.length; i++) {
+    const rowNum = CONFIG_DATA_START_ROW + i;
     const bg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
-    sheet.getRange(rowNum, 1, 1, PROJECT_TOTAL_COLUMNS).setBackground(bg);
+    sheet.getRange(rowNum, 1, 1, CONFIG_TOTAL_COLUMNS).setBackground(bg);
   }
 
-  currentRow += projectData.length;
+  currentRow = CONFIG_DATA_START_ROW + sampleData.length;
 
-  // Add 5 blank rows for future project entries
-  for (let i = 0; i < 5; i++) {
+  // Add 40 blank rows for future entries
+  for (let i = 0; i < 40; i++) {
     const rowNum = currentRow + i;
-    const bg = (projectData.length + i) % 2 === 0 ? '#ffffff' : '#f8f9fa';
-    sheet.getRange(rowNum, 1, 1, PROJECT_TOTAL_COLUMNS).setBackground(bg);
-  }
-
-  currentRow += 5;
-  currentRow++; // Empty row
-
-  // ═════════════════════════════════════════════════════════════
-  // MODUL LIST SECTION
-  // ═════════════════════════════════════════════════════════════
-  sheet.getRange(currentRow, 1, 1, 8).merge()
-    .setValue('📂 MODUL LIST')
-    .setBackground('#34a853')
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setFontSize(11)
-    .setHorizontalAlignment('center');
-  sheet.setRowHeight(currentRow, 35);
-  currentRow++;
-
-  // Modul headers
-  const modulHeaders = [
-    MODUL_COLUMNS.NO.header,
-    MODUL_COLUMNS.MODUL_NAME.header,
-    MODUL_COLUMNS.PROJECT.header,
-    MODUL_COLUMNS.DESCRIPTION.header,
-    MODUL_COLUMNS.STATUS.header
-  ];
-
-  sheet.getRange(currentRow, 1, 1, MODUL_TOTAL_COLUMNS)
-    .setValues([modulHeaders])
-    .setBackground('#666666')
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center')
-    .setVerticalAlignment('middle');
-  currentRow++;
-
-  // Modul data
-  const modulData = [
-    [1, 'INADigital', 'Digital Peruri', 'Digital identity and services', 'Active'],
-    [2, 'SIPGN', 'Government Systems', 'Government integration platform', 'Active']
-  ];
-
-  const modulStartRow = currentRow;
-  sheet.getRange(modulStartRow, 1, modulData.length, MODUL_TOTAL_COLUMNS)
-    .setValues(modulData);
-
-  // Apply formatting
-  for (let i = 0; i < modulData.length; i++) {
-    const rowNum = modulStartRow + i;
-    const bg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
-    sheet.getRange(rowNum, 1, 1, MODUL_TOTAL_COLUMNS).setBackground(bg);
-  }
-
-  currentRow += modulData.length;
-
-  // Add 15 blank rows for future modul entries
-  for (let i = 0; i < 15; i++) {
-    const rowNum = currentRow + i;
-    const bg = (modulData.length + i) % 2 === 0 ? '#ffffff' : '#f8f9fa';
-    sheet.getRange(rowNum, 1, 1, MODUL_TOTAL_COLUMNS).setBackground(bg);
-  }
-
-  currentRow += 15;
-  currentRow++; // Empty row
-
-  // ═════════════════════════════════════════════════════════════
-  // SUBMODUL LIST SECTION
-  // ═════════════════════════════════════════════════════════════
-  sheet.getRange(currentRow, 1, 1, 8).merge()
-    .setValue('📋 SUBMODUL LIST (with Ratings 1-10)')
-    .setBackground('#fbbc04')
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setFontSize(11)
-    .setHorizontalAlignment('center');
-  sheet.setRowHeight(currentRow, 35);
-  currentRow++;
-
-  // Submodul headers
-  const submodulHeaders = [
-    SUBMODUL_COLUMNS.NO.header,
-    SUBMODUL_COLUMNS.SUBMODUL_NAME.header,
-    SUBMODUL_COLUMNS.MODUL.header,
-    SUBMODUL_COLUMNS.DIFFICULTY.header,
-    SUBMODUL_COLUMNS.RISK.header,
-    SUBMODUL_COLUMNS.COMPLEXITY.header,
-    SUBMODUL_COLUMNS.DESCRIPTION.header,
-    SUBMODUL_COLUMNS.STATUS.header
-  ];
-
-  sheet.getRange(currentRow, 1, 1, SUBMODUL_TOTAL_COLUMNS)
-    .setValues([submodulHeaders])
-    .setBackground('#666666')
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center')
-    .setVerticalAlignment('middle');
-  currentRow++;
-
-  // Sample submodul data (with ratings 1-10)
-  const submodulData = [
-    [1, 'INAgov', 'INADigital', 7, 6, 7, 'Indonesia Government Portal', 'Active'],
-    [2, 'Emeterai', 'INADigital', 6, 5, 6, 'Electronic Stamp System', 'Active'],
-    [3, 'Peruri ID', 'INADigital', 3, 2, 3, 'Digital Identity System', 'Active'],
-    [4, 'Wahana', 'INADigital', 3, 2, 3, 'Wahana Project', 'Active'],
-    [5, 'Digidoc 2.0', 'INADigital', 5, 4, 6, 'Digital Document Management', 'Active'],
-    [6, 'Peruri Shield', 'INADigital', 8, 9, 8, 'Security Shield System', 'Active'],
-    [7, 'Penjaminan Online', 'INADigital', 6, 5, 5, 'Online Guarantee System', 'Active'],
-    [8, 'COTS', 'INADigital', 2, 1, 2, 'Commercial Off-The-Shelf', 'Active'],
-    [9, 'Core System', 'SIPGN', 9, 8, 9, 'SIPGN Core System', 'Active'],
-    [10, 'Integration Module', 'SIPGN', 8, 7, 8, 'SIPGN Integration', 'Active'],
-    [11, 'Data Omnyx', 'SIPGN', 9, 8, 10, 'Omnyx Data Integration', 'Active']
-  ];
-
-  const submodulStartRow = currentRow;
-  sheet.getRange(submodulStartRow, 1, submodulData.length, SUBMODUL_TOTAL_COLUMNS)
-    .setValues(submodulData);
-
-  // Apply formatting
-  for (let i = 0; i < submodulData.length; i++) {
-    const rowNum = submodulStartRow + i;
-    const bg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
-    sheet.getRange(rowNum, 1, 1, SUBMODUL_TOTAL_COLUMNS).setBackground(bg);
-  }
-
-  currentRow += submodulData.length;
-
-  // Add 25 blank rows for future submodul entries
-  for (let i = 0; i < 25; i++) {
-    const rowNum = currentRow + i;
-    const bg = (submodulData.length + i) % 2 === 0 ? '#ffffff' : '#f8f9fa';
-    sheet.getRange(rowNum, 1, 1, SUBMODUL_TOTAL_COLUMNS).setBackground(bg);
+    const bg = (sampleData.length + i) % 2 === 0 ? '#ffffff' : '#f8f9fa';
+    sheet.getRange(rowNum, 1, 1, CONFIG_TOTAL_COLUMNS).setBackground(bg);
   }
 
   // Set column widths
-  sheet.setColumnWidth(1, SUBMODUL_COLUMNS.NO.width);
-  sheet.setColumnWidth(2, SUBMODUL_COLUMNS.SUBMODUL_NAME.width);
-  sheet.setColumnWidth(3, SUBMODUL_COLUMNS.MODUL.width);
-  sheet.setColumnWidth(4, SUBMODUL_COLUMNS.DIFFICULTY.width);
-  sheet.setColumnWidth(5, SUBMODUL_COLUMNS.RISK.width);
-  sheet.setColumnWidth(6, SUBMODUL_COLUMNS.COMPLEXITY.width);
-  sheet.setColumnWidth(7, SUBMODUL_COLUMNS.DESCRIPTION.width);
-  sheet.setColumnWidth(8, SUBMODUL_COLUMNS.STATUS.width);
+  Object.values(CONFIG_COLUMNS).forEach(col => {
+    sheet.setColumnWidth(col.index, col.width);
+  });
+
+  // Data validation for Active column
+  const activeRange = sheet.getRange(CONFIG_DATA_START_ROW, CONFIG_COLUMNS.ACTIVE.index, 100);
+  const activeRule = SpreadsheetApp.newDataValidation()
+    .requireCheckbox()
+    .build();
+  activeRange.setDataValidation(activeRule);
+
+  // Data validation for Status column
+  const statusRange = sheet.getRange(CONFIG_DATA_START_ROW, CONFIG_COLUMNS.STATUS.index, 100);
+  const statusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Active', 'Inactive', 'On Hold'], true)
+    .build();
+  statusRange.setDataValidation(statusRule);
 
   // Flush changes to ensure completion
   SpreadsheetApp.flush();
 
-  Logger.log('✅ Config tab created');
+  Logger.log('✅ Config tab created (flat table format)');
 }
 
 /**
- * Get all active projects
+ * Get all active projects (unique list from config table)
  */
 function getActiveProjects() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -426,28 +170,31 @@ function getActiveProjects() {
   if (!sheet) return [];
 
   const lastRow = sheet.getLastRow();
-  if (lastRow < PROJECT_DATA_START_ROW) return [];
+  if (lastRow < CONFIG_DATA_START_ROW) return [];
 
-  const data = sheet.getRange(PROJECT_DATA_START_ROW, 1, 10, PROJECT_TOTAL_COLUMNS).getValues();
+  const data = sheet.getRange(CONFIG_DATA_START_ROW, 1, lastRow - CONFIG_DATA_START_ROW + 1, CONFIG_TOTAL_COLUMNS).getValues();
 
-  const projects = [];
+  const projectsMap = new Map();
   data.forEach(row => {
+    const active = row[0];
     const projectName = row[1] ? row[1].toString().trim() : '';
-    const status = row[3] ? row[3].toString().trim() : '';
+    const status = row[8] ? row[8].toString().trim() : '';
 
-    if (projectName && status === 'Active') {
-      projects.push({
-        name: projectName,
-        description: row[2] ? row[2].toString().trim() : ''
-      });
+    if (active && projectName && status === 'Active') {
+      if (!projectsMap.has(projectName)) {
+        projectsMap.set(projectName, {
+          name: projectName,
+          description: ''
+        });
+      }
     }
   });
 
-  return projects;
+  return Array.from(projectsMap.values());
 }
 
 /**
- * Get all active modul
+ * Get all active modul (unique list from config table)
  */
 function getActiveModul() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -456,29 +203,34 @@ function getActiveModul() {
   if (!sheet) return [];
 
   const lastRow = sheet.getLastRow();
-  if (lastRow < MODUL_DATA_START_ROW) return [];
+  if (lastRow < CONFIG_DATA_START_ROW) return [];
 
-  const data = sheet.getRange(MODUL_DATA_START_ROW, 1, 10, MODUL_TOTAL_COLUMNS).getValues();
+  const data = sheet.getRange(CONFIG_DATA_START_ROW, 1, lastRow - CONFIG_DATA_START_ROW + 1, CONFIG_TOTAL_COLUMNS).getValues();
 
-  const moduls = [];
+  const modulsMap = new Map();
   data.forEach(row => {
-    const modulName = row[1] ? row[1].toString().trim() : '';
-    const status = row[4] ? row[4].toString().trim() : '';
+    const active = row[0];
+    const projectName = row[1] ? row[1].toString().trim() : '';
+    const modulName = row[2] ? row[2].toString().trim() : '';
+    const status = row[8] ? row[8].toString().trim() : '';
 
-    if (modulName && status === 'Active') {
-      moduls.push({
-        name: modulName,
-        project: row[2] ? row[2].toString().trim() : '',
-        description: row[3] ? row[3].toString().trim() : ''
-      });
+    if (active && projectName && modulName && status === 'Active') {
+      const key = projectName + '|' + modulName;
+      if (!modulsMap.has(key)) {
+        modulsMap.set(key, {
+          name: modulName,
+          project: projectName,
+          description: ''
+        });
+      }
     }
   });
 
-  return moduls;
+  return Array.from(modulsMap.values());
 }
 
 /**
- * Get all active submodul
+ * Get all active submodul (from config table)
  */
 function getActiveSubmodul() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -487,23 +239,31 @@ function getActiveSubmodul() {
   if (!sheet) return [];
 
   const lastRow = sheet.getLastRow();
-  if (lastRow < SUBMODUL_DATA_START_ROW) return [];
+  if (lastRow < CONFIG_DATA_START_ROW) return [];
 
-  const data = sheet.getRange(SUBMODUL_DATA_START_ROW, 1, lastRow - SUBMODUL_DATA_START_ROW + 1, SUBMODUL_TOTAL_COLUMNS).getValues();
+  const data = sheet.getRange(CONFIG_DATA_START_ROW, 1, lastRow - CONFIG_DATA_START_ROW + 1, CONFIG_TOTAL_COLUMNS).getValues();
 
   const submoduls = [];
   data.forEach(row => {
-    const submodulName = row[1] ? row[1].toString().trim() : '';
-    const status = row[7] ? row[7].toString().trim() : '';
+    const active = row[0];
+    const projectName = row[1] ? row[1].toString().trim() : '';
+    const modulName = row[2] ? row[2].toString().trim() : '';
+    const submodulName = row[3] ? row[3].toString().trim() : '';
+    const difficulty = row[4] || 0;
+    const risk = row[5] || 0;
+    const complexity = row[6] || 0;
+    const description = row[7] ? row[7].toString().trim() : '';
+    const status = row[8] ? row[8].toString().trim() : '';
 
-    if (submodulName && status === 'Active') {
+    if (active && projectName && modulName && submodulName && status === 'Active') {
       submoduls.push({
         name: submodulName,
-        modul: row[2] ? row[2].toString().trim() : '',
-        difficulty: row[3] || 0,
-        risk: row[4] || 0,
-        complexity: row[5] || 0,
-        description: row[6] ? row[6].toString().trim() : ''
+        modul: modulName,
+        project: projectName,
+        difficulty: difficulty,
+        risk: risk,
+        complexity: complexity,
+        description: description
       });
     }
   });
