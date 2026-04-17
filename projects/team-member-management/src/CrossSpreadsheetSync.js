@@ -6,11 +6,76 @@
  */
 
 const SYNC_SETTINGS_KEY = 'PRODUCTION_SYNC_SETTINGS';
+const PROD_ID_ROW = 2; // Row 2 in Config tab
+const PROD_ID_COL = 2; // Column B in Config tab
+
+/**
+ * Read Production Spreadsheet ID from Config tab
+ * Returns the ID from cell B2 in Config tab
+ */
+function getProductionIdFromConfig() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const configSheet = ss.getSheetByName(CONFIG_TAB_NAME);
+
+  if (!configSheet) {
+    return '';
+  }
+
+  let prodId = configSheet.getRange(PROD_ID_ROW, PROD_ID_COL).getValue();
+
+  if (!prodId || typeof prodId !== 'string') {
+    return '';
+  }
+
+  prodId = prodId.toString().trim();
+
+  // Skip placeholder text
+  if (prodId.includes('Not configured') || prodId.includes('Paste production')) {
+    return '';
+  }
+
+  // Extract ID from URL if user pasted full URL
+  if (prodId.includes('docs.google.com/spreadsheets')) {
+    const match = prodId.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  return prodId;
+}
 
 /**
  * Get production sync settings
+ * Auto-reads from Config tab if not in properties
  */
 function getSyncSettings() {
+  // First try to read from Config tab
+  const prodIdFromConfig = getProductionIdFromConfig();
+
+  if (prodIdFromConfig) {
+    // Auto-save to properties if found in Config tab
+    try {
+      const testSS = SpreadsheetApp.openById(prodIdFromConfig);
+      const spreadsheetName = testSS.getName();
+
+      // Save to properties for caching
+      const settings = {
+        enabled: true,
+        spreadsheetId: prodIdFromConfig,
+        spreadsheetName: spreadsheetName
+      };
+
+      PropertiesService.getDocumentProperties()
+        .setProperty(SYNC_SETTINGS_KEY, JSON.stringify(settings));
+
+      return settings;
+    } catch (error) {
+      Logger.log('⚠️ Could not access production spreadsheet from Config tab: ' + error.message);
+    }
+  }
+
+  // Fallback to properties
   const props = PropertiesService.getDocumentProperties();
   const settings = props.getProperty(SYNC_SETTINGS_KEY);
 

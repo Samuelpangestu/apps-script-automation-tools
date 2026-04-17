@@ -74,8 +74,27 @@ function createConfigTab() {
   sheet.setRowHeight(currentRow, 45);
   currentRow++;
 
-  // Dashboard Status Section
+  // Production Spreadsheet ID Section (Simple & Direct)
   const syncSettings = getSyncSettings();
+
+  sheet.getRange(currentRow, 1).setValue('Production Spreadsheet ID:').setFontWeight('bold').setBackground('#fff3cd');
+  sheet.getRange(currentRow, 2, 1, 7).merge()
+    .setValue(syncSettings.spreadsheetId || 'Not configured — Paste production spreadsheet ID here or full URL')
+    .setBackground('#ffffff')
+    .setFontStyle('italic');
+  sheet.setRowHeight(currentRow, 25);
+  currentRow++;
+
+  sheet.getRange(currentRow, 1, 1, 8).merge()
+    .setValue('ℹ️ To configure: Paste production spreadsheet ID above, then use Menu → Sync from Production Now')
+    .setBackground('#e8f0fe')
+    .setFontSize(9)
+    .setFontStyle('italic')
+    .setHorizontalAlignment('center');
+  sheet.setRowHeight(currentRow, 20);
+  currentRow += 2;
+
+  // Dashboard Status Section
   const autoRefreshSettings = getAutoRefreshSetting();
 
   sheet.getRange(currentRow, 1, 1, 8).merge()
