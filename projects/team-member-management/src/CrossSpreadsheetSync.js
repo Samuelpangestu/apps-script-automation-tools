@@ -159,47 +159,46 @@ function syncFromProduction() {
       throw new Error('Config tab not found in local spreadsheet');
     }
 
-    // Sync Projects (fixed range: A10:D20 = 2 sample + 5 blank + buffer)
-    const projectRange = 'A' + PROJECT_DATA_START_ROW + ':D' + (PROJECT_DATA_START_ROW + 9);
-    const projectData = prodConfig.getRange(projectRange).getValues();
-    localConfig.getRange(projectRange).setValues(projectData);
+    // Sync flat table data (much simpler now!)
+    const prodLastRow = prodConfig.getLastRow();
+    const dataRowCount = Math.max(60, prodLastRow - CONFIG_DATA_START_ROW + 1); // Min 60 rows
 
-    // Count synced projects
-    const projectCount = projectData.filter(row => row[1] && row[1].toString().trim()).length;
+    const dataRange = 'A' + CONFIG_DATA_START_ROW + ':I' + (CONFIG_DATA_START_ROW + dataRowCount - 1);
+    const configData = prodConfig.getRange(dataRange).getValues();
 
-    // Sync Moduls (fixed range: A15:E35 = 2 sample + 15 blank + buffer)
-    const modulRange = 'A' + MODUL_DATA_START_ROW + ':E' + (MODUL_DATA_START_ROW + 19);
-    const modulData = prodConfig.getRange(modulRange).getValues();
-    localConfig.getRange(modulRange).setValues(modulData);
-
-    // Count synced moduls
-    const modulCount = modulData.filter(row => row[1] && row[1].toString().trim()).length;
-
-    // Sync Submoduls (dynamic range - get all data)
-    const submodulLastRow = prodConfig.getLastRow();
-    const submodulRange = 'A' + SUBMODUL_DATA_START_ROW + ':H' + Math.max(SUBMODUL_DATA_START_ROW + 40, submodulLastRow);
-    const submodulData = prodConfig.getRange(submodulRange).getValues();
-
-    // Clear local submodul area first
-    localConfig.getRange(submodulRange).clearContent();
+    // Clear local data area first
+    localConfig.getRange(dataRange).clearContent();
 
     // Write synced data
-    localConfig.getRange(submodulRange).setValues(submodulData);
+    localConfig.getRange(dataRange).setValues(configData);
 
-    // Count synced submoduls
-    const submodulCount = submodulData.filter(row => row[1] && row[1].toString().trim()).length;
+    // Count synced items
+    const activeRows = configData.filter(row => row[0] === true && row[1] && row[2] && row[3]);
+    const projectSet = new Set();
+    const modulSet = new Set();
+    let submodulCount = 0;
 
-    // Copy formatting from production (optional - preserve colors)
-    copyFormattingFromProduction(prodConfig, localConfig);
+    activeRows.forEach(row => {
+      const project = row[1].toString().trim();
+      const modul = row[2].toString().trim();
+      const submodul = row[3].toString().trim();
 
-    Logger.log('✅ Sync complete: ' + projectCount + ' projects, ' + modulCount + ' moduls, ' + submodulCount + ' submoduls');
+      if (project) projectSet.add(project);
+      if (modul) modulSet.add(project + '|' + modul);
+      if (submodul) submodulCount++;
+    });
+
+    // Copy formatting from production
+    copyFormattingFromProduction(prodConfig, localConfig, dataRange);
+
+    Logger.log('✅ Sync complete: ' + projectSet.size + ' projects, ' + modulSet.size + ' moduls, ' + submodulCount + ' submoduls');
 
     return {
       success: true,
       message: 'Synced from ' + settings.spreadsheetName,
       synced: {
-        projects: projectCount,
-        moduls: modulCount,
+        projects: projectSet.size,
+        moduls: modulSet.size,
         submoduls: submodulCount
       }
     };
@@ -217,20 +216,10 @@ function syncFromProduction() {
 /**
  * Copy formatting from production (preserve zebra stripes)
  */
-function copyFormattingFromProduction(prodConfig, localConfig) {
+function copyFormattingFromProduction(prodConfig, localConfig, dataRange) {
   try {
-    // Copy project formatting
-    const projectFmt = prodConfig.getRange('A' + PROJECT_DATA_START_ROW + ':D' + (PROJECT_DATA_START_ROW + 9));
-    projectFmt.copyFormatToRange(localConfig, 1, 4, PROJECT_DATA_START_ROW, PROJECT_DATA_START_ROW + 9);
-
-    // Copy modul formatting
-    const modulFmt = prodConfig.getRange('A' + MODUL_DATA_START_ROW + ':E' + (MODUL_DATA_START_ROW + 19));
-    modulFmt.copyFormatToRange(localConfig, 1, 5, MODUL_DATA_START_ROW, MODUL_DATA_START_ROW + 19);
-
-    // Copy submodul formatting
-    const submodulLastRow = prodConfig.getLastRow();
-    const submodulFmt = prodConfig.getRange('A' + SUBMODUL_DATA_START_ROW + ':H' + Math.max(SUBMODUL_DATA_START_ROW + 40, submodulLastRow));
-    submodulFmt.copyFormatToRange(localConfig, 1, 8, SUBMODUL_DATA_START_ROW, Math.max(SUBMODUL_DATA_START_ROW + 40, submodulLastRow));
+    const fmt = prodConfig.getRange(dataRange);
+    fmt.copyFormatToRange(localConfig, 1, 9, CONFIG_DATA_START_ROW, CONFIG_DATA_START_ROW + 59);
 
     Logger.log('✅ Formatting copied from production');
   } catch (error) {
