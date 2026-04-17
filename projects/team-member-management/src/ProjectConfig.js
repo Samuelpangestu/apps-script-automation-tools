@@ -194,6 +194,15 @@ function createConfigTab() {
   }
 
   currentRow += projectData.length;
+
+  // Add 5 blank rows for future project entries
+  for (let i = 0; i < 5; i++) {
+    const rowNum = currentRow + i;
+    const bg = (projectData.length + i) % 2 === 0 ? '#ffffff' : '#f8f9fa';
+    sheet.getRange(rowNum, 1, 1, PROJECT_TOTAL_COLUMNS).setBackground(bg);
+  }
+
+  currentRow += 5;
   currentRow++; // Empty row
 
   // ═════════════════════════════════════════════════════════════
@@ -245,6 +254,15 @@ function createConfigTab() {
   }
 
   currentRow += modulData.length;
+
+  // Add 15 blank rows for future modul entries
+  for (let i = 0; i < 15; i++) {
+    const rowNum = currentRow + i;
+    const bg = (modulData.length + i) % 2 === 0 ? '#ffffff' : '#f8f9fa';
+    sheet.getRange(rowNum, 1, 1, MODUL_TOTAL_COLUMNS).setBackground(bg);
+  }
+
+  currentRow += 15;
   currentRow++; // Empty row
 
   // ═════════════════════════════════════════════════════════════
@@ -304,6 +322,15 @@ function createConfigTab() {
   for (let i = 0; i < submodulData.length; i++) {
     const rowNum = submodulStartRow + i;
     const bg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
+    sheet.getRange(rowNum, 1, 1, SUBMODUL_TOTAL_COLUMNS).setBackground(bg);
+  }
+
+  currentRow += submodulData.length;
+
+  // Add 25 blank rows for future submodul entries
+  for (let i = 0; i < 25; i++) {
+    const rowNum = currentRow + i;
+    const bg = (submodulData.length + i) % 2 === 0 ? '#ffffff' : '#f8f9fa';
     sheet.getRange(rowNum, 1, 1, SUBMODUL_TOTAL_COLUMNS).setBackground(bg);
   }
 
