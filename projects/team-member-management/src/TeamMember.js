@@ -26,18 +26,12 @@ const TEAM_TOTAL_COLUMNS = 6;
 function createTeamMemberTab() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Check if Config tab exists - create without alert to avoid conflicts
+  // Check if Config tab exists
   if (!ss.getSheetByName(CONFIG_TAB_NAME)) {
-    createConfigTab();
+    throw new Error('Config tab must be created first');
   }
 
-  // Delete existing if any (when called from menuSetupAll)
-  let existingSheet = ss.getSheetByName(TEAM_TAB_NAME);
-  if (existingSheet) {
-    ss.deleteSheet(existingSheet);
-  }
-
-  // Create new sheet
+  // Create new sheet (deletion handled by caller)
   const sheet = ss.insertSheet(TEAM_TAB_NAME, 1);
 
   // Setup structure

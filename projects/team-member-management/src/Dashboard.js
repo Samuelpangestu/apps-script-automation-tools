@@ -13,22 +13,16 @@ const DASHBOARD_TAB_NAME = 'Dashboard';
 function createDashboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Check dependencies - just create without alerts to avoid conflicts
+  // Check dependencies exist
   if (!ss.getSheetByName(CONFIG_TAB_NAME)) {
-    createConfigTab();
+    throw new Error('Config tab must be created first');
   }
 
   if (!ss.getSheetByName(TEAM_TAB_NAME)) {
-    createTeamMemberTab();
+    throw new Error('Team Members tab must be created first');
   }
 
-  // Delete existing if any
-  let existingSheet = ss.getSheetByName(DASHBOARD_TAB_NAME);
-  if (existingSheet) {
-    ss.deleteSheet(existingSheet);
-  }
-
-  // Create new sheet (without position to avoid conflicts)
+  // Create new sheet (deletion handled by caller)
   const sheet = ss.insertSheet(DASHBOARD_TAB_NAME);
 
   // Build dashboard
