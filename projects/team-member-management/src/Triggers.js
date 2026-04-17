@@ -1,24 +1,19 @@
 /**
- * Triggers.js — Auto-refresh Dashboard Scheduler
+ * Triggers.js — Auto Sync & Refresh Dashboard Scheduler
  * ═══════════════════════════════════════════════════════════════════════
- * Configurable scheduled dashboard refresh
+ * Configurable scheduled sync from production + dashboard refresh
  * ═══════════════════════════════════════════════════════════════════════
  */
 
-const TRIGGER_FUNCTION_NAME = 'autoRefreshDashboard';
+const TRIGGER_FUNCTION_NAME = 'autoSyncAndRefresh';
 const TRIGGER_PROPERTY_KEY = 'AUTO_REFRESH_ENABLED';
 
 /**
- * Auto-refresh dashboard (called by trigger)
+ * DEPRECATED: Use autoSyncAndRefresh() instead
+ * Kept for backward compatibility with existing triggers
  */
 function autoRefreshDashboard() {
-  try {
-    Logger.log('🔄 Auto-refreshing dashboard...');
-    createDashboard();
-    Logger.log('✅ Dashboard auto-refreshed successfully');
-  } catch (error) {
-    Logger.log('❌ Error auto-refreshing dashboard: ' + error.message);
-  }
+  autoSyncAndRefresh();
 }
 
 /**
@@ -92,22 +87,32 @@ function isAutoRefreshEnabled() {
 function menuConfigureAutoRefresh() {
   const ui = SpreadsheetApp.getUi();
   const currentSetting = getAutoRefreshSetting();
+  const syncSettings = getSyncSettings();
 
-  let message = 'DASHBOARD AUTO-REFRESH CONFIGURATION\n\n';
+  let message = 'AUTO SYNC & REFRESH CONFIGURATION\n\n';
 
-  if (currentSetting.enabled) {
-    message += 'Current Status: ENABLED ✅\n';
-    message += 'Refresh Interval: Every ' + currentSetting.hours + ' hours\n\n';
-    message += 'Dashboard will automatically refresh every ' + currentSetting.hours + ' hours.\n\n';
+  // Show sync status
+  if (syncSettings.enabled && syncSettings.spreadsheetId) {
+    message += 'Production Sync: ENABLED ✅\n';
+    message += 'Source: ' + syncSettings.spreadsheetName + '\n\n';
   } else {
-    message += 'Current Status: DISABLED ❌\n\n';
+    message += 'Production Sync: DISABLED (Local mode)\n\n';
+  }
+
+  // Show auto-refresh status
+  if (currentSetting.enabled) {
+    message += 'Auto Sync & Refresh: ENABLED ✅\n';
+    message += 'Interval: Every ' + currentSetting.hours + ' hours\n\n';
+    message += 'System will automatically sync from production and refresh dashboard every ' + currentSetting.hours + ' hours.\n\n';
+  } else {
+    message += 'Auto Sync & Refresh: DISABLED ❌\n\n';
     message += 'Dashboard will NOT auto-refresh.\n\n';
   }
 
   message += 'What would you like to do?';
 
   const response = ui.alert(
-    'Auto-Refresh Dashboard',
+    'Auto Sync & Refresh Dashboard',
     message,
     ui.ButtonSet.YES_NO_CANCEL
   );
@@ -119,9 +124,9 @@ function menuConfigureAutoRefresh() {
     // Disable
     if (currentSetting.enabled) {
       removeAutoRefresh();
-      ui.alert('Success', 'Auto-refresh has been disabled.', ui.ButtonSet.OK);
+      ui.alert('Success', 'Auto sync & refresh has been disabled.', ui.ButtonSet.OK);
     } else {
-      ui.alert('Info', 'Auto-refresh is already disabled.', ui.ButtonSet.OK);
+      ui.alert('Info', 'Auto sync & refresh is already disabled.', ui.ButtonSet.OK);
     }
   }
 }
@@ -133,8 +138,8 @@ function showIntervalDialog() {
   const ui = SpreadsheetApp.getUi();
 
   const response = ui.alert(
-    'Select Refresh Interval',
-    'How often should the dashboard auto-refresh?\n\n' +
+    'Select Sync & Refresh Interval',
+    'How often should the system auto-sync and refresh?\n\n' +
     '• Every 1 hour - Very frequent (recommended for active projects)\n' +
     '• Every 3 hours - Moderate frequency\n' +
     '• Every 6 hours - Less frequent\n' +
@@ -164,13 +169,23 @@ function showIntervalDialog() {
 
   try {
     setupAutoRefresh(hours);
-    ui.alert(
-      'Success! ✅',
-      'Dashboard auto-refresh has been enabled.\n\n' +
-      'Interval: Every ' + hours + ' hours\n\n' +
-      'The dashboard will automatically refresh in the background.',
-      ui.ButtonSet.OK
-    );
+    const syncSettings = getSyncSettings();
+
+    let successMessage = 'Auto sync & refresh has been enabled.\n\n' +
+      'Interval: Every ' + hours + ' hours\n\n';
+
+    if (syncSettings.enabled && syncSettings.spreadsheetId) {
+      successMessage += 'System will automatically:\n' +
+        '1. Sync data from production (' + syncSettings.spreadsheetName + ')\n' +
+        '2. Refresh dashboard\n\n';
+    } else {
+      successMessage += 'System will automatically refresh dashboard.\n' +
+        '(Production sync disabled - using local data)\n\n';
+    }
+
+    successMessage += 'Next sync in ' + hours + ' hour(s).';
+
+    ui.alert('Success! ✅', successMessage, ui.ButtonSet.OK);
   } catch (error) {
     ui.alert('Error', 'Failed to setup auto-refresh: ' + error.message, ui.ButtonSet.OK);
   }

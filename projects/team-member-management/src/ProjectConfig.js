@@ -63,7 +63,7 @@ function createConfigTab() {
   let currentRow = 1;
 
   // Title
-  sheet.getRange(currentRow, 1, 1, 6).merge()
+  sheet.getRange(currentRow, 1, 1, 8).merge()
     .setValue('⚙️ CENTRALIZED CONFIGURATION')
     .setBackground('#1a73e8')
     .setFontColor('#ffffff')
@@ -72,6 +72,53 @@ function createConfigTab() {
     .setHorizontalAlignment('center')
     .setVerticalAlignment('middle');
   sheet.setRowHeight(currentRow, 45);
+  currentRow++;
+
+  // Dashboard Status Section
+  const syncSettings = getSyncSettings();
+  const autoRefreshSettings = getAutoRefreshSetting();
+
+  sheet.getRange(currentRow, 1, 1, 8).merge()
+    .setValue('📊 DASHBOARD STATUS & SYNC CONFIGURATION')
+    .setBackground('#ea4335')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setFontSize(10)
+    .setHorizontalAlignment('center');
+  sheet.setRowHeight(currentRow, 28);
+  currentRow++;
+
+  // Status info
+  const statusData = [
+    ['Dashboard Mode:', syncSettings.enabled ? 'PRODUCTION SYNC ✅' : 'LOCAL MODE 📍', '', ''],
+    ['Production Source:', syncSettings.enabled ? syncSettings.spreadsheetName : 'N/A (using local data)', '', ''],
+    ['Production ID:', syncSettings.enabled ? syncSettings.spreadsheetId : 'Not configured', '', ''],
+    ['Auto Sync & Refresh:', autoRefreshSettings.enabled ? 'ENABLED (Every ' + autoRefreshSettings.hours + ' hours) ✅' : 'DISABLED ❌', '', ''],
+    ['Last Updated:', Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'), '', '']
+  ];
+
+  sheet.getRange(currentRow, 1, statusData.length, 4).setValues(statusData);
+
+  // Format status section
+  for (let i = 0; i < statusData.length; i++) {
+    const rowNum = currentRow + i;
+    sheet.getRange(rowNum, 1).setFontWeight('bold').setBackground('#f8f9fa');
+    sheet.getRange(rowNum, 2, 1, 3).setBackground('#ffffff');
+  }
+
+  sheet.getRange(currentRow, 1, statusData.length, 4)
+    .setBorder(true, true, true, true, true, true, '#e0e0e0', SpreadsheetApp.BorderStyle.SOLID);
+
+  currentRow += statusData.length;
+
+  // Configuration instructions
+  sheet.getRange(currentRow, 1, 1, 8).merge()
+    .setValue('ℹ️ To configure production sync: Use Menu → 👥 QA Team Management → Configure Production Sync')
+    .setBackground('#fff3cd')
+    .setFontSize(9)
+    .setFontStyle('italic')
+    .setHorizontalAlignment('center');
+  sheet.setRowHeight(currentRow, 25);
   currentRow += 2;
 
   // Rating Scale Definitions
