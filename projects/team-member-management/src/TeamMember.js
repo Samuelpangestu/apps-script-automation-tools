@@ -182,54 +182,56 @@ function addTeamConditionalFormatting(sheet) {
 }
 
 /**
- * Add new team member
+ * Apply formatting and validation to Team Members tab
+ * Use this after copy-pasting data
  */
-function addTeamMember() {
-  const ui = SpreadsheetApp.getUi();
+function applyTeamMemberFormatting() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(TEAM_TAB_NAME);
 
   if (!sheet) {
-    ui.alert('Error', 'Team Members tab not found. Create it first.', ui.ButtonSet.OK);
-    return;
+    throw new Error('Team Members tab not found');
   }
 
-  // Get name
-  const nameResponse = ui.prompt('Add Team Member', 'Enter name:', ui.ButtonSet.OK_CANCEL);
-  if (nameResponse.getSelectedButton() !== ui.Button.OK) return;
+  Logger.log('🎨 Applying formatting to Team Members...');
 
-  const name = nameResponse.getResponseText().trim();
-  if (!name) {
-    ui.alert('Error', 'Name cannot be empty', ui.ButtonSet.OK);
-    return;
-  }
-
-  // Find next row
   const lastRow = sheet.getLastRow();
-  const newRow = lastRow + 1;
-  const no = lastRow - TEAM_HEADER_ROW + 1;
+  if (lastRow < TEAM_DATA_START_ROW) {
+    Logger.log('No data to format');
+    return { success: false, message: 'No team member data found' };
+  }
 
-  // Add row
-  const rowData = [no, name, 'Quality Engineer', '', '', 'Active'];
-  sheet.getRange(newRow, 1, 1, TEAM_TOTAL_COLUMNS).setValues([rowData]);
+  const dataRowCount = lastRow - TEAM_DATA_START_ROW + 1;
 
-  // Format row
-  const bg = (newRow - TEAM_DATA_START_ROW) % 2 === 0 ? '#ffffff' : '#f8f9fa';
-  sheet.getRange(newRow, 1, 1, TEAM_TOTAL_COLUMNS)
-    .setBackground(bg)
-    .setBorder(true, true, true, true, false, false, '#e0e0e0', SpreadsheetApp.BorderStyle.SOLID);
+  // Update numbering
+  for (let i = 0; i < dataRowCount; i++) {
+    const rowNum = TEAM_DATA_START_ROW + i;
+    sheet.getRange(rowNum, TEAM_COLUMNS.NO.index).setValue(i + 1);
+  }
 
-  ui.alert(
-    'Success! ✅',
-    'Team member added: ' + name + '\n\n' +
-    'Next steps:\n' +
-    '1. Fill in email and other details\n' +
-    '2. Type project names in Projects column\n' +
-    '   (comma-separated for multiple)\n' +
-    '3. Available projects are shown in helper text\n\n' +
-    'Projects auto-complete from Config tab.',
-    ui.ButtonSet.OK
-  );
+  // Apply row formatting
+  for (let i = 0; i < dataRowCount; i++) {
+    const rowNum = TEAM_DATA_START_ROW + i;
+    const bg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
+    sheet.getRange(rowNum, 1, 1, TEAM_TOTAL_COLUMNS)
+      .setBackground(bg)
+      .setBorder(true, true, true, true, false, false, '#e0e0e0', SpreadsheetApp.BorderStyle.SOLID);
+  }
+  Logger.log('✅ Row formatting applied');
+
+  // Reapply data validation
+  addTeamDataValidation(sheet);
+
+  // Reapply conditional formatting
+  addTeamConditionalFormatting(sheet);
+
+  Logger.log('✅ Formatting complete for ' + dataRowCount + ' rows');
+
+  return {
+    success: true,
+    formatted: dataRowCount,
+    message: 'Successfully formatted ' + dataRowCount + ' team members'
+  };
 }
 
 /**
