@@ -29,20 +29,36 @@ function onOpen() {
  * Setup all tabs at once
  */
 function menuSetupAll() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
   try {
+    // Delete all existing tabs first to avoid conflicts
+    let configSheet = ss.getSheetByName(CONFIG_TAB_NAME);
+    if (configSheet) ss.deleteSheet(configSheet);
+
+    let teamSheet = ss.getSheetByName(TEAM_TAB_NAME);
+    if (teamSheet) ss.deleteSheet(teamSheet);
+
+    let dashSheet = ss.getSheetByName(DASHBOARD_TAB_NAME);
+    if (dashSheet) ss.deleteSheet(dashSheet);
+
+    SpreadsheetApp.flush();
+    Utilities.sleep(1000); // Wait for deletes to complete
+
     // Create tabs sequentially with flush between each
     createConfigTab();
-    Utilities.sleep(500); // Small delay to ensure completion
+    Utilities.sleep(500);
 
     createTeamMemberTab();
     Utilities.sleep(500);
 
     createDashboard();
 
-    SpreadsheetApp.getActiveSpreadsheet().toast('All tabs created successfully!', 'Setup Complete', 3);
+    ss.toast('All tabs created successfully!', 'Setup Complete', 3);
   } catch (error) {
-    SpreadsheetApp.getUi().alert('Error', 'Setup failed: ' + error.message, SpreadsheetApp.getUi().ButtonSet.OK);
+    SpreadsheetApp.getUi().alert('Error', 'Setup failed: ' + error.message + '\n\nCheck View > Logs for details', SpreadsheetApp.getUi().ButtonSet.OK);
     Logger.log('Error in setup: ' + error.message);
+    Logger.log('Error stack: ' + error.stack);
   }
 }
 
@@ -62,9 +78,15 @@ function menuSetupConfig() {
  * Setup Team Members tab only
  */
 function menuSetupTeam() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   try {
+    // Delete existing if any
+    let existingSheet = ss.getSheetByName(TEAM_TAB_NAME);
+    if (existingSheet) ss.deleteSheet(existingSheet);
+    SpreadsheetApp.flush();
+
     createTeamMemberTab();
-    SpreadsheetApp.getActiveSpreadsheet().toast('Team Members tab created!', 'Success', 2);
+    ss.toast('Team Members tab created!', 'Success', 2);
   } catch (error) {
     SpreadsheetApp.getUi().alert('Error', 'Failed: ' + error.message, SpreadsheetApp.getUi().ButtonSet.OK);
   }
@@ -74,9 +96,15 @@ function menuSetupTeam() {
  * Create dashboard
  */
 function menuCreateDashboard() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   try {
+    // Delete existing if any
+    let existingSheet = ss.getSheetByName(DASHBOARD_TAB_NAME);
+    if (existingSheet) ss.deleteSheet(existingSheet);
+    SpreadsheetApp.flush();
+
     createDashboard();
-    SpreadsheetApp.getActiveSpreadsheet().toast('Dashboard created!', 'Success', 2);
+    ss.toast('Dashboard created!', 'Success', 2);
   } catch (error) {
     SpreadsheetApp.getUi().alert('Error', 'Failed: ' + error.message, SpreadsheetApp.getUi().ButtonSet.OK);
   }
@@ -86,9 +114,15 @@ function menuCreateDashboard() {
  * Refresh dashboard
  */
 function menuRefreshDashboard() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   try {
+    // Delete existing dashboard
+    let existingSheet = ss.getSheetByName(DASHBOARD_TAB_NAME);
+    if (existingSheet) ss.deleteSheet(existingSheet);
+    SpreadsheetApp.flush();
+
     createDashboard();
-    SpreadsheetApp.getActiveSpreadsheet().toast('Dashboard refreshed!', 'Success', 2);
+    ss.toast('Dashboard refreshed!', 'Success', 2);
   } catch (error) {
     SpreadsheetApp.getUi().alert('Error', 'Failed to refresh: ' + error.message, SpreadsheetApp.getUi().ButtonSet.OK);
   }
