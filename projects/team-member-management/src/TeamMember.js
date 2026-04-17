@@ -72,24 +72,12 @@ function createTeamMemberTab() {
   sheet.getRange(TEAM_DATA_START_ROW, 1, sampleData.length, TEAM_TOTAL_COLUMNS)
     .setValues(sampleData);
 
-  // Apply formatting
+  // Apply basic formatting only
   for (let i = 0; i < sampleData.length; i++) {
     const rowNum = TEAM_DATA_START_ROW + i;
     const bg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
-    sheet.getRange(rowNum, 1, 1, TEAM_TOTAL_COLUMNS)
-      .setBackground(bg)
-      .setBorder(true, true, true, true, false, false, '#e0e0e0', SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange(rowNum, 1, 1, TEAM_TOTAL_COLUMNS).setBackground(bg);
   }
-
-  // Add data validation
-  addTeamDataValidation(sheet);
-
-  // Add conditional formatting for status
-  addTeamConditionalFormatting(sheet);
-
-  // Enable filter (only on sample data rows to avoid issues)
-  const dataRows = sampleData.length;
-  sheet.getRange(TEAM_HEADER_ROW, 1, dataRows + 1, TEAM_TOTAL_COLUMNS).createFilter();
 
   // Flush changes to ensure completion
   SpreadsheetApp.flush();
