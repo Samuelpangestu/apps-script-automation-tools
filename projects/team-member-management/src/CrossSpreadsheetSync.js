@@ -163,7 +163,7 @@ function syncFromProduction() {
     const prodLastRow = prodConfig.getLastRow();
     const dataRowCount = Math.max(60, prodLastRow - CONFIG_DATA_START_ROW + 1); // Min 60 rows
 
-    const dataRange = 'A' + CONFIG_DATA_START_ROW + ':I' + (CONFIG_DATA_START_ROW + dataRowCount - 1);
+    const dataRange = 'A' + CONFIG_DATA_START_ROW + ':J' + (CONFIG_DATA_START_ROW + dataRowCount - 1);  // Now includes PIC QA column
     const configData = prodConfig.getRange(dataRange).getValues();
 
     // Clear local data area first
@@ -219,7 +219,7 @@ function syncFromProduction() {
 function copyFormattingFromProduction(prodConfig, localConfig, dataRange) {
   try {
     const fmt = prodConfig.getRange(dataRange);
-    fmt.copyFormatToRange(localConfig, 1, 9, CONFIG_DATA_START_ROW, CONFIG_DATA_START_ROW + 59);
+    fmt.copyFormatToRange(localConfig, 1, 10, CONFIG_DATA_START_ROW, CONFIG_DATA_START_ROW + 59);  // Now 10 columns (A-J)
 
     Logger.log('✅ Formatting copied from production');
   } catch (error) {

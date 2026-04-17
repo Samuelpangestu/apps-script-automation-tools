@@ -15,13 +15,14 @@ const CONFIG_COLUMNS = {
   PROJECT: { index: 2, letter: 'B', width: 150, header: 'Project' },
   MODUL: { index: 3, letter: 'C', width: 150, header: 'Modul' },
   SUBMODUL: { index: 4, letter: 'D', width: 200, header: 'Submodul' },
-  DIFFICULTY: { index: 5, letter: 'E', width: 80, header: 'Diff (1-10)' },
-  RISK: { index: 6, letter: 'F', width: 80, header: 'Risk (1-10)' },
-  COMPLEXITY: { index: 7, letter: 'G', width: 80, header: 'Comp (1-10)' },
-  DESCRIPTION: { index: 8, letter: 'H', width: 250, header: 'Description' },
-  STATUS: { index: 9, letter: 'I', width: 100, header: 'Status' }
+  PIC_QA: { index: 5, letter: 'E', width: 150, header: 'PIC QA' },
+  DIFFICULTY: { index: 6, letter: 'F', width: 80, header: 'Diff (1-10)' },
+  RISK: { index: 7, letter: 'G', width: 80, header: 'Risk (1-10)' },
+  COMPLEXITY: { index: 8, letter: 'H', width: 80, header: 'Comp (1-10)' },
+  DESCRIPTION: { index: 9, letter: 'I', width: 250, header: 'Description' },
+  STATUS: { index: 10, letter: 'J', width: 100, header: 'Status' }
 };
-const CONFIG_TOTAL_COLUMNS = 9;
+const CONFIG_TOTAL_COLUMNS = 10;
 
 /**
  * Create Config tab (flat table format - Portfolio style)
@@ -79,6 +80,7 @@ function createConfigTab() {
     CONFIG_COLUMNS.PROJECT.header,
     CONFIG_COLUMNS.MODUL.header,
     CONFIG_COLUMNS.SUBMODUL.header,
+    CONFIG_COLUMNS.PIC_QA.header,
     CONFIG_COLUMNS.DIFFICULTY.header,
     CONFIG_COLUMNS.RISK.header,
     CONFIG_COLUMNS.COMPLEXITY.header,
@@ -97,23 +99,23 @@ function createConfigTab() {
   sheet.setRowHeight(CONFIG_HEADER_ROW, 40);
   sheet.setFrozenRows(CONFIG_HEADER_ROW);
 
-  // Sample data (flat table format)
+  // Sample data (flat table format with PIC QA)
   const sampleData = [
-    [true, 'SIPGN', 'E2E DAPUR', 'E2E DAPUR', 7, 6, 7, 'E2E DAPUR module', 'Active'],
-    [true, 'SIPGN', 'AtomAPI', 'AtomAPI PM', 6, 5, 6, 'AtomAPI Project Management', 'Active'],
-    [true, 'SIPGN', '1', '1.1', 8, 7, 8, 'SIPGN Module 1.1', 'Active'],
-    [true, 'SIPGN', '1', '1.2', 7, 6, 7, 'SIPGN Module 1.2', 'Active'],
-    [true, 'SIPGN', '1', '1.3', 6, 5, 6, 'SIPGN Module 1.3', 'Active'],
-    [true, 'SIPGN', '2', '2.1', 7, 6, 7, 'SIPGN Module 2.1', 'Active'],
-    [true, 'SIPGN', '2', '2.2', 6, 5, 6, 'SIPGN Module 2.2', 'Active'],
-    [true, 'SIPGN', '2', '2.3', 7, 7, 7, 'SIPGN Module 2.3', 'Active'],
-    [true, 'SIPGN', '2', '2.4', 6, 5, 6, 'SIPGN Module 2.4', 'Active'],
-    [true, 'INADigital', 'INAgov', 'INAgov', 8, 7, 8, 'Indonesia Government Portal', 'Active'],
-    [true, 'INADigital', 'POS', 'POS', 5, 4, 5, 'Point of Sale system', 'Active'],
-    [true, 'INADigital', 'SCM', 'SCM', 6, 5, 6, 'Supply Chain Management', 'Active'],
-    [true, 'INADigital', 'PERURIID', 'PERURIID', 7, 6, 7, 'Peruri ID system', 'Active'],
-    [false, 'COTS', 'COTS', 'CODEBASE', 3, 2, 3, 'COTS Codebase', 'Inactive'],
-    [false, 'COTS', 'COTS', 'GEODIPA', 3, 2, 3, 'COTS Geodipa', 'Inactive']
+    [true, 'SIPGN', 'E2E DAPUR', 'E2E DAPUR', 'Dini', 7, 6, 7, 'E2E DAPUR module', 'Active'],
+    [true, 'SIPGN', 'AtomAPI', 'AtomAPI PM', 'Arief', 6, 5, 6, 'AtomAPI Project Management', 'Active'],
+    [true, 'SIPGN', '1', '1.1', 'Reizha', 8, 7, 8, 'SIPGN Module 1.1', 'Active'],
+    [true, 'SIPGN', '1', '1.2', 'Reizha', 7, 6, 7, 'SIPGN Module 1.2', 'Active'],
+    [true, 'SIPGN', '1', '1.3', 'Reizha', 6, 5, 6, 'SIPGN Module 1.3', 'Active'],
+    [true, 'SIPGN', '2', '2.1', 'Farhan', 7, 6, 7, 'SIPGN Module 2.1', 'Active'],
+    [true, 'SIPGN', '2', '2.2', 'Farhan', 6, 5, 6, 'SIPGN Module 2.2', 'Active'],
+    [true, 'SIPGN', '4', '4.1', 'Adinda, Denta', 7, 7, 7, 'SIPGN Module 4.1', 'Active'],
+    [true, 'SIPGN', '4', '4.2', 'Adinda, Denta', 6, 5, 6, 'SIPGN Module 4.2', 'Active'],
+    [true, 'INADigital', 'INAgov', 'INAgov', 'Irvan', 8, 7, 8, 'Indonesia Government Portal', 'Active'],
+    [true, 'INADigital', 'POS', 'POS', 'Fresma', 5, 4, 5, 'Point of Sale system', 'Active'],
+    [true, 'INADigital', 'SCM', 'SCM', 'Fresma', 6, 5, 6, 'Supply Chain Management', 'Active'],
+    [true, 'INADigital', 'PERURIID', 'PERURIID', 'Imam, Farhan', 7, 6, 7, 'Peruri ID system', 'Active'],
+    [false, 'COTS', 'COTS', 'CODEBASE', 'Daffa, Zahwa', 3, 2, 3, 'COTS Codebase', 'Inactive'],
+    [false, 'COTS', 'COTS', 'GEODIPA', 'Daffa, Zahwa', 3, 2, 3, 'COTS Geodipa', 'Inactive']
   ];
 
   sheet.getRange(CONFIG_DATA_START_ROW, 1, sampleData.length, CONFIG_TOTAL_COLUMNS)
@@ -178,7 +180,7 @@ function getActiveProjects() {
   data.forEach(row => {
     const active = row[0];
     const projectName = row[1] ? row[1].toString().trim() : '';
-    const status = row[8] ? row[8].toString().trim() : '';
+    const status = row[9] ? row[9].toString().trim() : ''; // Column J (index 9)
 
     if (active && projectName && status === 'Active') {
       if (!projectsMap.has(projectName)) {
@@ -212,7 +214,7 @@ function getActiveModul() {
     const active = row[0];
     const projectName = row[1] ? row[1].toString().trim() : '';
     const modulName = row[2] ? row[2].toString().trim() : '';
-    const status = row[8] ? row[8].toString().trim() : '';
+    const status = row[9] ? row[9].toString().trim() : ''; // Column J (index 9)
 
     if (active && projectName && modulName && status === 'Active') {
       const key = projectName + '|' + modulName;
@@ -249,11 +251,12 @@ function getActiveSubmodul() {
     const projectName = row[1] ? row[1].toString().trim() : '';
     const modulName = row[2] ? row[2].toString().trim() : '';
     const submodulName = row[3] ? row[3].toString().trim() : '';
-    const difficulty = row[4] || 0;
-    const risk = row[5] || 0;
-    const complexity = row[6] || 0;
-    const description = row[7] ? row[7].toString().trim() : '';
-    const status = row[8] ? row[8].toString().trim() : '';
+    // row[4] is PIC QA - skip
+    const difficulty = row[5] || 0;
+    const risk = row[6] || 0;
+    const complexity = row[7] || 0;
+    const description = row[8] ? row[8].toString().trim() : '';
+    const status = row[9] ? row[9].toString().trim() : ''; // Column J (index 9)
 
     if (active && projectName && modulName && submodulName && status === 'Active') {
       submoduls.push({
