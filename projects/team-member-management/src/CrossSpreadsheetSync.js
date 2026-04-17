@@ -6,12 +6,12 @@
  */
 
 const SYNC_SETTINGS_KEY = 'PRODUCTION_SYNC_SETTINGS';
-const PROD_ID_ROW = 2; // Row 2 in Config tab
+const PROD_ID_ROW = 3; // Row 3 in Config tab (Production Spreadsheet ID field)
 const PROD_ID_COL = 2; // Column B in Config tab
 
 /**
  * Read Production Spreadsheet ID from Config tab
- * Returns the ID from cell B2 in Config tab
+ * Returns the ID from cell B3 in Config tab
  */
 function getProductionIdFromConfig() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
