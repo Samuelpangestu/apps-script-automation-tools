@@ -18,7 +18,7 @@ function onOpen() {
     .addItem('👤 Setup Team Members', 'menuSetupTeam')
     .addItem('📊 Create Dashboard', 'menuCreateDashboard')
     .addSeparator()
-    .addItem('➕ Add Team Member', 'menuAddMember')
+    .addItem('🎨 Apply Team Formatting', 'menuApplyTeamFormatting')
     .addItem('🔄 Refresh Dashboard Now', 'menuRefreshDashboard')
     .addItem('⏰ Configure Auto-Refresh', 'menuConfigureAutoRefresh')
     .addSeparator()
@@ -152,14 +152,49 @@ function menuCreateDashboard() {
 }
 
 /**
- * Add team member
+ * Apply formatting to Team Members tab
  */
-function menuAddMember() {
+function menuApplyTeamFormatting() {
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    'Apply Team Formatting',
+    'This will apply formatting and validation to Team Members tab:\n\n' +
+    '✓ Auto-numbering\n' +
+    '✓ Alternating row colors\n' +
+    '✓ Data validation (dropdowns)\n' +
+    '✓ Project helper text from Config\n' +
+    '✓ Status color coding\n' +
+    '✓ Cell borders\n\n' +
+    'Use this after copy-pasting team member data.\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) return;
+
   try {
-    addTeamMember();
+    const result = applyTeamMemberFormatting();
+
+    if (result.success) {
+      ui.alert(
+        'Formatting Applied! ✅',
+        'Team Members tab has been formatted.\n\n' +
+        'Formatted: ' + result.formatted + ' team members\n\n' +
+        'Applied:\n' +
+        '• Auto-numbering\n' +
+        '• Row styling\n' +
+        '• Data validation\n' +
+        '• Project helper text\n' +
+        '• Status colors\n\n' +
+        'You can now assign projects by typing in the Projects column.',
+        ui.ButtonSet.OK
+      );
+    } else {
+      ui.alert('No Data', result.message, ui.ButtonSet.OK);
+    }
   } catch (error) {
-    const ui = SpreadsheetApp.getUi();
-    ui.alert('Error', 'Failed to add member: ' + error.message, ui.ButtonSet.OK);
+    ui.alert('Error', 'Failed to apply formatting: ' + error.message, ui.ButtonSet.OK);
   }
 }
 
@@ -186,13 +221,14 @@ function menuShowAbout() {
   const message =
     '👥 QA TEAM MANAGEMENT SYSTEM\n\n' +
     '═══════════════════════════════\n\n' +
-    'Version: 2.1.0\n' +
+    'Version: 2.2.0\n' +
     'Author: QA Team\n\n' +
     '📋 KEY FEATURES\n\n' +
     '✅ Centralized project configuration\n' +
     '✅ Difficulty level definitions\n' +
-    '✅ Simple team member management\n' +
-    '✅ Auto-complete project names from Config\n' +
+    '✅ Copy-paste friendly team management\n' +
+    '✅ Auto-formatting after paste\n' +
+    '✅ Project names from Config (single source)\n' +
     '✅ Project distribution dashboard\n' +
     '✅ Scheduled auto-refresh dashboard\n' +
     '✅ Long-term maintainable\n' +
@@ -205,19 +241,22 @@ function menuShowAbout() {
     '   • Add/remove anytime\n\n' +
     '2. Team Members\n' +
     '   • 6 simple columns\n' +
-    '   • Projects auto-complete from Config\n' +
-    '   • Comma-separated for multiple\n\n' +
+    '   • Copy-paste data directly!\n' +
+    '   • Apply formatting after paste\n\n' +
     '3. Dashboard\n' +
     '   • Team distribution per project\n' +
     '   • Manual or auto-refresh\n\n' +
     '═══════════════════════════════\n\n' +
-    'QUICK START:\n\n' +
+    'WORKFLOW:\n\n' +
     '1. Menu → Setup All Tabs\n' +
     '2. Add projects in Config tab\n' +
-    '3. Add team members\n' +
-    '4. Type projects in Team Members\n' +
-    '   (comma-separated, auto-complete)\n' +
-    '5. Dashboard auto-updates\n\n' +
+    '3. Copy-paste team data to Team Members\n' +
+    '4. Menu → Apply Team Formatting\n' +
+    '5. Type projects (comma-separated)\n' +
+    '6. Dashboard auto-updates\n\n' +
+    'COPY-PASTE DATA:\n\n' +
+    'Just paste your data in Team Members tab!\n' +
+    'Then: Menu → Apply Team Formatting\n\n' +
     'AUTO-REFRESH:\n\n' +
     'Menu → Configure Auto-Refresh\n' +
     'Choose: 1, 3, 6, 12, or 24 hours\n\n' +
