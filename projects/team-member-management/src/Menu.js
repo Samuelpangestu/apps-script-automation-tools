@@ -180,13 +180,13 @@ function menuShowAbout() {
     '4. View Dashboard\n\n' +
     'PRODUCTION SYNC MODE:\n' +
     '1. Menu → Setup All Tabs\n' +
-    '2. Open Config tab → Cell B2\n' +
+    '2. Open Config tab → Cell B3\n' +
     '3. Paste Production Spreadsheet ID or URL\n' +
     '4. Menu → Sync from Production & Refresh\n' +
     '5. (Optional) Menu → Configure Auto-Sync\n\n' +
     'PRODUCTION SYNC:\n\n' +
     'Simple 3-step process:\n' +
-    '1. Config tab → Paste ID in cell B2\n' +
+    '1. Config tab → Paste ID in cell B3\n' +
     '2. Menu → Test Production Connection ✓\n' +
     '3. Menu → Sync from Production & Refresh\n\n' +
     'AUTO-SYNC:\n\n' +
@@ -217,7 +217,7 @@ function menuSyncFromProduction() {
     ui.alert(
       'Production Not Configured',
       'Please paste your Production Spreadsheet ID in the Config tab first.\n\n' +
-      'Location: Config tab → Cell B2 (Production Spreadsheet ID)\n\n' +
+      'Location: Config tab → Cell B3 (Production Spreadsheet ID)\n\n' +
       'You can paste either:\n' +
       '• Just the ID: 1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY\n' +
       '• Or full URL: https://docs.google.com/spreadsheets/d/ID/edit',
@@ -250,11 +250,11 @@ function menuSyncFromProduction() {
       ss.toast('Dashboard refreshed with synced data!', 'Success', 3);
 
     } else {
-      ui.alert('Sync Failed', result.message + '\n\nPlease check:\n1. Production Spreadsheet ID is correct in Config tab\n2. You have access to the production spreadsheet', ui.ButtonSet.OK);
+      ui.alert('Sync Failed', result.message + '\n\nPlease check:\n1. Production Spreadsheet ID is correct in Config tab (cell B3)\n2. You have access to the production spreadsheet', ui.ButtonSet.OK);
     }
 
   } catch (error) {
-    ui.alert('Error', 'Sync failed: ' + error.message + '\n\nPlease verify the Production Spreadsheet ID in Config tab (cell B2).', ui.ButtonSet.OK);
+    ui.alert('Error', 'Sync failed: ' + error.message + '\n\nPlease verify the Production Spreadsheet ID in Config tab (cell B3).', ui.ButtonSet.OK);
   }
 }
 
@@ -271,7 +271,7 @@ function menuTestSyncConnection() {
     ui.alert(
       'Production Not Configured',
       'Please paste your Production Spreadsheet ID in the Config tab first.\n\n' +
-      'Location: Config tab → Cell B2 (Production Spreadsheet ID)',
+      'Location: Config tab → Cell B3 (Production Spreadsheet ID)',
       ui.ButtonSet.OK
     );
     return;
@@ -293,7 +293,7 @@ function menuTestSyncConnection() {
         'Connection Test: FAILED ❌',
         result.message + '\n\n' +
         'Please check:\n' +
-        '1. Production Spreadsheet ID in Config tab (cell B2)\n' +
+        '1. Production Spreadsheet ID in Config tab (cell B3)\n' +
         '2. You have access to the production spreadsheet',
         ui.ButtonSet.OK
       );
