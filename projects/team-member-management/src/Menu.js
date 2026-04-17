@@ -19,6 +19,7 @@ function onOpen() {
     .addItem('📊 Create Dashboard', 'menuCreateDashboard')
     .addSeparator()
     .addItem('🔄 Sync from Production & Refresh', 'menuSyncFromProduction')
+    .addItem('👥 Generate Team Members from Config', 'menuGenerateTeamMembers')
     .addItem('🧪 Test Production Connection', 'menuTestSyncConnection')
     .addItem('⏰ Configure Auto-Sync', 'menuConfigureAutoRefresh')
     .addSeparator()
@@ -300,5 +301,35 @@ function menuTestSyncConnection() {
 
   } catch (error) {
     ui.alert('Error', 'Test failed: ' + error.message + '\n\nPlease verify the Production Spreadsheet ID in Config tab.', ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Generate Team Members from Config
+ */
+function menuGenerateTeamMembers() {
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    const result = generateTeamMembersFromConfig();
+
+    if (result.success) {
+      ui.alert(
+        'Team Members Generated! ✅',
+        result.message + '\n\n' +
+        'Generated team members from PIC QA column in Config tab.\n\n' +
+        'Notes:\n' +
+        '• Multiple PICs per modul (e.g., "Adinda, Denta") are split automatically\n' +
+        '• Default role is "Quality Engineer" - update manually if needed\n' +
+        '• Email field is empty - please fill manually\n' +
+        '• Projects, Moduls, and Submoduls are auto-aggregated per person',
+        ui.ButtonSet.OK
+      );
+    } else {
+      ui.alert('Generation Failed', result.message, ui.ButtonSet.OK);
+    }
+
+  } catch (error) {
+    ui.alert('Error', 'Failed to generate team members: ' + error.message, ui.ButtonSet.OK);
   }
 }

@@ -275,3 +275,116 @@ function getAllActiveTeamMembers() {
 
   return members;
 }
+
+/**
+ * Generate Team Members from Config tab (auto-import from QA Portfolio Dashboard)
+ * Handles multiple PICs per modul (e.g., "Adinda, Denta")
+ */
+function generateTeamMembersFromConfig() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const configSheet = ss.getSheetByName(CONFIG_TAB_NAME);
+  const teamSheet = ss.getSheetByName(TEAM_TAB_NAME);
+
+  if (!configSheet) {
+    throw new Error('Config tab not found');
+  }
+
+  if (!teamSheet) {
+    throw new Error('Team Members tab not found');
+  }
+
+  Logger.log('🔄 Generating Team Members from Config...');
+
+  // Read Config data
+  const lastRow = configSheet.getLastRow();
+  if (lastRow < CONFIG_DATA_START_ROW) {
+    Logger.log('⚠️ No data in Config tab');
+    return { success: false, message: 'No data in Config tab' };
+  }
+
+  const configData = configSheet.getRange(CONFIG_DATA_START_ROW, 1, lastRow - CONFIG_DATA_START_ROW + 1, CONFIG_TOTAL_COLUMNS).getValues();
+
+  // Parse and aggregate by PIC name
+  const picMap = new Map(); // Map<picName, {projects: Set, moduls: Set, submoduls: Set}>
+
+  configData.forEach(row => {
+    const active = row[0];
+    const projectName = row[1] ? row[1].toString().trim() : '';
+    const modulName = row[2] ? row[2].toString().trim() : '';
+    const submodulName = row[3] ? row[3].toString().trim() : '';
+    const picQA = row[4] ? row[4].toString().trim() : '';
+    const status = row[9] ? row[9].toString().trim() : '';
+
+    if (active && projectName && modulName && submodulName && picQA && status === 'Active') {
+      // Parse multiple PICs (comma-separated)
+      const picNames = picQA.split(',').map(name => name.trim()).filter(name => name);
+
+      picNames.forEach(picName => {
+        if (!picMap.has(picName)) {
+          picMap.set(picName, {
+            projects: new Set(),
+            moduls: new Set(),
+            submoduls: new Set()
+          });
+        }
+
+        const picData = picMap.get(picName);
+        picData.projects.add(projectName);
+        picData.moduls.add(modulName);
+        picData.submoduls.add(submodulName);
+      });
+    }
+  });
+
+  if (picMap.size === 0) {
+    Logger.log('⚠️ No PICs found in Config tab');
+    return { success: false, message: 'No PICs found in Config' };
+  }
+
+  // Clear existing Team Members data (keep header)
+  const teamLastRow = teamSheet.getLastRow();
+  if (teamLastRow > TEAM_HEADER_ROW) {
+    teamSheet.getRange(TEAM_DATA_START_ROW, 1, teamLastRow - TEAM_HEADER_ROW, TEAM_TOTAL_COLUMNS).clearContent();
+  }
+
+  // Generate Team Members data
+  const teamData = [];
+  let rowNum = 1;
+
+  picMap.forEach((data, picName) => {
+    const projects = Array.from(data.projects).join(', ');
+    const moduls = Array.from(data.moduls).join(', ');
+    const submoduls = Array.from(data.submoduls).join(', ');
+
+    teamData.push([
+      rowNum,
+      picName,
+      'Quality Engineer', // Default role - user can update manually
+      projects,
+      moduls,
+      submoduls,
+      '', // Email - to be filled manually
+      'Active'
+    ]);
+
+    rowNum++;
+  });
+
+  // Write to Team Members tab
+  if (teamData.length > 0) {
+    teamSheet.getRange(TEAM_DATA_START_ROW, 1, teamData.length, TEAM_TOTAL_COLUMNS).setValues(teamData);
+
+    // Apply formatting
+    applyTeamMemberFormatting();
+
+    Logger.log('✅ Generated ' + teamData.length + ' team members from Config');
+
+    return {
+      success: true,
+      generated: teamData.length,
+      message: 'Generated ' + teamData.length + ' team members from Config'
+    };
+  }
+
+  return { success: false, message: 'No team members generated' };
+}
