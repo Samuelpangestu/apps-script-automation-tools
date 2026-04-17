@@ -96,6 +96,9 @@ function createTeamMemberTab() {
   // Enable filter
   sheet.getRange(TEAM_HEADER_ROW, 1, 100, TEAM_TOTAL_COLUMNS).createFilter();
 
+  // Flush changes to ensure completion
+  SpreadsheetApp.flush();
+
   Logger.log('✅ Team Members tab created');
 }
 

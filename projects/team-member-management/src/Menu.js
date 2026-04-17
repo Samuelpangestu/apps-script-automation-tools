@@ -30,9 +30,15 @@ function onOpen() {
  */
 function menuSetupAll() {
   try {
+    // Create tabs sequentially with flush between each
     createConfigTab();
+    Utilities.sleep(500); // Small delay to ensure completion
+
     createTeamMemberTab();
+    Utilities.sleep(500);
+
     createDashboard();
+
     SpreadsheetApp.getActiveSpreadsheet().toast('All tabs created successfully!', 'Setup Complete', 3);
   } catch (error) {
     SpreadsheetApp.getUi().alert('Error', 'Setup failed: ' + error.message, SpreadsheetApp.getUi().ButtonSet.OK);

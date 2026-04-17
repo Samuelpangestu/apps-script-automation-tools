@@ -221,6 +221,9 @@ function createConfigTab() {
 
   sheet.setConditionalFormatRules([easyRule, mediumRule, hardRule]);
 
+  // Flush changes to ensure completion
+  SpreadsheetApp.flush();
+
   Logger.log('✅ Config tab created');
 }
 

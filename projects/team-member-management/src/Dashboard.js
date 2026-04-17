@@ -200,6 +200,9 @@ function createDashboard() {
     .setFontSize(9)
     .setHorizontalAlignment('right');
 
+  // Flush changes to ensure completion
+  SpreadsheetApp.flush();
+
   Logger.log('✅ Dashboard created');
 }
 
