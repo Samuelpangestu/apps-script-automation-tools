@@ -19,8 +19,8 @@ function onOpen() {
     .addItem('📊 Create Dashboard', 'menuCreateDashboard')
     .addSeparator()
     .addItem('➕ Add Team Member', 'menuAddMember')
-    .addItem('📋 Assign Projects', 'menuAssignProjects')
-    .addItem('🔄 Refresh Dashboard', 'menuRefreshDashboard')
+    .addItem('🔄 Refresh Dashboard Now', 'menuRefreshDashboard')
+    .addItem('⏰ Configure Auto-Refresh', 'menuConfigureAutoRefresh')
     .addSeparator()
     .addItem('ℹ️ About', 'menuShowAbout')
     .addToUi();
@@ -164,46 +164,6 @@ function menuAddMember() {
 }
 
 /**
- * Assign projects to team member
- */
-function menuAssignProjects() {
-  const ui = SpreadsheetApp.getUi();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getActiveSheet();
-
-  // Check if we're on Team Members sheet
-  if (sheet.getName() !== TEAM_TAB_NAME) {
-    ui.alert(
-      'Wrong Sheet',
-      'Please select a row in the Team Members sheet first.\n\n' +
-      '1. Go to Team Members tab\n' +
-      '2. Click on the team member row\n' +
-      '3. Then run this menu again',
-      ui.ButtonSet.OK
-    );
-    return;
-  }
-
-  // Get active row
-  const activeRow = sheet.getActiveCell().getRow();
-
-  if (activeRow < TEAM_DATA_START_ROW) {
-    ui.alert(
-      'Select Team Member',
-      'Please click on a team member row (not the header).',
-      ui.ButtonSet.OK
-    );
-    return;
-  }
-
-  try {
-    selectProjectsForMember(activeRow);
-  } catch (error) {
-    ui.alert('Error', 'Failed to assign projects: ' + error.message, ui.ButtonSet.OK);
-  }
-}
-
-/**
  * Refresh dashboard
  */
 function menuRefreshDashboard() {
@@ -226,42 +186,45 @@ function menuShowAbout() {
   const message =
     '👥 QA TEAM MANAGEMENT SYSTEM\n\n' +
     '═══════════════════════════════\n\n' +
-    'Version: 2.0.0\n' +
+    'Version: 2.1.0\n' +
     'Author: QA Team\n\n' +
-    '📋 FEATURES\n\n' +
-    '• Project configuration with difficulty levels\n' +
-    '• Difficulty definitions (Easy/Medium/Hard)\n' +
-    '• Team member management\n' +
-    '• Multi-select project assignment dialog\n' +
-    '• Project distribution dashboard\n' +
-    '• Visual difficulty indicators\n' +
-    '• Long-term maintainable structure\n' +
-    '• Ready for KPI integration\n\n' +
+    '📋 KEY FEATURES\n\n' +
+    '✅ Centralized project configuration\n' +
+    '✅ Difficulty level definitions\n' +
+    '✅ Simple team member management\n' +
+    '✅ Auto-complete project names from Config\n' +
+    '✅ Project distribution dashboard\n' +
+    '✅ Scheduled auto-refresh dashboard\n' +
+    '✅ Long-term maintainable\n' +
+    '✅ Ready for KPI integration\n\n' +
     '═══════════════════════════════\n\n' +
     'TABS:\n\n' +
-    '1. Config - Projects\n' +
-    '   • Difficulty level definitions table\n' +
-    '   • Project list with difficulty & status\n' +
-    '   • Add/remove projects anytime\n\n' +
+    '1. Config - Projects (CENTRALIZED)\n' +
+    '   • Difficulty definitions table\n' +
+    '   • Project list (single source)\n' +
+    '   • Add/remove anytime\n\n' +
     '2. Team Members\n' +
-    '   • Team member info (6 columns)\n' +
-    '   • Multiple project assignments\n' +
-    '   • Role-based management\n\n' +
+    '   • 6 simple columns\n' +
+    '   • Projects auto-complete from Config\n' +
+    '   • Comma-separated for multiple\n\n' +
     '3. Dashboard\n' +
-    '   • Team summary by role\n' +
-    '   • Project distribution table\n' +
-    '   • Auto-refresh capability\n\n' +
+    '   • Team distribution per project\n' +
+    '   • Manual or auto-refresh\n\n' +
     '═══════════════════════════════\n\n' +
-    'USAGE:\n\n' +
-    '1. Setup all tabs (Menu → Setup All Tabs)\n' +
-    '2. Add/edit projects in Config tab\n' +
-    '3. Add team members (Menu → Add Team Member)\n' +
-    '4. Select member row → Assign Projects\n' +
-    '5. Refresh dashboard to see distribution\n\n' +
+    'QUICK START:\n\n' +
+    '1. Menu → Setup All Tabs\n' +
+    '2. Add projects in Config tab\n' +
+    '3. Add team members\n' +
+    '4. Type projects in Team Members\n' +
+    '   (comma-separated, auto-complete)\n' +
+    '5. Dashboard auto-updates\n\n' +
+    'AUTO-REFRESH:\n\n' +
+    'Menu → Configure Auto-Refresh\n' +
+    'Choose: 1, 3, 6, 12, or 24 hours\n\n' +
     'DIFFICULTY LEVELS:\n\n' +
-    '🟢 Easy: 1-2 QE (COTS, Wahana)\n' +
-    '🟡 Medium: 1 PIC + 2-3 QE (INAgov)\n' +
-    '🔴 Hard: 1 Lead + 1 PIC + 3-5 QE (SIPGN)\n\n' +
+    '🟢 Easy: 1-2 QE\n' +
+    '🟡 Medium: 1 PIC + 2-3 QE\n' +
+    '🔴 Hard: 1 Lead + 1 PIC + 3-5 QE\n\n' +
     '═══════════════════════════════\n\n' +
     '© 2024 QA Department';
 
