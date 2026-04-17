@@ -177,49 +177,12 @@ function createConfigTab() {
   sheet.getRange(projectStartRow, 1, sampleProjects.length, CONFIG_TOTAL_COLUMNS)
     .setValues(sampleProjects);
 
-  // Apply formatting
+  // Apply basic formatting only
   for (let i = 0; i < sampleProjects.length; i++) {
     const rowNum = projectStartRow + i;
     const bg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
-    sheet.getRange(rowNum, 1, 1, CONFIG_TOTAL_COLUMNS)
-      .setBackground(bg)
-      .setBorder(true, true, true, true, false, false, '#e0e0e0', SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange(rowNum, 1, 1, CONFIG_TOTAL_COLUMNS).setBackground(bg);
   }
-
-  // Add data validation for Difficulty (reasonable range)
-  const difficultyRange = sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 50);
-  const difficultyRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['Easy', 'Medium', 'Hard'], true)
-    .build();
-  difficultyRange.setDataValidation(difficultyRule);
-
-  // Add data validation for Status
-  const statusRange = sheet.getRange(projectStartRow, CONFIG_COLUMNS.STATUS.index, 50);
-  const statusRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['Active', 'Inactive', 'Completed'], true)
-    .build();
-  statusRange.setDataValidation(statusRule);
-
-  // Add conditional formatting for Difficulty
-  const easyRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo('Easy')
-    .setBackground('#d4edda')
-    .setRanges([sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 50, 1)])
-    .build();
-
-  const mediumRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo('Medium')
-    .setBackground('#fff3cd')
-    .setRanges([sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 50, 1)])
-    .build();
-
-  const hardRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo('Hard')
-    .setBackground('#f8d7da')
-    .setRanges([sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 50, 1)])
-    .build();
-
-  sheet.setConditionalFormatRules([easyRule, mediumRule, hardRule]);
 
   // Flush changes to ensure completion
   SpreadsheetApp.flush();
