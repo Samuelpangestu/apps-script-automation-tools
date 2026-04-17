@@ -107,16 +107,6 @@ function createTeamMemberTab() {
   sheet.getRange(TEAM_HEADER_ROW, 1, 100, TEAM_TOTAL_COLUMNS).createFilter();
 
   Logger.log('✅ Team Members tab created');
-
-  ui.alert(
-    'Success! ✅',
-    'Team Members tab has been created!\n\n' +
-    'You can now:\n' +
-    '• Add team members\n' +
-    '• Assign projects (comma-separated)\n' +
-    '• View dashboard for project distribution',
-    ui.ButtonSet.OK
-  );
 }
 
 /**

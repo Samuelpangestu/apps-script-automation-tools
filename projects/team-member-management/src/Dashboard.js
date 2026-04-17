@@ -204,17 +204,6 @@ function createDashboard() {
     .setHorizontalAlignment('right');
 
   Logger.log('✅ Dashboard created');
-
-  ui.alert(
-    'Dashboard Created! 📊',
-    'Project distribution dashboard has been created.\n\n' +
-    'Shows:\n' +
-    '• Team summary by role\n' +
-    '• Project assignments per team member\n' +
-    '• Difficulty levels per project\n\n' +
-    'Refresh dashboard anytime from menu to see latest data.',
-    ui.ButtonSet.OK
-  );
 }
 
 /**
