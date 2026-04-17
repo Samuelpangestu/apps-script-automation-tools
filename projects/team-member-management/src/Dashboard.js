@@ -12,16 +12,13 @@ const DASHBOARD_TAB_NAME = 'Dashboard';
  */
 function createDashboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
 
-  // Check dependencies
+  // Check dependencies - just create without alerts to avoid conflicts
   if (!ss.getSheetByName(CONFIG_TAB_NAME)) {
-    ui.alert('Config tab not found. Creating Config tab first...');
     createConfigTab();
   }
 
   if (!ss.getSheetByName(TEAM_TAB_NAME)) {
-    ui.alert('Team Members tab not found. Creating Team Members tab first...');
     createTeamMemberTab();
   }
 
@@ -31,8 +28,8 @@ function createDashboard() {
     ss.deleteSheet(existingSheet);
   }
 
-  // Create new sheet
-  const sheet = ss.insertSheet(DASHBOARD_TAB_NAME, 2);
+  // Create new sheet (without position to avoid conflicts)
+  const sheet = ss.insertSheet(DASHBOARD_TAB_NAME);
 
   // Build dashboard
   let currentRow = 1;

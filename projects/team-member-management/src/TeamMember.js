@@ -25,25 +25,15 @@ const TEAM_TOTAL_COLUMNS = 6;
  */
 function createTeamMemberTab() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
 
-  // Check if Config tab exists
+  // Check if Config tab exists - create without alert to avoid conflicts
   if (!ss.getSheetByName(CONFIG_TAB_NAME)) {
-    ui.alert('Config tab not found. Creating Config tab first...');
     createConfigTab();
   }
 
-  // Delete existing if any
+  // Delete existing if any (when called from menuSetupAll)
   let existingSheet = ss.getSheetByName(TEAM_TAB_NAME);
   if (existingSheet) {
-    const response = ui.alert(
-      'Tab already exists',
-      'Team Members tab already exists. Delete and recreate?',
-      ui.ButtonSet.YES_NO
-    );
-    if (response !== ui.Button.YES) {
-      return;
-    }
     ss.deleteSheet(existingSheet);
   }
 
