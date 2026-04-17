@@ -18,12 +18,9 @@ function onOpen() {
     .addItem('👤 Setup Team Members', 'menuSetupTeam')
     .addItem('📊 Create Dashboard', 'menuCreateDashboard')
     .addSeparator()
-    .addItem('🔄 Refresh Dashboard Now', 'menuRefreshDashboard')
-    .addItem('⏰ Configure Auto-Refresh', 'menuConfigureAutoRefresh')
-    .addSeparator()
-    .addItem('🌐 Configure Production Sync', 'menuConfigureProductionSync')
-    .addItem('🔄 Sync from Production Now', 'menuSyncFromProduction')
-    .addItem('🧪 Test Sync Connection', 'menuTestSyncConnection')
+    .addItem('🔄 Sync from Production & Refresh', 'menuSyncFromProduction')
+    .addItem('🧪 Test Production Connection', 'menuTestSyncConnection')
+    .addItem('⏰ Configure Auto-Sync', 'menuConfigureAutoRefresh')
     .addSeparator()
     .addItem('ℹ️ About', 'menuShowAbout')
     .addToUi();
@@ -175,18 +172,24 @@ function menuShowAbout() {
     'INADigital → INAgov → Samuel, Irvan\n' +
     'SIPGN → Core System → Samuel\n\n' +
     'WORKFLOW:\n\n' +
+    'LOCAL MODE (No Production):\n' +
     '1. Menu → Setup All Tabs\n' +
-    '2. (Optional) Configure Production Sync\n' +
-    '3. Edit project/modul/submodul in Config\n' +
-    '4. Add/paste team data\n' +
-    '5. Assign projects/modul/submodul\n' +
-    '6. View Dashboard\n\n' +
+    '2. Edit project/modul/submodul in Config\n' +
+    '3. Add/paste team data\n' +
+    '4. View Dashboard\n\n' +
+    'PRODUCTION SYNC MODE:\n' +
+    '1. Menu → Setup All Tabs\n' +
+    '2. Open Config tab → Cell B2\n' +
+    '3. Paste Production Spreadsheet ID or URL\n' +
+    '4. Menu → Sync from Production & Refresh\n' +
+    '5. (Optional) Menu → Configure Auto-Sync\n\n' +
     'PRODUCTION SYNC:\n\n' +
-    'Menu → Configure Production Sync\n' +
-    'Enter production spreadsheet ID\n' +
-    'Use "Sync from Production Now" to pull data\n\n' +
-    'AUTO SYNC & REFRESH:\n\n' +
-    'Menu → Configure Auto-Refresh\n' +
+    'Simple 3-step process:\n' +
+    '1. Config tab → Paste ID in cell B2\n' +
+    '2. Menu → Test Production Connection ✓\n' +
+    '3. Menu → Sync from Production & Refresh\n\n' +
+    'AUTO-SYNC:\n\n' +
+    'Menu → Configure Auto-Sync\n' +
     'Choose: 1, 3, 6, 12, or 24 hours\n' +
     'System will auto-sync + refresh dashboard\n\n' +
     'DIFFICULTY LEVELS:\n\n' +
@@ -200,92 +203,27 @@ function menuShowAbout() {
 }
 
 /**
- * Configure production sync
- */
-function menuConfigureProductionSync() {
-  const ui = SpreadsheetApp.getUi();
-  const currentSettings = getSyncSettings();
-
-  let message = 'PRODUCTION SYNC CONFIGURATION\n\n';
-
-  if (currentSettings.enabled) {
-    message += 'Current Status: ENABLED ✅\n';
-    message += 'Production Spreadsheet: ' + currentSettings.spreadsheetName + '\n';
-    message += 'Spreadsheet ID: ' + currentSettings.spreadsheetId + '\n\n';
-    message += 'Do you want to change or disable production sync?';
-  } else {
-    message += 'Current Status: DISABLED (Local mode) 📍\n\n';
-    message += 'Do you want to enable production sync?';
-  }
-
-  const response = ui.alert(
-    'Configure Production Sync',
-    message,
-    ui.ButtonSet.YES_NO_CANCEL
-  );
-
-  if (response === ui.Button.YES) {
-    // Configure new production spreadsheet
-    const promptResponse = ui.prompt(
-      'Production Spreadsheet ID',
-      'Enter the ID of your production spreadsheet:\n\n' +
-      '(Find it in the URL: https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit)',
-      ui.ButtonSet.OK_CANCEL
-    );
-
-    if (promptResponse.getSelectedButton() === ui.Button.OK) {
-      const spreadsheetId = promptResponse.getResponseText().trim();
-
-      if (!spreadsheetId) {
-        ui.alert('Error', 'Spreadsheet ID cannot be empty', ui.ButtonSet.OK);
-        return;
-      }
-
-      // Test connection
-      try {
-        const testSS = SpreadsheetApp.openById(spreadsheetId);
-        const testConfig = testSS.getSheetByName(CONFIG_TAB_NAME);
-
-        if (!testConfig) {
-          ui.alert('Error', 'Config tab not found in the specified spreadsheet.\n\nMake sure the production spreadsheet has a "Config" tab.', ui.ButtonSet.OK);
-          return;
-        }
-
-        const spreadsheetName = testSS.getName();
-
-        // Save settings
-        saveSyncSettings(spreadsheetId, spreadsheetName);
-
-        ui.alert(
-          'Success! ✅',
-          'Production sync configured successfully.\n\n' +
-          'Production: ' + spreadsheetName + '\n\n' +
-          'You can now use "Sync from Production Now" to pull data.',
-          ui.ButtonSet.OK
-        );
-
-      } catch (error) {
-        ui.alert('Error', 'Failed to connect to production spreadsheet:\n\n' + error.message + '\n\nPlease check:\n1. Spreadsheet ID is correct\n2. You have access to the spreadsheet', ui.ButtonSet.OK);
-      }
-    }
-
-  } else if (response === ui.Button.NO) {
-    // Disable
-    if (currentSettings.enabled) {
-      disableSyncSettings();
-      ui.alert('Success', 'Production sync has been disabled.\n\nDashboard will use local data only.', ui.ButtonSet.OK);
-    } else {
-      ui.alert('Info', 'Production sync is already disabled.', ui.ButtonSet.OK);
-    }
-  }
-}
-
-/**
- * Sync from production now
+ * Sync from production now (simplified - reads ID from Config tab)
  */
 function menuSyncFromProduction() {
   const ui = SpreadsheetApp.getUi();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Check if Production ID is configured in Config tab
+  const prodId = getProductionIdFromConfig();
+
+  if (!prodId) {
+    ui.alert(
+      'Production Not Configured',
+      'Please paste your Production Spreadsheet ID in the Config tab first.\n\n' +
+      'Location: Config tab → Cell B2 (Production Spreadsheet ID)\n\n' +
+      'You can paste either:\n' +
+      '• Just the ID: 1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY\n' +
+      '• Or full URL: https://docs.google.com/spreadsheets/d/ID/edit',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
 
   try {
     const result = syncFromProduction();
@@ -311,19 +249,32 @@ function menuSyncFromProduction() {
       ss.toast('Dashboard refreshed with synced data!', 'Success', 3);
 
     } else {
-      ui.alert('Sync Failed', result.message, ui.ButtonSet.OK);
+      ui.alert('Sync Failed', result.message + '\n\nPlease check:\n1. Production Spreadsheet ID is correct in Config tab\n2. You have access to the production spreadsheet', ui.ButtonSet.OK);
     }
 
   } catch (error) {
-    ui.alert('Error', 'Sync failed: ' + error.message, ui.ButtonSet.OK);
+    ui.alert('Error', 'Sync failed: ' + error.message + '\n\nPlease verify the Production Spreadsheet ID in Config tab (cell B2).', ui.ButtonSet.OK);
   }
 }
 
 /**
- * Test sync connection
+ * Test sync connection (reads from Config tab)
  */
 function menuTestSyncConnection() {
   const ui = SpreadsheetApp.getUi();
+
+  // Check if Production ID is configured in Config tab
+  const prodId = getProductionIdFromConfig();
+
+  if (!prodId) {
+    ui.alert(
+      'Production Not Configured',
+      'Please paste your Production Spreadsheet ID in the Config tab first.\n\n' +
+      'Location: Config tab → Cell B2 (Production Spreadsheet ID)',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
 
   try {
     const result = testSyncConnection();
@@ -340,12 +291,14 @@ function menuTestSyncConnection() {
       ui.alert(
         'Connection Test: FAILED ❌',
         result.message + '\n\n' +
-        'Please check your production sync configuration.',
+        'Please check:\n' +
+        '1. Production Spreadsheet ID in Config tab (cell B2)\n' +
+        '2. You have access to the production spreadsheet',
         ui.ButtonSet.OK
       );
     }
 
   } catch (error) {
-    ui.alert('Error', 'Test failed: ' + error.message, ui.ButtonSet.OK);
+    ui.alert('Error', 'Test failed: ' + error.message + '\n\nPlease verify the Production Spreadsheet ID in Config tab.', ui.ButtonSet.OK);
   }
 }
