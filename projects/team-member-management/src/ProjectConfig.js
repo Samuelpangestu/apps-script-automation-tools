@@ -186,15 +186,15 @@ function createConfigTab() {
       .setBorder(true, true, true, true, false, false, '#e0e0e0', SpreadsheetApp.BorderStyle.SOLID);
   }
 
-  // Add data validation for Difficulty
-  const difficultyRange = sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 100);
+  // Add data validation for Difficulty (reasonable range)
+  const difficultyRange = sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 50);
   const difficultyRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Easy', 'Medium', 'Hard'], true)
     .build();
   difficultyRange.setDataValidation(difficultyRule);
 
   // Add data validation for Status
-  const statusRange = sheet.getRange(projectStartRow, CONFIG_COLUMNS.STATUS.index, 100);
+  const statusRange = sheet.getRange(projectStartRow, CONFIG_COLUMNS.STATUS.index, 50);
   const statusRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Active', 'Inactive', 'Completed'], true)
     .build();
@@ -204,19 +204,19 @@ function createConfigTab() {
   const easyRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('Easy')
     .setBackground('#d4edda')
-    .setRanges([sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 100, 1)])
+    .setRanges([sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 50, 1)])
     .build();
 
   const mediumRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('Medium')
     .setBackground('#fff3cd')
-    .setRanges([sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 100, 1)])
+    .setRanges([sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 50, 1)])
     .build();
 
   const hardRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('Hard')
     .setBackground('#f8d7da')
-    .setRanges([sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 100, 1)])
+    .setRanges([sheet.getRange(projectStartRow, CONFIG_COLUMNS.DIFFICULTY.index, 50, 1)])
     .build();
 
   sheet.setConditionalFormatRules([easyRule, mediumRule, hardRule]);
