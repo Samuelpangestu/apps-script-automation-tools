@@ -14,7 +14,7 @@ function onOpen() {
   ui.createMenu('👥 QA Team Management')
     .addItem('🔨 Setup All Tabs', 'menuSetupAll')
     .addSeparator()
-    .addItem('⚙️ Setup Config (Projects)', 'menuSetupConfig')
+    .addItem('⚙️ Setup Config', 'menuSetupConfig')
     .addItem('👤 Setup Team Members', 'menuSetupTeam')
     .addItem('📊 Create Dashboard', 'menuCreateDashboard')
     .addSeparator()
@@ -68,7 +68,7 @@ function menuSetupAll() {
 function menuSetupConfig() {
   try {
     createConfigTab();
-    SpreadsheetApp.getActiveSpreadsheet().toast('Config - Projects tab created!', 'Success', 2);
+    SpreadsheetApp.getActiveSpreadsheet().toast('Config tab created!', 'Success', 2);
   } catch (error) {
     SpreadsheetApp.getUi().alert('Error', 'Failed: ' + error.message, SpreadsheetApp.getUi().ButtonSet.OK);
   }
@@ -137,33 +137,42 @@ function menuShowAbout() {
   const message =
     '👥 QA TEAM MANAGEMENT SYSTEM\n\n' +
     '═══════════════════════════════\n\n' +
-    'Version: 2.3.0\n' +
+    'Version: 3.0.0\n' +
     'Author: QA Team\n\n' +
     '📋 KEY FEATURES\n\n' +
     '✅ Simple & clean interface\n' +
-    '✅ Centralized project configuration\n' +
+    '✅ Centralized configuration (all in one place)\n' +
+    '✅ Modul & Submodul structure\n' +
     '✅ Difficulty level definitions\n' +
     '✅ Copy-paste friendly team management\n' +
-    '✅ Project distribution dashboard\n' +
+    '✅ Submodul distribution dashboard\n' +
     '✅ Scheduled auto-refresh dashboard\n' +
     '✅ Ready for KPI integration\n\n' +
     '═══════════════════════════════\n\n' +
     'TABS:\n\n' +
-    '1. Config - Projects\n' +
+    '1. Config\n' +
     '   • Difficulty definitions\n' +
-    '   • Project list (centralized)\n\n' +
+    '   • Modul list (INADigital, SIPGN)\n' +
+    '   • Submodul list (centralized)\n\n' +
     '2. Team Members\n' +
-    '   • 6 simple columns\n' +
-    '   • Copy-paste data directly\n\n' +
+    '   • 7 columns\n' +
+    '   • Copy-paste data directly\n' +
+    '   • Modul + Submodul assignment\n\n' +
     '3. Dashboard\n' +
-    '   • Team distribution per project\n' +
+    '   • Team distribution per submodul\n' +
+    '   • Grouped by modul\n' +
     '   • Auto-refresh available\n\n' +
     '═══════════════════════════════\n\n' +
+    'STRUCTURE:\n\n' +
+    'Modul → Submodul → Team Members\n\n' +
+    'Example:\n' +
+    'INADigital → INAgov → Samuel, Irvan\n' +
+    'SIPGN → Core System → Samuel\n\n' +
     'WORKFLOW:\n\n' +
     '1. Menu → Setup All Tabs\n' +
-    '2. Add/edit projects in Config\n' +
+    '2. Edit modul/submodul in Config\n' +
     '3. Add/paste team data\n' +
-    '4. Assign projects (comma-separated)\n' +
+    '4. Assign modul & submodul\n' +
     '5. View Dashboard\n\n' +
     'AUTO-REFRESH:\n\n' +
     'Menu → Configure Auto-Refresh\n' +
