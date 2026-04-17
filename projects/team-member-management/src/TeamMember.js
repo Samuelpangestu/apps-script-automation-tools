@@ -93,8 +93,9 @@ function createTeamMemberTab() {
   // Add conditional formatting for status
   addTeamConditionalFormatting(sheet);
 
-  // Enable filter
-  sheet.getRange(TEAM_HEADER_ROW, 1, 100, TEAM_TOTAL_COLUMNS).createFilter();
+  // Enable filter (only on sample data rows to avoid issues)
+  const dataRows = sampleData.length;
+  sheet.getRange(TEAM_HEADER_ROW, 1, dataRows + 1, TEAM_TOTAL_COLUMNS).createFilter();
 
   // Flush changes to ensure completion
   SpreadsheetApp.flush();
@@ -106,15 +107,15 @@ function createTeamMemberTab() {
  * Add data validation
  */
 function addTeamDataValidation(sheet) {
-  // Role validation
-  const roleRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.ROLE.index, 100);
+  // Role validation (apply to reasonable range)
+  const roleRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.ROLE.index, 50);
   const roleRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['QA Team Lead', 'QA Lead', 'PIC Project', 'Quality Engineer'], true)
     .build();
   roleRange.setDataValidation(roleRule);
 
   // Status validation
-  const statusRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.STATUS.index, 100);
+  const statusRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.STATUS.index, 50);
   const statusRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Active', 'Inactive', 'On Leave'], true)
     .build();
@@ -126,7 +127,7 @@ function addTeamDataValidation(sheet) {
     const projectNames = projects.map(p => p.name);
     const helperText = 'Available projects: ' + projectNames.join(', ') + '\n\nSeparate multiple projects with comma (,)';
 
-    const projectRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.PROJECTS.index, 100);
+    const projectRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.PROJECTS.index, 50);
     const projectRule = SpreadsheetApp.newDataValidation()
       .setHelpText(helperText)
       .setAllowInvalid(true)
@@ -144,19 +145,19 @@ function addTeamConditionalFormatting(sheet) {
   const activeRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('Active')
     .setBackground('#d4edda')
-    .setRanges([sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.STATUS.index, 100, 1)])
+    .setRanges([sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.STATUS.index, 50, 1)])
     .build();
 
   const inactiveRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('Inactive')
     .setBackground('#f8d7da')
-    .setRanges([sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.STATUS.index, 100, 1)])
+    .setRanges([sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.STATUS.index, 50, 1)])
     .build();
 
   const leaveRule = SpreadsheetApp.newConditionalFormatRule()
     .whenTextEqualTo('On Leave')
     .setBackground('#fff3cd')
-    .setRanges([sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.STATUS.index, 100, 1)])
+    .setRanges([sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.STATUS.index, 50, 1)])
     .build();
 
   sheet.setConditionalFormatRules([activeRule, inactiveRule, leaveRule]);
