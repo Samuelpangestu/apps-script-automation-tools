@@ -46,33 +46,36 @@ function getProductionIdFromConfig() {
 }
 
 /**
- * Get production sync settings
- * Auto-reads from Config tab if not in properties
+ * Get production sync settings (read-only, no auto-connection)
+ * Reads from Config tab first, then falls back to properties
  */
 function getSyncSettings() {
   // First try to read from Config tab
   const prodIdFromConfig = getProductionIdFromConfig();
 
   if (prodIdFromConfig) {
-    // Auto-save to properties if found in Config tab
-    try {
-      const testSS = SpreadsheetApp.openById(prodIdFromConfig);
-      const spreadsheetName = testSS.getName();
+    // Check if we have cached name in properties
+    const props = PropertiesService.getDocumentProperties();
+    const cached = props.getProperty(SYNC_SETTINGS_KEY);
 
-      // Save to properties for caching
-      const settings = {
-        enabled: true,
-        spreadsheetId: prodIdFromConfig,
-        spreadsheetName: spreadsheetName
-      };
-
-      PropertiesService.getDocumentProperties()
-        .setProperty(SYNC_SETTINGS_KEY, JSON.stringify(settings));
-
-      return settings;
-    } catch (error) {
-      Logger.log('⚠️ Could not access production spreadsheet from Config tab: ' + error.message);
+    if (cached) {
+      const cachedSettings = JSON.parse(cached);
+      // If same ID, use cached name
+      if (cachedSettings.spreadsheetId === prodIdFromConfig) {
+        return {
+          enabled: true,
+          spreadsheetId: prodIdFromConfig,
+          spreadsheetName: cachedSettings.spreadsheetName
+        };
+      }
     }
+
+    // New ID, return without name (will be fetched on actual sync/test)
+    return {
+      enabled: true,
+      spreadsheetId: prodIdFromConfig,
+      spreadsheetName: 'Production (not yet connected)'
+    };
   }
 
   // Fallback to properties
@@ -191,11 +194,15 @@ function syncFromProduction() {
     // Copy formatting from production
     copyFormattingFromProduction(prodConfig, localConfig, dataRange);
 
+    // Cache spreadsheet name for future use
+    const prodName = prodSS.getName();
+    saveSyncSettings(settings.spreadsheetId, prodName);
+
     Logger.log('✅ Sync complete: ' + projectSet.size + ' projects, ' + modulSet.size + ' moduls, ' + submodulCount + ' submoduls');
 
     return {
       success: true,
-      message: 'Synced from ' + settings.spreadsheetName,
+      message: 'Synced from ' + prodName,
       synced: {
         projects: projectSet.size,
         moduls: modulSet.size,
@@ -288,6 +295,9 @@ function testSyncConnection() {
     }
 
     const prodName = prodSS.getName();
+
+    // Cache spreadsheet name for future use
+    saveSyncSettings(settings.spreadsheetId, prodName);
 
     return {
       success: true,
