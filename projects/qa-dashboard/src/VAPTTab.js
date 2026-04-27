@@ -310,7 +310,9 @@ function appendVAPTHistory(ss, vaptData) {
     ws = ss.getSheetByName('VAPT History');
   }
 
-  const ts = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  const now = new Date();
+  const ts = Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  const today = Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
   // Append one row per project
   const historyRows = [];
@@ -327,18 +329,55 @@ function appendVAPTHistory(ss, vaptData) {
     return;
   }
 
-  // Get last row and append using setValues (safer than appendRow with merged cells)
-  // IMPORTANT: Ensure we never write to rows 1-2 (headers with merged cells)
+  // SMART APPEND: Check if today's data already exists for each project
   const lastRow = ws.getLastRow();
-  const startRow = Math.max(lastRow + 1, 3);  // Always start at row 3 minimum (after headers)
-  const numCols = historyRows[0].length;
+  if(lastRow>=3){
+    const numCols = historyRows[0].length;
+    const existingData = ws.getRange(3,1,lastRow-2,numCols).getValues();
+    const todayRows = {};  // Map: "project" => row index
 
-  // Unmerge target range first to avoid merge conflicts
-  const targetRange = ws.getRange(startRow, 1, historyRows.length, numCols);
-  targetRange.breakApart();  // Unmerge any merged cells in target area
-  targetRange.setValues(historyRows);
+    // Find all rows from today
+    existingData.forEach((row,i)=>{
+      const rowDate = Utilities.formatDate(new Date(row[0]),Session.getScriptTimeZone(),'yyyy-MM-dd');
+      if(rowDate===today){
+        const key=String(row[1]||'').trim();  // project name
+        todayRows[key]=i+3;  // +3 because row 1-2 are headers
+      }
+    });
 
-  Logger.log('✅ VAPT History appended: ' + historyRows.length + ' rows at row ' + startRow);
+    // Update existing rows or collect new rows to append
+    const newRows=[];
+    historyRows.forEach(row=>{
+      const key=String(row[1]||'').trim();  // project name
+      if(todayRows[key]){
+        // Update existing row (overwrite with latest data)
+        ws.getRange(todayRows[key],1,1,numCols).breakApart().setValues([row]);
+        Logger.log('  🔄 Updated today\'s data for: ' + key);
+      }else{
+        // Collect for batch append
+        newRows.push(row);
+      }
+    });
+
+    // Append only new rows
+    if(newRows.length>0){
+      const startRow=Math.max(lastRow+1,3);
+      const targetRange=ws.getRange(startRow,1,newRows.length,numCols);
+      targetRange.breakApart();  // Unmerge any merged cells in target area
+      targetRange.setValues(newRows);
+      Logger.log('✅ VAPT History appended: ' + newRows.length + ' new rows at row ' + startRow);
+    }else{
+      Logger.log('✅ VAPT History updated: All projects already had today\'s data');
+    }
+  }else{
+    // No data yet, just append
+    const numCols = historyRows[0].length;
+    const startRow=3;
+    const targetRange=ws.getRange(startRow,1,historyRows.length,numCols);
+    targetRange.breakApart();
+    targetRange.setValues(historyRows);
+    Logger.log('✅ VAPT History appended: ' + historyRows.length + ' rows at row ' + startRow);
+  }
 }
 
 /**
@@ -365,4 +404,71 @@ function createHistoryRow_(timestamp, projectName, summary, allData) {
     totalApps,
     appsWithBlocker
   ];
+}
+
+/**
+ * Cleanup VAPT History tab - keep only 90 days of data, one entry per day per project
+ * Manual trigger from menu
+ */
+function cleanupVAPTHistoryData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName('VAPT History');
+  if(!ws){
+    SpreadsheetApp.getUi().alert('VAPT History tab not found');
+    return;
+  }
+
+  const lastRow = ws.getLastRow();
+  if(lastRow<3){
+    SpreadsheetApp.getUi().alert('No data to cleanup');
+    return;
+  }
+
+  // Get all data (10 columns for VAPT History)
+  const data = ws.getRange(3,1,lastRow-2,10).getValues();
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 90);  // 90 days ago
+
+  // Group by date+project, keep latest entry per day
+  const dailyData = {};  // Map: "date|project" => row data
+
+  data.forEach(row=>{
+    const ts = new Date(row[0]);
+    if(ts < cutoffDate) return;  // Skip old data
+
+    const date = Utilities.formatDate(ts,Session.getScriptTimeZone(),'yyyy-MM-dd');
+    const key = `${date}|${row[1]||''}`;  // date|project
+
+    // Keep only latest entry for this day+project
+    if(!dailyData[key] || new Date(dailyData[key][0]) < ts){
+      dailyData[key] = row;
+    }
+  });
+
+  // Convert back to array and sort by date (oldest first)
+  const cleanedData = Object.values(dailyData).sort((a,b)=> new Date(a[0]) - new Date(b[0]));
+
+  const rowsDeleted = data.length - cleanedData.length;
+
+  if(rowsDeleted===0){
+    SpreadsheetApp.getUi().alert('No duplicate or old data found. VAPT History is already clean!');
+    return;
+  }
+
+  // Clear all data and rewrite cleaned data
+  ws.getRange(3,1,lastRow-2,10).clearContent().breakApart();
+  if(cleanedData.length>0){
+    const targetRange = ws.getRange(3,1,cleanedData.length,10);
+    targetRange.breakApart();  // Ensure no merged cells
+    targetRange.setValues(cleanedData);
+  }
+
+  SpreadsheetApp.getUi().alert(
+    `✅ VAPT History Cleanup Complete!\n\n` +
+    `Rows before: ${data.length}\n` +
+    `Rows after: ${cleanedData.length}\n` +
+    `Deleted: ${rowsDeleted} rows\n\n` +
+    `Retention: 90 days, 1 entry per day per project`
+  );
+  Logger.log(`✅ VAPT History cleanup: Deleted ${rowsDeleted} rows, kept ${cleanedData.length} rows`);
 }
