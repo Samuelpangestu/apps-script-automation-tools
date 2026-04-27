@@ -104,6 +104,9 @@ function onOpen() {
       .addItem('_Raw', 'rebuildRaw'))
     .addSubMenu(ui.createMenu('🔧 Broadcast Fixes')
       .addItem('Fix BUG BLOCKER (Rename + Formula)', 'broadcastBugBlockerFix'))
+    .addSubMenu(ui.createMenu('🧹 Data Cleanup')
+      .addItem('Cleanup History Data (90 days)', 'cleanupHistoryData')
+      .addItem('Cleanup VAPT History Data (90 days)', 'cleanupVAPTHistoryData'))
     .addSubMenu(ui.createMenu('⚙️ Settings')
       .addItem('Set Web App Dashboard URL', 'menuSetWebAppUrl'))
     .addToUi();
@@ -2112,7 +2115,9 @@ function buildHistory(ss) {
 
 function appendHistory(ss, allData) {
   const ws=ss.getSheetByName('History'); if(!ws)return;
-  const ts=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm');
+  const now = new Date();
+  const ts=Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm');
+  const today=Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd');
 
   // Build all rows at once (batch operation)
   const rows = allData.map(d => {
@@ -2123,10 +2128,43 @@ function appendHistory(ss, allData) {
       d.perfResult,bs.total||0,bs.open||0,bs.blocker||0,bs.critical||0];
   });
 
-  // Batch append using setValues (much faster than multiple appendRow calls)
+  // SMART APPEND: Check if today's data already exists
   const lastRow = ws.getLastRow();
-  const startRow = lastRow + 1;
-  ws.getRange(startRow, 1, rows.length, 18).setValues(rows);
+  if(lastRow>=3){
+    const existingData = ws.getRange(3,1,lastRow-2,18).getValues();
+    const todayRows = {};  // Map: "project-module-submodule" => row index
+
+    // Find all rows from today
+    existingData.forEach((row,i)=>{
+      const rowDate = Utilities.formatDate(new Date(row[0]),Session.getScriptTimeZone(),'yyyy-MM-dd');
+      if(rowDate===today){
+        const key=`${row[1]||''}-${row[2]||''}-${row[3]||''}`;  // project-module-submodule
+        todayRows[key]=i+3;  // +3 because row 1-2 are headers
+      }
+    });
+
+    // Update existing rows or collect new rows to append
+    const newRows=[];
+    rows.forEach(row=>{
+      const key=`${row[1]||''}-${row[2]||''}-${row[3]||''}`;
+      if(todayRows[key]){
+        // Update existing row (overwrite with latest data)
+        ws.getRange(todayRows[key],1,1,18).setValues([row]);
+      }else{
+        // Collect for batch append
+        newRows.push(row);
+      }
+    });
+
+    // Append only new rows
+    if(newRows.length>0){
+      const startRow=lastRow+1;
+      ws.getRange(startRow,1,newRows.length,18).setValues(newRows);
+    }
+  }else{
+    // No data yet, just append
+    ws.getRange(3,1,rows.length,18).setValues(rows);
+  }
 
   // Apply number formatting to percentage columns
   const newLastRow = ws.getLastRow();
@@ -2135,6 +2173,77 @@ function appendHistory(ss, allData) {
   }
 
   // Charts removed - will use Web App dashboard for visualization
+}
+
+/**
+ * Cleanup History tab - keep only 90 days of data, one entry per day per module
+ * Manual trigger from menu
+ */
+function cleanupHistoryData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName('History');
+  if(!ws){
+    SpreadsheetApp.getUi().alert('History tab not found');
+    return;
+  }
+
+  const lastRow = ws.getLastRow();
+  if(lastRow<3){
+    SpreadsheetApp.getUi().alert('No data to cleanup');
+    return;
+  }
+
+  // Get all data
+  const data = ws.getRange(3,1,lastRow-2,18).getValues();
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 90);  // 90 days ago
+
+  // Group by date+module, keep latest entry per day
+  const dailyData = {};  // Map: "date|project|module|submodule" => row data
+
+  data.forEach(row=>{
+    const ts = new Date(row[0]);
+    if(ts < cutoffDate) return;  // Skip old data
+
+    const date = Utilities.formatDate(ts,Session.getScriptTimeZone(),'yyyy-MM-dd');
+    const key = `${date}|${row[1]||''}|${row[2]||''}|${row[3]||''}`;
+
+    // Keep only latest entry for this day+module
+    if(!dailyData[key] || new Date(dailyData[key][0]) < ts){
+      dailyData[key] = row;
+    }
+  });
+
+  // Convert back to array and sort by date (oldest first)
+  const cleanedData = Object.values(dailyData).sort((a,b)=> new Date(a[0]) - new Date(b[0]));
+
+  const rowsDeleted = data.length - cleanedData.length;
+
+  if(rowsDeleted===0){
+    SpreadsheetApp.getUi().alert('No duplicate or old data found. History is already clean!');
+    return;
+  }
+
+  // Clear all data and rewrite cleaned data
+  ws.getRange(3,1,lastRow-2,18).clearContent();
+  if(cleanedData.length>0){
+    ws.getRange(3,1,cleanedData.length,18).setValues(cleanedData);
+  }
+
+  // Reapply number formatting
+  const newLastRow = ws.getLastRow();
+  if(newLastRow>=3){
+    for(const col of [7,8,9,10,11,12,13,14])ws.getRange(3,col,newLastRow-2,1).setNumberFormat('0%');
+  }
+
+  SpreadsheetApp.getUi().alert(
+    `✅ History Cleanup Complete!\n\n` +
+    `Rows before: ${data.length}\n` +
+    `Rows after: ${cleanedData.length}\n` +
+    `Deleted: ${rowsDeleted} rows\n\n` +
+    `Retention: 90 days, 1 entry per day per module`
+  );
+  Logger.log(`✅ History cleanup: Deleted ${rowsDeleted} rows, kept ${cleanedData.length} rows`);
 }
 
 
