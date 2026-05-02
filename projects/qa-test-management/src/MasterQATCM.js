@@ -1,7 +1,18 @@
 // ===================================================================
-//  QA TEST MANAGEMENT -- Standard Template  v39
-//  Tabs: TC_Master | TC_Execution | API_Master | API_Execution | Summary | BugReport | PerfTest | Appendix
+//  QA TEST MANAGEMENT -- Standard Template  v41
+//  Tabs: TC_Master | TC_Execution | API_Master | API_Execution | Summary | BugReport | PerfTest | Appendix | VAPT (2 tabs)
 //  Run: createQASheet()
+//
+//  v41 Changes:
+//  - Simplified VAPT tabs: 2 tabs only (Detail Finding - VAPT, Evidence - VAPT)
+//  - Removed Regular/Ad Hoc split for simpler unified structure
+//  - VAPT tabs include dropdowns, conditional formatting, notes
+//  - Integrated with existing QATM structure
+//
+//  v40 Changes:
+//  - Added 4 VAPT tabs: Detail Finding (Regular + Ad Hoc), Evidence (Regular + Ad Hoc)
+//  - VAPT tabs include dropdowns, conditional formatting, notes
+//  - Integrated with existing QATM structure
 //
 //  v39 Changes:
 //  - Open Blocker formula: ganti 9x COUNTIFS verbose → SUMPRODUCT bersih
@@ -83,8 +94,9 @@ function inputBorder(range) {
 
 function createQASheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.rename('QA Test Management -- Template');
-  ['TC_Master','TC_Execution','API_Master','API_Execution','Summary','Dashboard','_Dashboard','PerfTest','BugReport','Appendix']
+  ss.rename('QA Test Management -- Template v41 + VAPT');
+  ['TC_Master','TC_Execution','API_Master','API_Execution','Summary','Dashboard','_Dashboard','PerfTest','BugReport','Appendix',
+   'Detail Finding - VAPT','Evidence - VAPT']
       .forEach(name => { const s=ss.getSheetByName(name); if(s) try{ss.deleteSheet(s);}catch(e){} });
   SpreadsheetApp.flush(); Utilities.sleep(500);
   // Create sheets - flush + sleep between each to avoid insertSheet returning undefined
@@ -103,13 +115,21 @@ function createQASheet() {
   Logger.log('Creating Summary...');
   createSummary(ss); SpreadsheetApp.flush(); Utilities.sleep(500);
   Logger.log('Creating Appendix...');
-  createAppendix(ss); SpreadsheetApp.flush();
+  createAppendix(ss); SpreadsheetApp.flush(); Utilities.sleep(500);
+  // Create VAPT tabs (v41: simplified to 2 tabs)
+  Logger.log('Creating VAPT tabs...');
+  createDetailFindingVAPT(ss); SpreadsheetApp.flush(); Utilities.sleep(500);
+  createEvidenceVAPT(ss); SpreadsheetApp.flush();
   const s1=ss.getSheetByName('Sheet1');
   if(s1&&ss.getSheets().length>1) try{ss.deleteSheet(s1);}catch(e){}
   // Reorder tabs: move each to correct position
   SpreadsheetApp.flush();
   try {
-    const order=['Summary','Appendix','BugReport','TC_Execution','TC_Master','API_Execution','API_Master','PerfTest'];
+    const order=[
+      'Summary','Appendix','BugReport','PerfTest',
+      'Evidence - VAPT','Detail Finding - VAPT',
+      'API_Execution','API_Master','TC_Execution','TC_Master'
+    ];
     order.slice().reverse().forEach(name=>{
       const sh=ss.getSheetByName(name);
       if(sh){ ss.setActiveSheet(sh); ss.moveActiveSheet(1); }
@@ -117,15 +137,19 @@ function createQASheet() {
   } catch(e) { Logger.log('Tab reorder skipped: '+e.message); }
   SpreadsheetApp.flush();
   SpreadsheetApp.getUi().alert(
-      '[OK]  QA Test Management Template v39 berhasil dibuat.\n\n'+
+      '[OK]  QA Test Management Template v41 + VAPT berhasil dibuat.\n\n'+
+      '=== CORE QA TABS ===\n'+
       'TC_Master     -- input test case Web / Mobile\n'+
       'TC_Execution  -- hasil eksekusi per tanggal run\n'+
       'API_Master    -- input test case API\n'+
       'API_Execution -- hasil eksekusi API\n'+
-      'Summary       -- info sesi, coverage & run history\n'+
       'BugReport     -- log bug Web, Mobile, dan API\n'+
       'PerfTest      -- rekam & evaluasi hasil performance test\n'+
+      'Summary       -- info sesi, coverage & run history\n'+
       'Appendix      -- definisi & panduan\n\n'+
+      '=== VAPT TABS ===\n'+
+      'Detail Finding - VAPT  -- VAPT findings (security assessment)\n'+
+      'Evidence - VAPT        -- PoC & re-test evidence\n\n'+
       'IN PROGRESS = ada PASSED tapi masih ada TODO yang belum dieksekusi.'
   );
 }

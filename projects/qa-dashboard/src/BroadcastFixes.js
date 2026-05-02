@@ -1595,3 +1595,236 @@ function applyTCNotesFix_(ws) {
 
   Logger.log('  All column notes updated (14 columns) at row 2');
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// VAPT TABS BROADCAST & INDIVIDUAL TAB CREATION
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Broadcast: Add VAPT tabs + Summary section to all active QATMs
+ *
+ * Adds 2 VAPT tabs + Summary metrics to ALL QATMs
+ * Run from QA Dashboard: Menu > Broadcast Fixes > Add VAPT Tabs to All QATMs
+ */
+function broadcastVAPTTabsToAllQATMs() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Verify running from Dashboard
+  const cfg = ss.getSheetByName('Config');
+  if (!cfg) {
+    ui.alert(
+      '❌ Config Not Found',
+      'This function must be run from QA Dashboard.\n\n' +
+      'Config tab with QATM module list not found.',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  const response = ui.alert(
+    '🔒 Broadcast VAPT Tabs + Summary',
+    'Add 2 VAPT tabs + Summary section to ALL active QATMs:\n\n' +
+    '📋 Tabs:\n' +
+    '• Detail Finding - VAPT\n' +
+    '• Evidence - VAPT\n\n' +
+    '📊 Summary Section (row 35+):\n' +
+    '• Total findings\n' +
+    '• By Risk Level, Status Fix, Status Re-VAPT\n\n' +
+    'QATMs with existing tabs will be skipped.\n' +
+    'Time: ~1-2 minutes per QATM\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    ui.alert('❌ Broadcast cancelled.');
+    return;
+  }
+
+  try {
+    Logger.log('🔒 Starting VAPT Tabs Broadcast...');
+    Logger.log('══════════════════════════════════════════');
+
+    const cfgData = cfg.getDataRange().getValues();
+    let successCount = 0;
+    let skipCount = 0;
+    let errorCount = 0;
+    const errors = [];
+    const skipped = [];
+
+    // Process each QATM (starting from row 4, rows 1-3 are headers)
+    for (let i = 3; i < cfgData.length; i++) {
+      const active = cfgData[i][0] === true;  // Col A: Active
+      const project = String(cfgData[i][2]).trim();  // Col C: Project
+      const modul = String(cfgData[i][3]).trim();    // Col D: Modul
+      const qatmId = String(cfgData[i][6]).trim();   // Col G: QATM Spreadsheet ID
+
+      if (!active || !qatmId || qatmId.length < 10) {
+        continue;  // Skip inactive or invalid entries
+      }
+
+      try {
+        Logger.log('\n📂 Processing: ' + project + ' - ' + modul);
+        Logger.log('   Spreadsheet ID: ' + qatmId);
+
+        const qatmSs = SpreadsheetApp.openById(qatmId);
+        Logger.log('   ✅ Opened: ' + qatmSs.getName());
+
+        // Check if VAPT tabs already exist
+        const existingTabs = [
+          qatmSs.getSheetByName('Detail Finding - VAPT'),
+          qatmSs.getSheetByName('Evidence - VAPT')
+        ];
+
+        const tabsExist = existingTabs.filter(tab => tab !== null).length;
+
+        if (tabsExist === 2) {
+          Logger.log('   ⏭️  All VAPT tabs already exist - skipping');
+          skipCount++;
+          skipped.push(project + ' - ' + modul + ' (already has VAPT tabs)');
+          continue;
+        }
+
+        if (tabsExist > 0 && tabsExist < 2) {
+          Logger.log('   ⚠️  Partial VAPT tabs exist (' + tabsExist + '/2) - recreating all');
+        }
+
+        // Create VAPT tabs via BroadcastVAPTTabs.js helper
+        Logger.log('   🔧 Creating VAPT tabs...');
+        createVAPTTabsInQATM_(qatmSs);
+
+        // Add VAPT summary section via BroadcastVAPTTabs.js helper
+        Logger.log('   📊 Adding VAPT summary section...');
+        addVAPTSummarySection_(qatmSs, 35);
+
+        successCount++;
+        Logger.log('   ✅ SUCCESS: ' + project + ' - ' + modul);
+
+        // Sleep to avoid rate limiting
+        Utilities.sleep(1000);
+
+      } catch (e) {
+        Logger.log('   ❌ ERROR: ' + e.message);
+        errorCount++;
+        errors.push(project + ' - ' + modul + ' (' + e.message + ')');
+      }
+    }
+
+    Logger.log('\n══════════════════════════════════════════');
+    Logger.log('📊 BROADCAST SUMMARY');
+    Logger.log('══════════════════════════════════════════');
+    Logger.log('✅ Success: ' + successCount + ' QATM(s)');
+    Logger.log('⏭️  Skipped: ' + skipCount + ' QATM(s)');
+    Logger.log('❌ Errors: ' + errorCount + ' QATM(s)');
+
+    // Show results
+    let msg = '✅ Broadcast Complete!\n\n';
+    msg += '📊 Summary:\n';
+    msg += '• ✅ Added: ' + successCount + ' QATM(s)\n';
+    msg += '• ⏭️  Skipped: ' + skipCount + ' QATM(s) (already exist)\n';
+    msg += '• ❌ Errors: ' + errorCount + ' QATM(s)\n';
+
+    if (errors.length > 0) {
+      msg += '\n❌ Errors:\n';
+      errors.slice(0, 5).forEach(err => msg += '• ' + err + '\n');
+      if (errors.length > 5) {
+        msg += '• ... +' + (errors.length - 5) + ' more (check log)\n';
+      }
+    }
+
+    ui.alert('🔒 VAPT Broadcast', msg, ui.ButtonSet.OK);
+    Logger.log('✅ Broadcast completed successfully');
+
+  } catch (e) {
+    Logger.log('❌ Broadcast error: ' + e.message);
+    ui.alert(
+      '❌ Error',
+      'Broadcast failed:\n\n' + e.message + '\n\n' +
+      'Check Execution log for details.',
+      ui.ButtonSet.OK
+    );
+  }
+}
+
+/**
+ * Create single VAPT tab: Detail Finding - VAPT
+ * Useful for adding just this tab to existing QATM or new project
+ */
+function createSingleTabDetailFindingVAPT() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    '📝 Create Detail Finding - VAPT',
+    'Create "Detail Finding - VAPT" tab in this spreadsheet?\n\n' +
+    '⚠️ If tab already exists, it will be recreated (existing data will be lost).',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    // Delete existing tab if present
+    const existing = ss.getSheetByName('Detail Finding - VAPT');
+    if (existing) {
+      ss.deleteSheet(existing);
+      SpreadsheetApp.flush();
+    }
+
+    createDetailFindingVAPT(ss);
+    SpreadsheetApp.flush();
+
+    ui.alert(
+      '✅ Tab Created!',
+      'Detail Finding - VAPT tab has been created successfully.',
+      ui.ButtonSet.OK
+    );
+
+  } catch (e) {
+    ui.alert('❌ Error', 'Failed to create tab:\n\n' + e.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error creating Detail Finding - VAPT: ' + e.message);
+  }
+}
+
+/**
+ * Create single VAPT tab: Evidence - VAPT
+ */
+function createSingleTabEvidenceVAPT() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    '📝 Create Evidence - VAPT',
+    'Create "Evidence - VAPT" tab in this spreadsheet?\n\n' +
+    '⚠️ If tab already exists, it will be recreated (existing data will be lost).',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    const existing = ss.getSheetByName('Evidence - VAPT');
+    if (existing) {
+      ss.deleteSheet(existing);
+      SpreadsheetApp.flush();
+    }
+
+    createEvidenceVAPT(ss);
+    SpreadsheetApp.flush();
+
+    ui.alert(
+      '✅ Tab Created!',
+      'Evidence - VAPT tab has been created successfully.',
+      ui.ButtonSet.OK
+    );
+
+  } catch (e) {
+    ui.alert('❌ Error', 'Failed to create tab:\n\n' + e.message, ui.ButtonSet.OK);
+    Logger.log('❌ Error creating Evidence - VAPT: ' + e.message);
+  }
+}
