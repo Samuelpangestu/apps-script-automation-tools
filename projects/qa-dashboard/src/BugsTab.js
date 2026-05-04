@@ -50,7 +50,7 @@ function initBugsHeaders_(ws) {
   ws.setRowHeight(1,16);
 
   // Row 2 — title
-  h_(2,1,1,17,'🐛 BUG TRACKING  |  HISTORICAL METRICS WITH DELTA','#B71C1C','#FFFFFF');
+  h_(2,1,1,27,'🐛 BUG TRACKING  |  HISTORICAL METRICS WITH DELTA','#B71C1C','#FFFFFF');
   ws.getRange(2,1).setFontSize(13);
   ws.setRowHeight(2,30);
 
@@ -59,7 +59,9 @@ function initBugsHeaders_(ws) {
   h_(3,4, 1,7, 'BUGS BY PRIORITY',   '#D32F2F');
   h_(3,11,1,2, 'DELTA (vs Previous)','#FF6F00');
   h_(3,13,1,3, 'ENVIRONMENT BUGS',   '#6A1B9A');
-  h_(3,16,1,2, 'METADATA',           '#37474F');
+  h_(3,16,1,5, 'STATUS BREAKDOWN',   '#1976D2');
+  h_(3,21,1,5, 'BLOCKER STATUS',     '#E91E63');
+  h_(3,26,1,2, 'METADATA',           '#37474F');
   ws.setRowHeight(3,22);
 
   // Row 4 — column headers
@@ -68,6 +70,8 @@ function initBugsHeaders_(ws) {
     'Total','Critical','High','Medium','Low','Lowest','Blocker',
     'Δ Total','Δ Blocker',
     'Dev','UAT','Prod',
+    'Open','In Progress','Fixed','Reopen','Verified',
+    'BLK Open','BLK InProg','BLK Fixed','BLK Reopen','BLK Verified',
     'Prev Total','Last Updated'
   ];
   headers.forEach((lbl,i) => h_(4,i+1,1,1,lbl,'#1565C0'));
@@ -81,8 +85,18 @@ function initBugsHeaders_(ws) {
   ws.getRange(4,13).setNote('Bugs di Development environment\n\nBugs found during development/testing');
   ws.getRange(4,14).setNote('Bugs di UAT environment\n\nBugs found during UAT testing');
   ws.getRange(4,15).setNote('Bugs di Production environment\n\n⚠️ CRITICAL: Bugs affecting live users\nTarget: 0 prod bugs');
-  ws.getRange(4,16).setNote('Previous Total Bugs\n\nTotal bugs dari refresh sebelumnya\nDigunakan untuk calculate delta');
-  ws.getRange(4,17).setNote('Last Updated\n\nTimestamp saat data terakhir di-refresh');
+  ws.getRange(4,16).setNote('Status: Open\n\nBugs yang baru dilaporkan dan belum ditangani');
+  ws.getRange(4,17).setNote('Status: In Progress\n\nBugs yang sedang dikerjakan oleh developer');
+  ws.getRange(4,18).setNote('Status: Fixed\n\nBugs yang sudah diperbaiki, menunggu verifikasi');
+  ws.getRange(4,19).setNote('Status: Reopen\n\nBugs yang di-reopen setelah verifikasi gagal');
+  ws.getRange(4,20).setNote('Status: Verified/Ready to Test\n\nBugs yang sudah diverifikasi fixed oleh QA');
+  ws.getRange(4,21).setNote('Blocker Open\n\nBlocker bugs (Medium-Critical) dengan status Open');
+  ws.getRange(4,22).setNote('Blocker In Progress\n\nBlocker bugs (Medium-Critical) yang sedang dikerjakan');
+  ws.getRange(4,23).setNote('Blocker Fixed\n\nBlocker bugs (Medium-Critical) yang sudah diperbaiki');
+  ws.getRange(4,24).setNote('Blocker Reopen\n\nBlocker bugs (Medium-Critical) yang direopen');
+  ws.getRange(4,25).setNote('Blocker Verified\n\nBlocker bugs (Medium-Critical) yang sudah diverifikasi');
+  ws.getRange(4,26).setNote('Previous Total Bugs\n\nTotal bugs dari refresh sebelumnya\nDigunakan untuk calculate delta');
+  ws.getRange(4,27).setNote('Last Updated\n\nTimestamp saat data terakhir di-refresh');
 
   ws.setRowHeight(4,26);
   ws.setFrozenRows(4);
@@ -172,9 +186,23 @@ function writeBugs(ss, allData) {
     cell(14,bs.uatBugs||0,'0');
     cell(15,bs.prodBugs||0,'0');
 
-    // Metadata (col 16-17)
-    cell(16,prev.total||0,'0');  // Previous Total
-    cell(17,Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'));
+    // Status Breakdown (col 16-20)
+    cell(16,bs.openBugs||0,'0');
+    cell(17,bs.inProgressBugs||0,'0');
+    cell(18,bs.fixedBugs||0,'0');
+    cell(19,bs.reopenBugs||0,'0');
+    cell(20,bs.verifiedBugs||0,'0');
+
+    // Blocker Status Breakdown (col 21-25)
+    cell(21,bs.blockerOpenBugs||0,'0');
+    cell(22,bs.blockerInProgressBugs||0,'0');
+    cell(23,bs.blockerFixedBugs||0,'0');
+    cell(24,bs.blockerReopenBugs||0,'0');
+    cell(25,bs.blockerVerifiedBugs||0,'0');
+
+    // Metadata (col 26-27)
+    cell(26,prev.total||0,'0');  // Previous Total
+    cell(27,Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'));
 
     // ═══════════════════════════════════════════════════════════════
     // CONDITIONAL FORMATTING
@@ -243,7 +271,9 @@ function writeBugs(ss, allData) {
     }, 0);
 
     [[4,'total'],[5,'critical'],[6,'high'],[7,'medium'],[8,'low'],[9,'lowest'],[10,'blocker'],
-     [13,'devBugs'],[14,'uatBugs'],[15,'prodBugs']].forEach(([col,key]) => {
+     [13,'devBugs'],[14,'uatBugs'],[15,'prodBugs'],
+     [16,'openBugs'],[17,'inProgressBugs'],[18,'fixedBugs'],[19,'reopenBugs'],[20,'verifiedBugs'],
+     [21,'blockerOpenBugs'],[22,'blockerInProgressBugs'],[23,'blockerFixedBugs'],[24,'blockerReopenBugs'],[25,'blockerVerifiedBugs']].forEach(([col,key]) => {
       ws.getRange(tr,col).setValue(sumBugs(key)).setNumberFormat('0')
           .setBackground('#E8F5E9').setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
     });
@@ -340,7 +370,17 @@ function aggregateBugsBySubmodul_(allData) {
               blocker: 0,
               devBugs: 0,
               uatBugs: 0,
-              prodBugs: 0
+              prodBugs: 0,
+              openBugs: 0,
+              inProgressBugs: 0,
+              fixedBugs: 0,
+              reopenBugs: 0,
+              verifiedBugs: 0,
+              blockerOpenBugs: 0,
+              blockerInProgressBugs: 0,
+              blockerFixedBugs: 0,
+              blockerReopenBugs: 0,
+              blockerVerifiedBugs: 0
             }
           };
         }
@@ -368,11 +408,52 @@ function aggregateBugsBySubmodul_(allData) {
           if (env === 'Development' || env === 'Dev') stats.devBugs++;
           else if (env === 'UAT') stats.uatBugs++;
           else if (env === 'Production') stats.prodBugs++;
+
+          // By status (case-insensitive, trim whitespace)
+          const statusLower = status.toLowerCase().trim();
+          const isBlockerPriority = ['Critical','Highest','High','Medium'].includes(priority);
+
+          if (statusLower === 'open') {
+            stats.openBugs++;
+            if (isBlockerPriority) stats.blockerOpenBugs++;
+          } else if (statusLower === 'in progress' || statusLower === 'in progress vapt') {
+            stats.inProgressBugs++;
+            if (isBlockerPriority) stats.blockerInProgressBugs++;
+          } else if (statusLower === 'fixed') {
+            stats.fixedBugs++;
+            if (isBlockerPriority) stats.blockerFixedBugs++;
+          } else if (statusLower === 'reopen') {
+            stats.reopenBugs++;
+            if (isBlockerPriority) stats.blockerReopenBugs++;
+          } else if (statusLower === 'verified' || statusLower === 'ready to test' || statusLower === 'done vapt') {
+            stats.verifiedBugs++;
+            if (isBlockerPriority) stats.blockerVerifiedBugs++;
+          } else {
+            // Log unmatched statuses for debugging
+            if (!submodulBugs[submodulKey].unmatchedStatuses) {
+              submodulBugs[submodulKey].unmatchedStatuses = {};
+            }
+            if (!submodulBugs[submodulKey].unmatchedStatuses[statusLower]) {
+              submodulBugs[submodulKey].unmatchedStatuses[statusLower] = 0;
+            }
+            submodulBugs[submodulKey].unmatchedStatuses[statusLower]++;
+          }
         }
       });
 
     } catch(e) {
       Logger.log('Error reading bugs from module ' + moduleData.name + ': ' + e.message);
+    }
+  });
+
+  // Log unmatched statuses for debugging
+  Object.keys(submodulBugs).forEach(key => {
+    const unmatchedStatuses = submodulBugs[key].unmatchedStatuses;
+    if (unmatchedStatuses && Object.keys(unmatchedStatuses).length > 0) {
+      Logger.log('⚠️ Unmatched statuses in ' + key + ':');
+      Object.keys(unmatchedStatuses).forEach(status => {
+        Logger.log('  - "' + status + '": ' + unmatchedStatuses[status] + ' bugs');
+      });
     }
   });
 
@@ -391,7 +472,7 @@ function getPreviousBugsData_(ws) {
     if (lastRow < 5) return previousData;  // No previous data
 
     // Read existing data (skip header rows)
-    const data = ws.getRange(5, 1, lastRow-4, 17).getValues();
+    const data = ws.getRange(5, 1, lastRow-4, 27).getValues();
 
     data.forEach(row => {
       const project = String(row[0]).trim();

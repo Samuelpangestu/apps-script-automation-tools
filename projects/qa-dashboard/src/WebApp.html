@@ -98,22 +98,22 @@
   <!-- Navbar -->
   <nav class="navbar navbar-dark mb-4">
     <div class="container-fluid">
-      <span class="navbar-brand mb-0 h1">📊 QA Dashboard</span>
+      <span class="navbar-brand mb-0 h1">QA Dashboard</span>
       <div class="d-flex align-items-center">
         <a href="https://docs.google.com/spreadsheets/d/1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY/edit?gid=2137895928#gid=2137895928" target="_blank" class="btn btn-outline-light btn-sm me-2" title="Open Overview Tab">
-          📋 Overview
+          Overview
         </a>
         <a href="https://docs.google.com/spreadsheets/d/1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY/edit?gid=1796839997#gid=1796839997" target="_blank" class="btn btn-outline-light btn-sm me-2" title="Open Bugs Tab">
-          🐛 Bugs
+          Bugs
         </a>
         <a href="https://docs.google.com/spreadsheets/d/1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY/edit?gid=0#gid=0" target="_blank" class="btn btn-outline-light btn-sm me-2" title="Open VAPT Tab">
-          🔒 VAPT Sheet
+          VAPT Sheet
         </a>
         <select id="projectFilter" class="form-select form-select-sm me-3" style="width: 250px;">
           <option value="">All Modules</option>
         </select>
         <button class="btn btn-light btn-sm" onclick="loadDashboard()">
-          🔄 Refresh
+          Refresh
         </button>
       </div>
     </div>
@@ -140,103 +140,22 @@
         </div>
       </div>
 
-      <!-- Summary Cards Row 1: Testing Metrics -->
-      <div class="row mb-4">
-        <div class="col-md-3 mb-3">
-          <div class="card summary-card">
-            <div class="card-body">
-              <h6 class="card-title">Web Pass Rate</h6>
-              <div class="card-value text-primary" id="webPassRate">-</div>
-              <small class="text-muted">Execution: <span id="webExecRate">-</span></small>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3 mb-3">
-          <div class="card summary-card">
-            <div class="card-body">
-              <h6 class="card-title">API Pass Rate</h6>
-              <div class="card-value text-primary" id="apiPassRate">-</div>
-              <small class="text-muted">Execution: <span id="apiExecRate">-</span></small>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3 mb-3">
-          <div class="card summary-card">
-            <div class="card-body">
-              <h6 class="card-title">Smoke Web Pass</h6>
-              <div class="card-value text-success" id="smokeWebPassRate">-</div>
-              <small class="text-muted">Execution: <span id="smokeWebExecRate">-</span></small>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3 mb-3">
-          <div class="card summary-card">
-            <div class="card-body">
-              <h6 class="card-title">Smoke API Pass</h6>
-              <div class="card-value text-success" id="smokeApiPassRate">-</div>
-              <small class="text-muted">Execution: <span id="smokeApiExecRate">-</span></small>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Divider -->
-      <hr class="section-divider">
-
-      <!-- Summary Cards Row 2: Bug Metrics -->
-      <div class="row mb-4">
-        <div class="col-md-3 mb-3">
-          <div class="card summary-card">
-            <div class="card-body">
-              <h6 class="card-title">Total Bugs</h6>
-              <div class="card-value text-primary" id="totalBugs">-</div>
-              <small class="text-muted">Open: <span id="openBugs">-</span></small>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3 mb-3">
-          <div class="card summary-card border-danger">
-            <div class="card-body">
-              <h6 class="card-title">Blocker Bugs</h6>
-              <div class="card-value text-danger" id="blockerBugs">-</div>
-              <small class="text-danger">🚨 Must be 0</small>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3 mb-3">
-          <div class="card summary-card border-warning">
-            <div class="card-body">
-              <h6 class="card-title">Critical Bugs</h6>
-              <div class="card-value text-warning" id="criticalBugs">-</div>
-              <small class="text-muted">Priority: Critical</small>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3 mb-3">
-          <div class="card summary-card">
-            <div class="card-body">
-              <h6 class="card-title">Performance</h6>
-              <div class="card-value" id="perfResult">-</div>
-              <small class="text-muted">Test Result</small>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Divider -->
-      <hr class="section-divider">
-
-      <!-- BUG SECTION -->
-      <h4 style="margin-bottom: 20px; color: #333; font-weight: 600;">Bug Management</h4>
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- SECTION 1: CRITICAL ALERTS (HIGHEST PRIORITY) -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h4 style="margin-bottom: 20px; color: #d32f2f; font-weight: 700; border-bottom: 3px solid #d32f2f; padding-bottom: 10px;">
+        CRITICAL ALERTS - Immediate Action Required
+      </h4>
 
       <!-- Production Defects -->
       <div class="row mb-4">
         <div class="col-12 mb-3">
-          <div class="chart-container">
-            <h5 class="chart-title">Production Defects (Bugs yang Lolos ke Production & Masih Open)</h5>
+          <div class="chart-container" style="background: #fef5f5; border-left: 4px solid #ef5350;">
+            <h5 class="chart-title" style="color: #e53935;">Production Defects</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
-              <strong>Keterangan:</strong> Bugs yang ditemukan di Production environment dan masih Open/In Progress.
-              Target: 0 bugs di production. Urutan dari severity tertinggi. Prioritas utama untuk diperbaiki segera.
+              <strong>Definition:</strong> Bugs found in Production environment with status Open or In Progress.
+              <br><strong>Target:</strong> 0 bugs in production.
+              <br><strong>Note:</strong> Severity breakdown is proportionally estimated. Sorted by severity (worst first).
             </p>
             <div class="table-responsive">
               <table class="table table-sm table-hover" id="productionDefectsTable">
@@ -261,20 +180,134 @@
         </div>
       </div>
 
-      <!-- Bug Breakdown Summary -->
-      <h5 style="margin: 20px 0 15px 0; color: #555; font-weight: 600;">Bug Breakdown by Severity & Environment</h5>
-      <div class="row mb-3">
-        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-          <div class="card summary-card border-warning">
-            <div class="card-body">
-              <h6 class="card-title">High</h6>
-              <div class="card-value" style="color: #ff6b6b;" id="highBugs">-</div>
-              <small class="text-muted">Severity: High</small>
+      <!-- Blocker Bug Breakdown -->
+      <div class="row mb-4">
+        <div class="col-12 mb-3">
+          <div class="chart-container" style="background: #fffbf5; border-left: 4px solid #ff9800;">
+            <h5 class="chart-title" style="color: #f57c00;">Blocker Bugs by Status</h5>
+            <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
+              <strong>Definition:</strong> Bugs with priority Medium/High/Critical that are still active (not Closed/Won't Fix).
+              <br><strong>Target:</strong> 0 blocker bugs.
+              <br><strong>Purpose:</strong> Track blocker bugs by status for prioritized handling.
+            </p>
+            <div class="row" style="padding: 10px;">
+              <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card summary-card" style="background: #ffebee; border-left: 3px solid #f44336;">
+                  <div class="card-body" style="padding: 12px;">
+                    <h6 class="card-title" style="font-size: 11px; margin-bottom: 5px;">Blocker Open</h6>
+                    <div class="card-value" style="color: #d32f2f; font-size: 22px;" id="blockerOpenBugs">-</div>
+                    <small class="text-muted" style="font-size: 10px;">Reported, not started</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card summary-card" style="background: #fff3e0; border-left: 3px solid #ff9800;">
+                  <div class="card-body" style="padding: 12px;">
+                    <h6 class="card-title" style="font-size: 11px; margin-bottom: 5px;">Blocker In Progress</h6>
+                    <div class="card-value" style="color: #f57c00; font-size: 22px;" id="blockerInProgressBugs">-</div>
+                    <small class="text-muted" style="font-size: 10px;">Being fixed by dev</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card summary-card" style="background: #e3f2fd; border-left: 3px solid #2196f3;">
+                  <div class="card-body" style="padding: 12px;">
+                    <h6 class="card-title" style="font-size: 11px; margin-bottom: 5px;">Blocker Fixed</h6>
+                    <div class="card-value" style="color: #1976d2; font-size: 22px;" id="blockerFixedBugs">-</div>
+                    <small class="text-muted" style="font-size: 10px;">Fixed, ready to test</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card summary-card" style="background: #fce4ec; border-left: 3px solid #e91e63;">
+                  <div class="card-body" style="padding: 12px;">
+                    <h6 class="card-title" style="font-size: 11px; margin-bottom: 5px;">Blocker Reopen</h6>
+                    <div class="card-value" style="color: #c2185b; font-size: 22px;" id="blockerReopenBugs">-</div>
+                    <small class="text-muted" style="font-size: 10px;">Bug still exists</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card summary-card" style="background: #e8f5e9; border-left: 3px solid #4caf50;">
+                  <div class="card-body" style="padding: 12px;">
+                    <h6 class="card-title" style="font-size: 11px; margin-bottom: 5px;">Blocker Verified</h6>
+                    <div class="card-value" style="color: #388e3c; font-size: 22px;" id="blockerVerifiedBugs">-</div>
+                    <small class="text-muted" style="font-size: 10px;">Tested & confirmed</small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card summary-card" style="background: #f3e5f5; border-left: 3px solid #9c27b0;">
+                  <div class="card-body" style="padding: 12px;">
+                    <h6 class="card-title" style="font-size: 11px; margin-bottom: 5px;">Total Blocker</h6>
+                    <div class="card-value" style="color: #7b1fa2; font-size: 22px; font-weight: bold;" id="totalBlockerBugs">-</div>
+                    <small class="text-muted" style="font-size: 10px;">All blocker bugs</small>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+      </div>
+
+      <!-- Divider -->
+      <hr class="section-divider">
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- SECTION 2: BUG OVERVIEW -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h4 style="margin-bottom: 20px; color: #333; font-weight: 700; border-bottom: 3px solid #ff9800; padding-bottom: 10px;">
+        Bug Overview
+      </h4>
+
+      <!-- Summary Cards: Bug Metrics -->
+      <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Total Bugs</h6>
+              <div class="card-value text-primary" id="totalBugs">-</div>
+              <small class="text-muted">Open: <span id="summaryOpenBugs">-</span></small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card border-danger">
+            <div class="card-body">
+              <h6 class="card-title">Blocker Bugs</h6>
+              <div class="card-value text-danger" id="blockerBugs">-</div>
+              <small class="text-danger">Target: 0</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
           <div class="card summary-card border-warning">
+            <div class="card-body">
+              <h6 class="card-title">Critical Bugs</h6>
+              <div class="card-value text-warning" id="criticalBugs">-</div>
+              <small class="text-muted">Priority: Critical</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card border-warning">
+            <div class="card-body">
+              <h6 class="card-title">High Priority</h6>
+              <div class="card-value" style="color: #ff6b6b;" id="highBugs">-</div>
+              <small class="text-muted">Priority: High</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bug Breakdown -->
+      <h5 style="margin: 20px 0 15px 0; color: #555; font-weight: 600;">Detailed Bug Breakdown</h5>
+
+      <!-- Severity Breakdown -->
+      <h6 style="margin: 15px 0 10px 0; color: #666; font-weight: 500;">By Severity</h6>
+      <div class="row mb-3">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+          <div class="card summary-card">
             <div class="card-body">
               <h6 class="card-title">Medium</h6>
               <div class="card-value" style="color: #ffa500;" id="mediumBugs">-</div>
@@ -291,21 +324,26 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Environment Breakdown -->
+      <h6 style="margin: 15px 0 10px 0; color: #666; font-weight: 500;">By Environment</h6>
+      <div class="row mb-3">
         <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
           <div class="card summary-card border-danger">
             <div class="card-body">
               <h6 class="card-title">Production</h6>
               <div class="card-value text-danger" id="productionBugs">-</div>
-              <small class="text-muted">Env: Production</small>
+              <small class="text-muted">Live environment</small>
             </div>
           </div>
         </div>
         <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
           <div class="card summary-card border-warning">
             <div class="card-body">
-              <h6 class="card-title">UAT</h6>
+              <h6 class="card-title">Staging / UAT</h6>
               <div class="card-value" style="color: #ffa500;" id="uatBugs">-</div>
-              <small class="text-muted">Env: UAT</small>
+              <small class="text-muted">Pre-production testing</small>
             </div>
           </div>
         </div>
@@ -314,7 +352,57 @@
             <div class="card-body">
               <h6 class="card-title">Development</h6>
               <div class="card-value" style="color: #4CAF50;" id="devBugs">-</div>
-              <small class="text-muted">Env: Development</small>
+              <small class="text-muted">Dev environment</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status Breakdown -->
+      <h6 style="margin: 15px 0 10px 0; color: #666; font-weight: 500;">By Status</h6>
+      <div class="row mb-3">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+          <div class="card summary-card border-info">
+            <div class="card-body">
+              <h6 class="card-title">Open</h6>
+              <div class="card-value" style="color: #2196F3;" id="openBugs">-</div>
+              <small class="text-muted">Reported, not started</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+          <div class="card summary-card border-warning">
+            <div class="card-body">
+              <h6 class="card-title">In Progress</h6>
+              <div class="card-value" style="color: #FF9800;" id="inProgressBugs">-</div>
+              <small class="text-muted">Being fixed by dev</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+          <div class="card summary-card border-primary">
+            <div class="card-body">
+              <h6 class="card-title">Fixed</h6>
+              <div class="card-value" style="color: #3F51B5;" id="fixedBugs">-</div>
+              <small class="text-muted">Fixed, ready to test</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+          <div class="card summary-card border-danger">
+            <div class="card-body">
+              <h6 class="card-title">Reopen</h6>
+              <div class="card-value text-danger" id="reopenBugs">-</div>
+              <small class="text-muted">Bug still exists</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Verified</h6>
+              <div class="card-value" style="color: #4CAF50;" id="verifiedBugs">-</div>
+              <small class="text-muted">Tested & confirmed fixed</small>
             </div>
           </div>
         </div>
@@ -323,15 +411,85 @@
       <!-- Divider -->
       <hr class="section-divider">
 
-      <!-- VAPT Summary Cards -->
-      <h4 style="margin-bottom: 20px; color: #333; font-weight: 600;">VAPT Security Findings (All Modules)</h4>
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- SECTION 3: TESTING METRICS -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h4 style="margin-bottom: 20px; color: #333; font-weight: 700; border-bottom: 3px solid #667eea; padding-bottom: 10px;">
+        Testing Metrics
+      </h4>
+
+      <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Web Pass Rate</h6>
+              <div class="card-value text-primary" id="webPassRate">-</div>
+              <small class="text-muted">Automation: <span id="webExecRate">-</span></small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">API Pass Rate</h6>
+              <div class="card-value text-primary" id="apiPassRate">-</div>
+              <small class="text-muted">Automation: <span id="apiExecRate">-</span></small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Smoke Web Pass</h6>
+              <div class="card-value text-success" id="smokeWebPassRate">-</div>
+              <small class="text-muted">Automation: <span id="smokeWebExecRate">-</span></small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Smoke API Pass</h6>
+              <div class="card-value text-success" id="smokeApiPassRate">-</div>
+              <small class="text-muted">Automation: <span id="smokeApiExecRate">-</span></small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Performance Test Result -->
+      <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+          <div class="card summary-card">
+            <div class="card-body">
+              <h6 class="card-title">Performance Test</h6>
+              <div class="card-value" id="perfResult">-</div>
+              <small class="text-muted">Latest Result</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <hr class="section-divider">
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- SECTION 4: VAPT SECURITY FINDINGS -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h4 style="margin-bottom: 20px; color: #333; font-weight: 700; border-bottom: 3px solid #9c27b0; padding-bottom: 10px;">
+        VAPT Security Findings
+      </h4>
+      <p class="text-muted" style="font-size: 12px; margin: -10px 0 15px 0;">
+        <strong>Note:</strong> VAPT data shows ALL projects regardless of filter selection.
+      </p>
+
       <div class="row mb-4">
         <div class="col-md-3 mb-3">
           <div class="card summary-card border-danger">
             <div class="card-body">
               <h6 class="card-title">VAPT Blocker</h6>
               <div class="card-value text-danger" id="vaptBlocker">-</div>
-              <small class="text-danger">🚨 Target: 0</small>
+              <small class="text-danger">Target: 0</small>
             </div>
           </div>
         </div>
@@ -367,62 +525,71 @@
       <!-- Divider -->
       <hr class="section-divider">
 
-      <!-- Section Title -->
-      <h4 style="margin-bottom: 24px; color: #333; font-weight: 600;">Trend Analysis (Last 30 Days)</h4>
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- SECTION 5: TREND ANALYSIS (Last 30 Days) -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h4 style="margin-bottom: 20px; color: #333; font-weight: 700; border-bottom: 3px solid #4caf50; padding-bottom: 10px;">
+        Trend Analysis (Last 30 Days)
+      </h4>
 
-      <!-- Charts Row 1 -->
+      <!-- Bug Trends -->
       <div class="row mb-4">
         <div class="col-lg-6 mb-3">
           <div class="chart-container">
-            <h5 class="chart-title">Pass Rate Trend (Last 30 Days)</h5>
+            <h5 class="chart-title">Bug Trend - Total, Blocker & Critical</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
-              <strong>Keterangan:</strong> Biru = Web, Hijau = API. Target: Naik mendekati 100%. Menunjukkan kualitas test case yang pass.
-            </p>
-            <div id="passRateTrendChart" style="height: 350px;"></div>
-          </div>
-        </div>
-        <div class="col-lg-6 mb-3">
-          <div class="chart-container">
-            <h5 class="chart-title">Execution Rate Trend (Last 30 Days)</h5>
-            <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
-              <strong>Keterangan:</strong> Biru = Web, Hijau = API. Target: Selalu 100%. Menunjukkan berapa persen test case yang sudah dijalankan.
-            </p>
-            <div id="execRateTrendChart" style="height: 350px;"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Charts Row 2 -->
-      <div class="row mb-4">
-        <div class="col-lg-6 mb-3">
-          <div class="chart-container">
-            <h5 class="chart-title">Bug Trend (Last 30 Days)</h5>
-            <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
-              <strong>Keterangan:</strong> Merah = Blocker, Orange = Critical. Target: Turun ke 0. Blocker & Critical harus segera diperbaiki.
+              <strong>Purpose:</strong> Track bug count over time.
+              <br><strong>Target:</strong> Downward trend (decreasing bugs). Blocker & Critical must be 0.
             </p>
             <div id="bugTrendChart" style="height: 350px;"></div>
           </div>
         </div>
         <div class="col-lg-6 mb-3">
           <div class="chart-container">
-            <h5 class="chart-title">Smoke Test Pass Rate Trend (Last 30 Days)</h5>
+            <h5 class="chart-title">VAPT Blocker Trend</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
-              <strong>Keterangan:</strong> Biru = Web, Hijau = API. Target: Selalu 100%. Smoke test = test dasar yang harus selalu pass.
+              <strong>Purpose:</strong> Track VAPT blocker findings (Critical + High + Medium still Open).
+              <br><strong>Target:</strong> Downward trend. Must reach 0.
             </p>
-            <div id="smokeTrendChart" style="height: 350px;"></div>
+            <div id="vaptTrendChart" style="height: 350px;"></div>
           </div>
         </div>
       </div>
 
-      <!-- Charts Row 3: VAPT Trend -->
+      <!-- Testing Trends -->
       <div class="row mb-4">
-        <div class="col-12 mb-3">
+        <div class="col-lg-6 mb-3">
           <div class="chart-container">
-            <h5 class="chart-title">VAPT Blocker Trend (Last 30 Days)</h5>
+            <h5 class="chart-title">Pass Rate Trend</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
-              <strong>Keterangan:</strong> Garis merah = Total blocker findings (Critical + High + Medium yang masih Open). Target: Turun ke 0. Security findings yang harus segera diperbaiki.
+              <strong>Purpose:</strong> Track test case pass rate. Blue = Web, Green = API.
+              <br><strong>Target:</strong> Upward trend, approaching 100%.
             </p>
-            <div id="vaptTrendChart" style="height: 400px;"></div>
+            <div id="passRateTrendChart" style="height: 350px;"></div>
+          </div>
+        </div>
+        <div class="col-lg-6 mb-3">
+          <div class="chart-container">
+            <h5 class="chart-title">Execution Rate Trend</h5>
+            <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
+              <strong>Purpose:</strong> Track test execution coverage. Blue = Web, Green = API.
+              <br><strong>Target:</strong> Always 100% (all test cases executed).
+            </p>
+            <div id="execRateTrendChart" style="height: 350px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Smoke Test Trend -->
+      <div class="row mb-4">
+        <div class="col-lg-6 mb-3">
+          <div class="chart-container">
+            <h5 class="chart-title">Smoke Test Pass Rate Trend</h5>
+            <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
+              <strong>Purpose:</strong> Track critical smoke tests. Blue = Web, Green = API.
+              <br><strong>Target:</strong> Always 100% (smoke tests must always pass).
+            </p>
+            <div id="smokeTrendChart" style="height: 350px;"></div>
           </div>
         </div>
       </div>
@@ -430,28 +597,17 @@
       <!-- Divider -->
       <hr class="section-divider">
 
-      <!-- Charts Row 4: Bug Trend (Total + Blocker) -->
-      <div class="row mb-4">
-        <div class="col-12 mb-3">
-          <div class="chart-container">
-            <h5 class="chart-title">Bug Trend - Total & Blocker (Last 30 Days)</h5>
-            <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
-              <strong>Keterangan:</strong> Garis orange = Total bugs, Garis merah = Blocker bugs.
-              Target: Kedua garis turun (trend menurun = bagus). Blocker harus selalu 0.
-            </p>
-            <div id="bugTotalBlockerTrendChart" style="height: 400px;"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Charts Row 5: Module Health Scorecard -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- SECTION 6: MODULE HEALTH SCORECARD -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
       <div class="row mb-4">
         <div class="col-12 mb-3">
           <div class="chart-container">
             <h5 class="chart-title">Module Health Scorecard</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
-              <strong>Keterangan:</strong> Health Score = Pass Rate - (Blocker×10) - (Critical×5).
-              Merah (<50) = Butuh perhatian urgent, Orange (50-75) = Perlu perbaikan, Hijau (>75) = Sehat. Urutan dari terburuk ke terbaik.
+              <strong>Formula:</strong> Health Score = (Avg Pass Rate × 100) - (Blocker × 10) - (Critical × 5)
+              <br><strong>Rating:</strong> Red (&lt;50) = Urgent attention needed | Orange (50-75) = Needs improvement | Green (&gt;75) = Healthy
+              <br><strong>Note:</strong> Sorted by worst first (modules needing urgent attention at top).
             </p>
             <div class="table-responsive">
               <table class="table table-sm table-hover" id="moduleHealthTable">
@@ -491,6 +647,9 @@
 
       const date = new Date(dateString);
 
+      // Check if date is valid
+      if (isNaN(date.getTime())) return '-';
+
       // Convert to WIB (UTC+7)
       const wibOffset = 7 * 60; // WIB is UTC+7
       const localOffset = date.getTimezoneOffset();
@@ -506,7 +665,11 @@
         hour12: false
       };
 
-      return wibTime.toLocaleString('en-GB', options) + ' WIB';
+      try {
+        return wibTime.toLocaleString('en-GB', options) + ' WIB';
+      } catch (e) {
+        return '-';
+      }
     }
 
     function loadDashboard() {
@@ -642,8 +805,7 @@
         drawSmokeTrendChart(filtered.history);
         drawVaptTrendChart(data.vaptHistory || []);
 
-        // Priority 1 Analytics Charts
-        drawBugTotalBlockerTrendChart(filtered.history);
+        // Module Health & Production Defects
         updateModuleHealthScorecard(filtered.bugsTable, filtered.history);
         updateProductionDefectsTable(filtered.bugsTable);
       });
@@ -678,10 +840,10 @@
             smokeApiPassRate: latestEntries.reduce((sum, row) => sum + (row[11] || 0), 0) / moduleCount,
             smokeApiExecRate: latestEntries.reduce((sum, row) => sum + (row[12] || 0), 0) / moduleCount,
             perfResult: '-', // Not aggregated
-            totalBugs: latestEntries.reduce((sum, row) => sum + (row[14] || 0), 0),
+            totalBugs: latestEntries.reduce((sum, row) => sum + (row[21] || 0), 0),
             openBugs: latestEntries.reduce((sum, row) => sum + (row[15] || 0), 0),
-            blockerBugs: latestEntries.reduce((sum, row) => sum + (row[16] || 0), 0),
-            criticalBugs: latestEntries.reduce((sum, row) => sum + (row[17] || 0), 0),
+            blockerBugs: latestEntries.reduce((sum, row) => sum + (row[22] || 0), 0),
+            criticalBugs: latestEntries.reduce((sum, row) => sum + (row[23] || 0), 0),
             lastUpdated: latestEntries[0][0], // Use latest timestamp
             // Preserve VAPT data (not affected by project/module filter)
             vaptBlocker: data.summary.vaptBlocker,
@@ -797,17 +959,22 @@
       document.getElementById('smokeApiExecRate').textContent = fmt(summary.smokeApiExecRate);
 
       document.getElementById('totalBugs').textContent = summary.totalBugs || 0;
-      document.getElementById('openBugs').textContent = summary.openBugs || 0;
+      document.getElementById('summaryOpenBugs').textContent = summary.openBugs || 0;
       document.getElementById('blockerBugs').textContent = summary.blockerBugs || 0;
       document.getElementById('criticalBugs').textContent = summary.criticalBugs || 0;
       document.getElementById('perfResult').textContent = summary.perfResult || '-';
 
-      // Calculate bug breakdown from bugsTable
+      // Calculate bug breakdown from bugsTable (overrides summary values)
       // Bugs table columns: [0]=Project, [1]=Modul, [2]=Submodul, [3]=Total,
       // [4]=Critical, [5]=High, [6]=Medium, [7]=Low, [8]=Lowest, [9]=Blocker,
-      // [10]=Δ Total, [11]=Δ Blocker, [12]=Dev, [13]=UAT, [14]=Prod
+      // [10]=Δ Total, [11]=Δ Blocker, [12]=Dev, [13]=UAT, [14]=Prod,
+      // [15]=Open, [16]=In Progress, [17]=Fixed, [18]=Reopen, [19]=Verified,
+      // [20]=BLK Open, [21]=BLK InProg, [22]=BLK Fixed, [23]=BLK Reopen, [24]=BLK Verified
       let highBugs = 0, mediumBugs = 0, lowBugs = 0;
       let prodBugs = 0, uatBugs = 0, devBugs = 0;
+      let openBugs = 0, inProgressBugs = 0, fixedBugs = 0, reopenBugs = 0, verifiedBugs = 0;
+      let blockerOpenBugs = 0, blockerInProgressBugs = 0, blockerFixedBugs = 0;
+      let blockerReopenBugs = 0, blockerVerifiedBugs = 0;
 
       if (bugsTableData && Array.isArray(bugsTableData) && bugsTableData.length > 0) {
         bugsTableData.forEach(row => {
@@ -819,6 +986,16 @@
           devBugs += Number(row[12]) || 0;     // Dev
           uatBugs += Number(row[13]) || 0;     // UAT
           prodBugs += Number(row[14]) || 0;    // Prod
+          openBugs += Number(row[15]) || 0;    // Open
+          inProgressBugs += Number(row[16]) || 0;  // In Progress
+          fixedBugs += Number(row[17]) || 0;   // Fixed
+          reopenBugs += Number(row[18]) || 0;  // Reopen
+          verifiedBugs += Number(row[19]) || 0;  // Verified
+          blockerOpenBugs += Number(row[20]) || 0;  // Blocker Open
+          blockerInProgressBugs += Number(row[21]) || 0;  // Blocker In Progress
+          blockerFixedBugs += Number(row[22]) || 0;  // Blocker Fixed
+          blockerReopenBugs += Number(row[23]) || 0;  // Blocker Reopen
+          blockerVerifiedBugs += Number(row[24]) || 0;  // Blocker Verified
         });
       }
 
@@ -828,6 +1005,20 @@
       document.getElementById('productionBugs').textContent = prodBugs;
       document.getElementById('uatBugs').textContent = uatBugs;
       document.getElementById('devBugs').textContent = devBugs;
+      document.getElementById('openBugs').textContent = openBugs;
+      document.getElementById('inProgressBugs').textContent = inProgressBugs;
+      document.getElementById('fixedBugs').textContent = fixedBugs;
+      document.getElementById('reopenBugs').textContent = reopenBugs;
+      document.getElementById('verifiedBugs').textContent = verifiedBugs;
+
+      // Update blocker breakdown
+      document.getElementById('blockerOpenBugs').textContent = blockerOpenBugs;
+      document.getElementById('blockerInProgressBugs').textContent = blockerInProgressBugs;
+      document.getElementById('blockerFixedBugs').textContent = blockerFixedBugs;
+      document.getElementById('blockerReopenBugs').textContent = blockerReopenBugs;
+      document.getElementById('blockerVerifiedBugs').textContent = blockerVerifiedBugs;
+      document.getElementById('totalBlockerBugs').textContent =
+        blockerOpenBugs + blockerInProgressBugs + blockerFixedBugs + blockerReopenBugs + blockerVerifiedBugs;
 
       // Update VAPT cards (from summary - not affected by module filter)
       document.getElementById('vaptBlocker').textContent = summary.vaptBlocker || 0;
@@ -1229,83 +1420,8 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PRIORITY 1 ANALYTICS CHARTS
+    // MODULE HEALTH & PRODUCTION DEFECTS TABLES
     // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Draw Bug Total & Blocker Trend Chart (Last 30 Days)
-     * Shows 2 lines: Total Bugs and Blocker Bugs
-     */
-    function drawBugTotalBlockerTrendChart(historyData) {
-      if (historyData.length === 0) {
-        document.getElementById('bugTotalBlockerTrendChart').innerHTML =
-          '<p class="text-muted text-center">No data available</p>';
-        return;
-      }
-
-      // Aggregate by date (keep only latest entry per date)
-      const dailyData = {};
-      historyData.forEach(row => {
-        const dateStr = row[0].split('T')[0]; // "2026-04-04"
-        const timestamp = new Date(row[0]).getTime();
-
-        // Keep only latest timestamp for this date
-        if (!dailyData[dateStr] || timestamp > dailyData[dateStr].timestamp) {
-          dailyData[dateStr] = {
-            date: dateStr,
-            timestamp: timestamp,
-            totalBugs: Number(row[14]) || 0,    // Total Bugs
-            blockerBugs: Number(row[16]) || 0   // Blocker Bugs
-          };
-        }
-      });
-
-      const dailyArray = Object.keys(dailyData).sort().map(date => ({
-        date: date,
-        totalBugs: dailyData[date].totalBugs,
-        blockerBugs: dailyData[date].blockerBugs
-      }));
-
-      const last30Days = dailyArray.slice(-30);
-
-      if (last30Days.length === 0) {
-        document.getElementById('bugTotalBlockerTrendChart').innerHTML =
-          '<p class="text-muted text-center">No data available for last 30 days</p>';
-        return;
-      }
-
-      // Create chart data
-      const chartData = [['Date', 'Total Bugs', 'Blocker Bugs']];
-      last30Days.forEach(day => {
-        const dateLabel = day.date.substring(5); // "MM-DD"
-        chartData.push([dateLabel, day.totalBugs, day.blockerBugs]);
-      });
-
-      const data = google.visualization.arrayToDataTable(chartData);
-
-      const options = {
-        curveType: 'function',
-        legend: { position: 'top' },
-        vAxis: {
-          title: 'Bug Count',
-          minValue: 0,
-          format: '0'
-        },
-        hAxis: {
-          title: 'Date'
-        },
-        series: {
-          0: { color: '#FF9800', lineWidth: 2 },  // Orange for Total Bugs
-          1: { color: '#F44336', lineWidth: 3 }   // Red for Blocker Bugs
-        },
-        chartArea: { width: '90%', height: '75%' }
-      };
-
-      const container = document.getElementById('bugTotalBlockerTrendChart');
-      container.innerHTML = '';
-      const chart = new google.visualization.LineChart(container);
-      chart.draw(data, options);
-    }
 
     /**
      * Update Module Health Scorecard Table
