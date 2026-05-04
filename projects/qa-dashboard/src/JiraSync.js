@@ -420,7 +420,7 @@ function syncJiraStatusAll() {
 
 function sendBugNotification() {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
-  const mods  = _getJiraMods_(ss);
+  const mods  = _getAllActiveMods_(ss);  // Changed: use all active modules (not just Jira Sync)
   const creds = _getCreds_(ss);
   const bugs  = [];
   mods.forEach(mod => {
@@ -907,6 +907,39 @@ function _getCreds_(ss){
 function _notifEmails_(c){return c._notif||[];}
 
 /**
+ * _getAllActiveMods_
+ * Ambil SEMUA modul yang Active = TRUE (tidak peduli Jira Sync)
+ * Digunakan untuk: notification, dashboard refresh, dll.
+ */
+function _getAllActiveMods_(ss){
+  const cfg=ss.getSheetByName('Config'); if(!cfg)return[];
+  const data=cfg.getDataRange().getValues(); const mods=[];
+  for(let i=3;i<data.length;i++){
+    // Cek Active (col A) = TRUE
+    if(data[i][0] !== true) continue;
+
+    const project   = String(data[i][2]).trim();  // Col C = Project
+    const module    = String(data[i][3]).trim();  // Col D = Modul
+    const submodule = String(data[i][4]).trim();  // Col E = Submodul
+    const team      = String(data[i][5]).trim();  // Col F = PIC QA
+    const id        = String(data[i][6]).trim();  // Col G = Spreadsheet ID
+
+    if(!id||id.length<10||id==='PASTE_SPREADSHEET_ID_HERE')continue;
+
+    mods.push({
+      name:submodule||module||'Unknown',
+      id,
+      project,
+      module,
+      submodule,
+      team,
+      lead: ''
+    });
+  }
+  return mods;
+}
+
+/**
  * _getJiraMods_
  * Ambil modul yang:
  *   - Col A (Active) = TRUE
@@ -1057,7 +1090,7 @@ function sendBlockerNotification() {
     return;
   }
 
-  const mods = _getJiraMods_(ss);
+  const mods = _getAllActiveMods_(ss);  // Changed: use all active modules (not just Jira Sync)
   if (mods.length === 0) {
     Logger.log('No active modules to check blockers');
     return;
