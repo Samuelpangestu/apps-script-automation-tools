@@ -101,14 +101,14 @@ function onOpen() {
       .addItem('Failure Scenario', 'rebuildFailureScenario')
       .addItem('Coverage', 'rebuildCoverage')
       .addItem('History', 'rebuildHistory')
-      .addItem('_Raw', 'rebuildRaw'))
+      .addItem('_Raw', 'rebuildRaw')
+      .addSeparator()
+      .addItem('🔒 Detail Finding - VAPT (QATM)', 'createSingleTabDetailFindingVAPT')
+      .addItem('🔒 Evidence - VAPT (QATM)', 'createSingleTabEvidenceVAPT'))
     .addSubMenu(ui.createMenu('🔧 Broadcast Fixes')
       .addItem('Fix BUG BLOCKER (Rename + Formula)', 'broadcastBugBlockerFix')
       .addSeparator()
       .addItem('Add VAPT Tabs to All QATMs', 'broadcastVAPTTabsToAllQATMs'))
-    .addSubMenu(ui.createMenu('🔒 Create VAPT Tabs (QATM)')
-      .addItem('Detail Finding - VAPT', 'createSingleTabDetailFindingVAPT')
-      .addItem('Evidence - VAPT', 'createSingleTabEvidenceVAPT'))
     .addSubMenu(ui.createMenu('🧹 Data Cleanup')
       .addItem('Cleanup History Data (90 days)', 'cleanupHistoryData')
       .addItem('Cleanup VAPT History Data (90 days)', 'cleanupVAPTHistoryData'))
@@ -489,7 +489,7 @@ function refreshDashboardWithJiraSync() {
   try {
     // ── Step 1: Jira Sync ────────────────────────────────────────────────
     Logger.log('');
-    Logger.log('📊 STEP 1/2: Syncing Jira for all QATM modules...');
+    Logger.log('📊 STEP 1/2: Syncing Jira for modules with Jira Sync = TRUE...');
     Logger.log('─────────────────────────────────────────────────────');
 
     // Check if _runSync_ exists (from JiraSync.js)
@@ -497,6 +497,7 @@ function refreshDashboardWithJiraSync() {
       Logger.log('⚠️  Jira sync skipped - _runSync_ function not available');
       Logger.log('   (This is normal if Jira integration is not set up)');
     } else {
+      // _runSync_ will only sync modules with Active = TRUE and Jira Sync = TRUE
       const syncResults = _runSync_(ss, false); // Sync Title, Desc, Priority, Assignee, Submodul
       Logger.log('✅ Jira sync completed:');
       syncResults.forEach(r => Logger.log('   ' + r));
@@ -504,7 +505,7 @@ function refreshDashboardWithJiraSync() {
 
     // ── Step 2: Dashboard Refresh ────────────────────────────────────────
     Logger.log('');
-    Logger.log('🔄 STEP 2/2: Refreshing Dashboard...');
+    Logger.log('🔄 STEP 2/2: Refreshing Dashboard (all active modules)...');
     Logger.log('─────────────────────────────────────────────────────');
 
     refreshDashboard();
@@ -1800,7 +1801,7 @@ function writeOverview(ss, allData) {
 
   // TOTAL row - updated for new layout with prodBugs
   if (allData.length > 0) {
-    const tr = 5+allData.length;
+    const tr = 6+allData.length;  // Fixed: was 5+length (conflict with last data row)
     ws.getRange(tr,1,1,4).merge().setValue('TOTAL / AVERAGE')
         .setBackground('#E3F2FD').setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
         .setHorizontalAlignment('left').setVerticalAlignment('middle');
@@ -2297,11 +2298,12 @@ function updateConfig(ss, allData) {
   allData.forEach(d=>{
     for(let i=3;i<cfgData.length;i++){
       if(String(cfgData[i][6]).trim()===d.id){  // col G = Spreadsheet ID
-        // Update data dari QATM Summary
-        if(d.project)   cfg.getRange(i+1,3).setValue(d.project);    // col C = Project
-        if(d.module)    cfg.getRange(i+1,4).setValue(d.module);     // col D = Modul
-        if(d.submodule) cfg.getRange(i+1,5).setValue(d.submodule);  // col E = Submodul
-        if(d.team)      cfg.getRange(i+1,6).setValue(d.team);       // col F = PIC QA
+        // Update data dari QATM Summary - ALWAYS replace, even if empty
+        // This ensures Config tab always reflects current QATM state
+        cfg.getRange(i+1,3).setValue(d.project || '');    // col C = Project
+        cfg.getRange(i+1,4).setValue(d.module || '');     // col D = Modul
+        cfg.getRange(i+1,5).setValue(d.submodule || '');  // col E = Submodul
+        cfg.getRange(i+1,6).setValue(d.team || '');       // col F = PIC QA
         break;
       }
     }
