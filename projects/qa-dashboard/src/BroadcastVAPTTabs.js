@@ -1,16 +1,18 @@
 /**
  * BroadcastVAPTTabs.js - Broadcast VAPT tabs to existing QATM spreadsheets
  *
- * Adds 2 VAPT tabs + Summary section to ALL active QATM spreadsheets:
- * 1. Detail Finding - VAPT
- * 2. Evidence - VAPT
- * 3. VAPT Summary section in Summary tab (row 35+)
+ * NEW STRUCTURE - Adds 3 VAPT tabs + Summary section to ALL active QATM spreadsheets:
+ * 1. VAPT - Helper (Dashboard/Tracking)
+ * 2. VAPT - Detail Finding (Combined Regular + Ad Hoc)
+ * 3. VAPT - Evidence (Combined Regular + Ad Hoc)
+ * 4. VAPT Summary section in Summary tab (row 35+)
  *
  * Usage: Run broadcastVAPTTabsToAllQATMs() from QA Dashboard
  *
  * Features:
  * - Auto-reads QATM list from Dashboard Config tab
- * - Skips QATMs that already have both VAPT tabs
+ * - Skips QATMs that already have new VAPT tabs
+ * - Deletes old VAPT tabs if found (Detail Finding - VAPT, Evidence - VAPT)
  * - Adds VAPT metrics to Summary tab without impacting existing content
  * - Handles merged cells errors gracefully
  * - Provides detailed summary report
@@ -19,8 +21,9 @@
 /**
  * MAIN FUNCTION: Broadcast VAPT tabs to all active QATMs
  *
- * Automatically reads QATM list from Dashboard Config tab and adds 4 VAPT tabs to each.
- * QATMs that already have all 4 tabs will be skipped.
+ * Automatically reads QATM list from Dashboard Config tab and adds 3 VAPT tabs to each.
+ * QATMs that already have all 3 new tabs will be skipped.
+ * Old VAPT tabs will be replaced with new structure.
  *
  * Run this from QA Dashboard: Extensions > Apps Script > broadcastVAPTTabsToAllQATMs
  */
@@ -41,17 +44,17 @@ function broadcastVAPTTabsToAllQATMs() {
   }
 
   const response = ui.alert(
-    '🔒 Broadcast VAPT Tabs + Summary',
-    'Add 4 VAPT tabs + Summary section to ALL active QATMs:\n\n' +
-    '📋 Tabs:\n' +
-    '• Detail Finding - Regular VAPT\n' +
-    '• Evidence - Regular VAPT\n' +
-    '• Detail Finding - Ad Hoc VAPT\n' +
-    '• Evidence - Ad Hoc VAPT\n\n' +
+    '🔒 Broadcast VAPT Tabs + Summary (NEW STRUCTURE)',
+    'Add 3 NEW VAPT tabs + Summary section to ALL active QATMs:\n\n' +
+    '📋 New Tabs:\n' +
+    '• VAPT - Helper (Dashboard/Tracking)\n' +
+    '• VAPT - Detail Finding (Simplified)\n' +
+    '• VAPT - Evidence\n\n' +
     '📊 Summary Section (row 35+):\n' +
-    '• Total findings (Regular + Ad Hoc)\n' +
+    '• Total findings\n' +
     '• By Risk Level, Status Fix, Status Re-VAPT\n\n' +
-    'QATMs with existing tabs will be skipped.\n' +
+    '⚠️ OLD VAPT tabs will be REPLACED with new structure\n' +
+    'QATMs with NEW tabs already will be skipped.\n' +
     'Time: ~1-2 minutes per QATM\n\n' +
     'Continue?',
     ui.ButtonSet.YES_NO
@@ -91,23 +94,50 @@ function broadcastVAPTTabsToAllQATMs() {
         const qatmSs = SpreadsheetApp.openById(qatmId);
         Logger.log('   ✅ Opened: ' + qatmSs.getName());
 
-        // Check if VAPT tabs already exist
-        const existingTabs = [
-          qatmSs.getSheetByName('Detail Finding - VAPT'),
-          qatmSs.getSheetByName('Evidence - VAPT')
+        // Check if NEW VAPT tabs already exist
+        const newTabs = [
+          qatmSs.getSheetByName('VAPT - Helper'),
+          qatmSs.getSheetByName('VAPT - Detail Finding'),
+          qatmSs.getSheetByName('VAPT - Evidence')
         ];
 
-        const tabsExist = existingTabs.filter(tab => tab !== null).length;
+        const newTabsExist = newTabs.filter(tab => tab !== null).length;
 
-        if (tabsExist === 2) {
-          Logger.log('   ⏭️  All VAPT tabs already exist - skipping');
+        if (newTabsExist === 3) {
+          Logger.log('   ⏭️  All NEW VAPT tabs already exist - skipping');
           skipCount++;
-          skipped.push(project + ' - ' + modul + ' (already has VAPT tabs)');
+          skipped.push(project + ' - ' + modul + ' (already has new VAPT tabs)');
           continue;
         }
 
-        if (tabsExist > 0 && tabsExist < 2) {
-          Logger.log('   ⚠️  Partial VAPT tabs exist (' + tabsExist + '/2) - recreating all');
+        // Check and delete OLD VAPT tabs if they exist
+        const oldTabs = [
+          'Detail Finding - Regular VAPT',
+          'Evidence - Regular VAPT',
+          'Detail Finding - Ad Hoc VAPT',
+          'Evidence - Ad Hoc VAPT',
+          'Detail Finding - VAPT',
+          'Evidence - VAPT'
+        ];
+
+        let deletedCount = 0;
+        oldTabs.forEach(tabName => {
+          const oldTab = qatmSs.getSheetByName(tabName);
+          if (oldTab) {
+            Logger.log('   🗑️  Deleting old tab: ' + tabName);
+            qatmSs.deleteSheet(oldTab);
+            deletedCount++;
+          }
+        });
+
+        if (deletedCount > 0) {
+          Logger.log('   ⚠️  Deleted ' + deletedCount + ' old VAPT tab(s) - creating new structure');
+          SpreadsheetApp.flush();
+          Utilities.sleep(500);
+        }
+
+        if (newTabsExist > 0 && newTabsExist < 3) {
+          Logger.log('   ⚠️  Partial NEW VAPT tabs exist (' + newTabsExist + '/3) - will complete missing tabs');
         }
 
         // Create VAPT tabs
@@ -172,7 +202,7 @@ function broadcastVAPTTabsToAllQATMs() {
  * Create VAPT tabs in a single QATM spreadsheet
  * Internal helper function
  *
- * SKIP if both tabs already exist (no recreation)
+ * Creates 3 NEW VAPT tabs (only missing ones)
  */
 function createVAPTTabsInQATM_(ss) {
   // Import functions from InitVAPTTabs.js
@@ -180,38 +210,34 @@ function createVAPTTabsInQATM_(ss) {
   // so we can call functions from InitVAPTTabs.js directly
 
   try {
-    // Check if some tabs exist (partial state - need to recreate)
-    const tabNames = [
-      'Detail Finding - VAPT',
-      'Evidence - VAPT'
+    // Check which NEW tabs are missing
+    const newTabsConfig = [
+      {name: 'VAPT - Helper', createFn: createVAPTHelper},
+      {name: 'VAPT - Detail Finding', createFn: createDetailFindingVAPT},
+      {name: 'VAPT - Evidence', createFn: createEvidenceVAPT}
     ];
 
-    const existingTabs = tabNames.map(name => ss.getSheetByName(name));
-    const someTabsExist = existingTabs.some(tab => tab !== null);
+    let createdCount = 0;
 
-    if (someTabsExist) {
-      Logger.log('     ⚠️  Some VAPT tabs exist - deleting all to recreate fresh');
-      existingTabs.forEach((sheet, i) => {
-        if (sheet) {
-          Logger.log('     🗑️  Deleting existing tab: ' + tabNames[i]);
-          ss.deleteSheet(sheet);
-        }
-      });
-      SpreadsheetApp.flush();
-      Utilities.sleep(500);
+    newTabsConfig.forEach(tabConfig => {
+      const existingTab = ss.getSheetByName(tabConfig.name);
+
+      if (!existingTab) {
+        Logger.log('     📝 Creating ' + tabConfig.name + '...');
+        tabConfig.createFn(ss);
+        SpreadsheetApp.flush();
+        Utilities.sleep(500);
+        createdCount++;
+      } else {
+        Logger.log('     ⏭️  ' + tabConfig.name + ' already exists - skipping');
+      }
+    });
+
+    if (createdCount > 0) {
+      Logger.log('     ✅ Created ' + createdCount + ' VAPT tab(s) successfully');
+    } else {
+      Logger.log('     ℹ️  No new tabs needed - all tabs already exist');
     }
-
-    // Create 2 VAPT tabs
-    Logger.log('     📝 Creating Detail Finding - VAPT...');
-    createDetailFindingVAPT(ss);
-    SpreadsheetApp.flush();
-    Utilities.sleep(500);
-
-    Logger.log('     📝 Creating Evidence - VAPT...');
-    createEvidenceVAPT(ss);
-    SpreadsheetApp.flush();
-
-    Logger.log('     ✅ Both VAPT tabs created successfully');
 
   } catch (e) {
     throw new Error('Failed to create VAPT tabs: ' + e.message);
@@ -278,7 +304,7 @@ function addVAPTSummarySection_(ss, startRow) {
     summarySheet.getRange(currentRow, 1).setValue('Total VAPT Findings')
       .setFontWeight('bold');
     summarySheet.getRange(currentRow, 2)
-      .setFormula('=COUNTA(\'Detail Finding - VAPT\'!A3:A1000)-COUNTBLANK(\'Detail Finding - VAPT\'!A3:A1000)')
+      .setFormula('=COUNTA(\'VAPT - Detail Finding\'!A3:A1000)-COUNTBLANK(\'VAPT - Detail Finding\'!A3:A1000)')
       .setNumberFormat('0')
       .setHorizontalAlignment('center')
       .setBackground(vaptBg)
@@ -316,9 +342,9 @@ function addVAPTSummarySection_(ss, startRow) {
         .setBackground(risk.color)
         .setFontWeight('bold');
 
-      // Count from single Detail Finding tab
+      // Count from VAPT - Detail Finding tab
       summarySheet.getRange(currentRow, 2)
-        .setFormula('=COUNTIF(\'Detail Finding - VAPT\'!H:H,"' + risk.level + '")')
+        .setFormula('=COUNTIF(\'VAPT - Detail Finding\'!H:H,"' + risk.level + '")')
         .setNumberFormat('0')
         .setHorizontalAlignment('center');
 
@@ -348,9 +374,9 @@ function addVAPTSummarySection_(ss, startRow) {
     statusFix.forEach(status => {
       summarySheet.getRange(currentRow, 1).setValue(status);
 
-      // Count from single Detail Finding tab
+      // Count from VAPT - Detail Finding tab
       summarySheet.getRange(currentRow, 2)
-        .setFormula('=COUNTIF(\'Detail Finding - VAPT\'!E:E,"' + status + '")')
+        .setFormula('=COUNTIF(\'VAPT - Detail Finding\'!E:E,"' + status + '")')
         .setNumberFormat('0')
         .setHorizontalAlignment('center');
 
@@ -380,7 +406,7 @@ function addVAPTSummarySection_(ss, startRow) {
       .setBackground('#FFEBEE')
       .setFontWeight('bold');
     summarySheet.getRange(currentRow, 2)
-      .setFormula('=COUNTIF(\'Detail Finding - VAPT\'!F:F,"Open")')
+      .setFormula('=COUNTIF(\'VAPT - Detail Finding\'!F:F,"Open")')
       .setNumberFormat('0')
       .setHorizontalAlignment('center');
     currentRow++;
@@ -390,7 +416,7 @@ function addVAPTSummarySection_(ss, startRow) {
       .setBackground('#E8F5E9')
       .setFontWeight('bold');
     summarySheet.getRange(currentRow, 2)
-      .setFormula('=COUNTIF(\'Detail Finding - VAPT\'!F:F,"Closed")')
+      .setFormula('=COUNTIF(\'VAPT - Detail Finding\'!F:F,"Closed")')
       .setNumberFormat('0')
       .setHorizontalAlignment('center');
     currentRow++;
