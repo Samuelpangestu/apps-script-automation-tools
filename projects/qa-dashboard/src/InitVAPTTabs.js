@@ -115,9 +115,39 @@ function createVAPTHelper(ss) {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  // Data row with zeros (Row 6)
-  const zerosRow = Array(32).fill(0);
-  ws.getRange(6, 1, 1, 32).setValues([zerosRow])
+  // Data row with formulas (Row 6) - Count vulnerabilities in production
+  const sheetName = "'VAPT - Detail Finding'";
+  const dataRange = sheetName + "!A3:AF";
+
+  // Risk levels for columns
+  const risks = ['Critical', 'High', 'Medium', 'Low', 'Informational'];
+
+  // Helper function to create COUNTIFS formula
+  const countFormula = (statusCol, statusVal, riskLevel, extraCondition = '') => {
+    let formula = `=COUNTIFS(${sheetName}!AA:AA,"Yes",${sheetName}!${statusCol}:${statusCol},"${statusVal}",${sheetName}!H:H,"${riskLevel}"`;
+    if (extraCondition) formula += extraCondition;
+    formula += ')';
+    return formula;
+  };
+
+  const formulas = [
+    '', // Col A
+    '', // Col B
+    // Ready to Retest (Cols C-G)
+    ...risks.map(r => countFormula('E', 'Ready to Retest', r)),
+    // Open (Cols H-L)
+    ...risks.map(r => countFormula('F', 'Open', r)),
+    // Closed (Cols M-Q)
+    ...risks.map(r => countFormula('F', 'Closed', r)),
+    // Accepted - Open (Cols R-V)
+    ...risks.map(r => countFormula('E', 'Accepted', r, `,${sheetName}!F:F,"Open"`)),
+    // Accepted - Closed (Cols W-AA)
+    ...risks.map(r => countFormula('E', 'Accepted', r, `,${sheetName}!F:F,"Closed"`)),
+    // Reserved columns (Cols AB-AF)
+    '', '', '', '', ''
+  ];
+
+  ws.getRange(6, 1, 1, 32).setFormulas([formulas])
     .setNumberFormat('0')
     .setHorizontalAlignment('center');
 
@@ -143,6 +173,25 @@ function createVAPTHelper(ss) {
   vaptHeader_(ws.getRange(11, 1, 1, 11), VAPT_COLORS.orange, VAPT_COLORS.white);
   ws.setRowHeight(11, 40);
 
+  // Add FILTER formula for Tracking in Production (Row 12, Cols A-K)
+  const filterProdFormula =
+    `=ARRAYFORMULA(IF(ISBLANK(FILTER(${sheetName}!AA:AA,${sheetName}!AA:AA="Yes")),"",` +
+    `{` +
+    `"Regular VAPT",` + // VAPT Type (placeholder, could be enhanced)
+    `FILTER(${sheetName}!B:B,${sheetName}!AA:AA="Yes"),` + // App
+    `FILTER(${sheetName}!D:D,${sheetName}!AA:AA="Yes"),` + // Scp
+    `FILTER(${sheetName}!E:E,${sheetName}!AA:AA="Yes"),` + // Status Fix
+    `FILTER(${sheetName}!H:H,${sheetName}!AA:AA="Yes"),` + // Adjusted Risk
+    `FILTER(${sheetName}!A:A,${sheetName}!AA:AA="Yes"),` + // Finding ID
+    `FILTER(${sheetName}!I:I,${sheetName}!AA:AA="Yes"),` + // Finding Name
+    `FILTER(${sheetName}!O:O,${sheetName}!AA:AA="Yes"),` + // Report Date
+    `FILTER(${sheetName}!Q:Q,${sheetName}!AA:AA="Yes"),` + // Target Remediation Date
+    `FILTER(${sheetName}!R:R,${sheetName}!AA:AA="Yes"),` + // Time to Remediate
+    `FILTER(${sheetName}!AE:AE,${sheetName}!AA:AA="Yes")` + // Acceptance Proof
+    `}))`;
+
+  ws.getRange(12, 1).setFormula(filterProdFormula);
+
   // Section 3: Tracking Vulnerability Overall (Row 10, starting Col M)
   ws.getRange(10, 13, 1, 12).merge();
   ws.getRange(10, 13)
@@ -160,6 +209,26 @@ function createVAPTHelper(ss) {
 
   ws.getRange(11, 13, 1, 12).setValues([trackOverallHeaders]);
   vaptHeader_(ws.getRange(11, 13, 1, 12), '#2E7D32', VAPT_COLORS.white);
+
+  // Add FILTER formula for Tracking Overall (Row 12, Cols M-X)
+  const filterOverallFormula =
+    `=ARRAYFORMULA(IF(ISBLANK(${sheetName}!A3:A),"",` +
+    `{` +
+    `"Regular VAPT",` + // VAPT Type (placeholder)
+    `${sheetName}!B3:B,` + // App
+    `${sheetName}!D3:D,` + // Scp
+    `${sheetName}!E3:E,` + // Status Fix
+    `${sheetName}!G3:G,` + // Risk
+    `${sheetName}!H3:H,` + // Adjusted Risk
+    `${sheetName}!A3:A,` + // Finding ID
+    `${sheetName}!I3:I,` + // Finding Name
+    `${sheetName}!O3:O,` + // Report Date
+    `${sheetName}!Q3:Q,` + // Target Remediation Date
+    `${sheetName}!R3:R,` + // Time to Remediate
+    `${sheetName}!AE3:AE` + // Acceptance Proof
+    `}))`;
+
+  ws.getRange(12, 13).setFormula(filterOverallFormula);
 
   // Set column widths
   const widths = [100, 120, 80, 150, 100, 120, 200, 100, 120, 100, 180];
