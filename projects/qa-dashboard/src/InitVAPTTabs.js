@@ -93,7 +93,7 @@ function createVAPTHelper(ss) {
   // Headers for metrics (Row 4)
   const metricsHeaders = [
     '', '', 'Ready to Retest', '', '', '', '', 'Open', '', '', '', '', 'Closed', '', '', '', '',
-    'Accepted - Open', '', '', '', '', 'Accepted - Closed', '', '', '', '', 'Open', '', '', '', '', 'Closed'
+    'Accepted - Open', '', '', '', '', 'Accepted - Closed', '', '', '', '', '', '', '', '', ''
   ];
 
   ws.getRange(4, 1, 1, 32).setValues([metricsHeaders])
