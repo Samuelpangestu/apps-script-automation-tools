@@ -174,23 +174,14 @@ function createVAPTHelper(ss) {
   ws.setRowHeight(11, 40);
 
   // Add FILTER formula for Tracking in Production (Row 12, Cols A-K)
+  // Use QUERY to filter and select specific columns where "Already in Prod" = "Yes"
   const filterProdFormula =
-    `=ARRAYFORMULA(IF(ISBLANK(FILTER(${sheetName}!AA:AA,${sheetName}!AA:AA="Yes")),"",` +
-    `{` +
-    `"Regular VAPT",` + // VAPT Type (placeholder, could be enhanced)
-    `FILTER(${sheetName}!B:B,${sheetName}!AA:AA="Yes"),` + // App
-    `FILTER(${sheetName}!D:D,${sheetName}!AA:AA="Yes"),` + // Scp
-    `FILTER(${sheetName}!E:E,${sheetName}!AA:AA="Yes"),` + // Status Fix
-    `FILTER(${sheetName}!H:H,${sheetName}!AA:AA="Yes"),` + // Adjusted Risk
-    `FILTER(${sheetName}!A:A,${sheetName}!AA:AA="Yes"),` + // Finding ID
-    `FILTER(${sheetName}!I:I,${sheetName}!AA:AA="Yes"),` + // Finding Name
-    `FILTER(${sheetName}!O:O,${sheetName}!AA:AA="Yes"),` + // Report Date
-    `FILTER(${sheetName}!Q:Q,${sheetName}!AA:AA="Yes"),` + // Target Remediation Date
-    `FILTER(${sheetName}!R:R,${sheetName}!AA:AA="Yes"),` + // Time to Remediate
-    `FILTER(${sheetName}!AE:AE,${sheetName}!AA:AA="Yes")` + // Acceptance Proof
-    `}))`;
+    `=IFERROR(QUERY(${sheetName}!A:AF,"SELECT B,D,E,H,A,I,O,Q,R,AE WHERE AA='Yes' AND A IS NOT NULL",0),"")`;
 
-  ws.getRange(12, 1).setFormula(filterProdFormula);
+  ws.getRange(12, 2).setFormula(filterProdFormula); // Start at Col B (App)
+
+  // Add VAPT Type column (Col A) - static value
+  ws.getRange(12, 1).setFormula(`=IF(ISBLANK(B12),"","Regular VAPT")`);
 
   // Section 3: Tracking Vulnerability Overall (Row 10, starting Col M)
   ws.getRange(10, 13, 1, 12).merge();
@@ -210,25 +201,15 @@ function createVAPTHelper(ss) {
   ws.getRange(11, 13, 1, 12).setValues([trackOverallHeaders]);
   vaptHeader_(ws.getRange(11, 13, 1, 12), '#2E7D32', VAPT_COLORS.white);
 
-  // Add FILTER formula for Tracking Overall (Row 12, Cols M-X)
+  // Add QUERY formula for Tracking Overall (Row 12, Cols M-X)
+  // Show all findings (no "Already in Prod" filter)
   const filterOverallFormula =
-    `=ARRAYFORMULA(IF(ISBLANK(${sheetName}!A3:A),"",` +
-    `{` +
-    `"Regular VAPT",` + // VAPT Type (placeholder)
-    `${sheetName}!B3:B,` + // App
-    `${sheetName}!D3:D,` + // Scp
-    `${sheetName}!E3:E,` + // Status Fix
-    `${sheetName}!G3:G,` + // Risk
-    `${sheetName}!H3:H,` + // Adjusted Risk
-    `${sheetName}!A3:A,` + // Finding ID
-    `${sheetName}!I3:I,` + // Finding Name
-    `${sheetName}!O3:O,` + // Report Date
-    `${sheetName}!Q3:Q,` + // Target Remediation Date
-    `${sheetName}!R3:R,` + // Time to Remediate
-    `${sheetName}!AE3:AE` + // Acceptance Proof
-    `}))`;
+    `=IFERROR(QUERY(${sheetName}!A:AF,"SELECT B,D,E,G,H,A,I,O,Q,R,AE WHERE A IS NOT NULL",0),"")`;
 
-  ws.getRange(12, 13).setFormula(filterOverallFormula);
+  ws.getRange(12, 14).setFormula(filterOverallFormula); // Start at Col N (App)
+
+  // Add VAPT Type column (Col M) - static value
+  ws.getRange(12, 13).setFormula(`=IF(ISBLANK(N12),"","Regular VAPT")`);
 
   // Set column widths
   const widths = [100, 120, 80, 150, 100, 120, 200, 100, 120, 100, 180];
