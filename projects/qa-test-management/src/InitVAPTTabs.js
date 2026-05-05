@@ -1,11 +1,10 @@
 /**
- * InitVAPTTabs.js - Initialize 4 VAPT tabs in QATM template
+ * InitVAPTTabs.js - Initialize 3 VAPT tabs in QATM template
  *
- * Tabs created:
- * 1. Detail Finding - Regular VAPT
- * 2. Evidence - Regular VAPT
- * 3. Detail Finding - Ad Hoc VAPT
- * 4. Evidence - Ad Hoc VAPT
+ * NEW STRUCTURE (Simplified):
+ * 1. VAPT - Helper (Dashboard/Tracking)
+ * 2. VAPT - Detail Finding (Combined Regular + Ad Hoc)
+ * 3. VAPT - Evidence (Combined Regular + Ad Hoc)
  *
  * Usage:
  * - For new templates: Called from createQASheet()
@@ -17,11 +16,11 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 const VAPT_COLORS = {
-  regular: '#FF6F00',     // Deep Orange for Regular VAPT
-  adhoc: '#7B1FA2',       // Purple for Ad Hoc VAPT
-  header: '#263238',      // Dark Blue Grey for headers
+  helper: '#1A237E',      // Dark Blue for Helper
+  detail: '#263238',      // Dark Grey for Detail Finding
+  evidence: '#004D40',    // Dark Teal for Evidence
   white: '#FFFFFF',
-  evidence: '#004D40',    // Teal for Evidence tabs
+  orange: '#FF6F00',      // Orange accent
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -66,80 +65,193 @@ function vaptHeader_(range, bg, fg, size) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// TAB 1: Detail Finding - Regular VAPT
+// TAB 1: VAPT - Helper (Dashboard/Tracking)
 // ═══════════════════════════════════════════════════════════════════════
 
-function createDetailFindingRegularVAPT(ss) {
-  const ws = ss.getSheetByName('Detail Finding - Regular VAPT') ||
-             ss.insertSheet('Detail Finding - Regular VAPT');
+function createVAPTHelper(ss) {
+  const ws = ss.getSheetByName('VAPT - Helper') || ss.insertSheet('VAPT - Helper');
 
   ws.clear();
-  ws.setTabColor(VAPT_COLORS.regular);
+  ws.setTabColor(VAPT_COLORS.helper);
 
   // Title row
-  const title = 'VAPT DETAIL FINDING  .  Regular VAPT  .  QA PERURI';
-  ws.getRange(1, 1, 1, 33).merge();
-  vaptHeader_(ws.getRange(1, 1), VAPT_COLORS.header, VAPT_COLORS.white, 11)
+  const title = 'VAPT HELPER  .  QA PERURI';
+  ws.getRange(1, 1, 1, 32).merge();
+  vaptHeader_(ws.getRange(1, 1), VAPT_COLORS.helper, VAPT_COLORS.white, 12)
+    .setValue(title);
+  ws.setRowHeight(1, 35);
+
+  // Section 1: Vulnerabilities in Production (Row 3)
+  ws.getRange(3, 1, 1, 32).merge();
+  ws.getRange(3, 1)
+    .setValue('Vulnerabilities in Production')
+    .setBackground('#E3F2FD')
+    .setFontWeight('bold')
+    .setFontSize(11)
+    .setHorizontalAlignment('center');
+
+  // Headers for metrics (Row 4)
+  const metricsHeaders = [
+    '', '', 'Ready to Retest', '', '', '', '', 'Open', '', '', '', '', 'Closed', '', '', '', '',
+    'Accepted - Open', '', '', '', '', 'Accepted - Closed', '', '', '', '', 'Open', '', '', '', '', 'Closed'
+  ];
+
+  ws.getRange(4, 1, 1, 32).setValues([metricsHeaders])
+    .setBackground(VAPT_COLORS.detail)
+    .setFontColor(VAPT_COLORS.white)
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  // Risk level headers (Row 5)
+  const riskHeaders = ['Critical', 'High', 'Medium', 'Low', 'Informational'];
+  for (let i = 0; i < 6; i++) {
+    const startCol = 3 + (i * 5);
+    riskHeaders.forEach((risk, idx) => {
+      ws.getRange(5, startCol + idx).setValue(risk);
+    });
+  }
+  ws.getRange(5, 1, 1, 32)
+    .setBackground('#B0BEC5')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  // Data row with zeros (Row 6)
+  const zerosRow = Array(32).fill(0);
+  ws.getRange(6, 1, 1, 32).setValues([zerosRow])
+    .setNumberFormat('0')
+    .setHorizontalAlignment('center');
+
+  ws.setRowHeight(4, 25);
+  ws.setRowHeight(5, 25);
+
+  // Section 2: Tracking Vulnerability in Production (Row 10)
+  ws.getRange(10, 1, 1, 11).merge();
+  ws.getRange(10, 1)
+    .setValue('Tracking Vulnerability in Production')
+    .setBackground('#FFF3E0')
+    .setFontWeight('bold')
+    .setFontSize(11)
+    .setHorizontalAlignment('center');
+
+  const trackProdHeaders = [
+    'VAPT Type', 'Application', 'Scp', 'Status Fix\n(Filled by Dev Team)', 'Adjusted Risk',
+    'Finding ID', 'Finding Name', 'Report Date', 'Target Remediation Date',
+    'Time to Remediate (Days)', 'Acceptance Proof / MAoR'
+  ];
+
+  ws.getRange(11, 1, 1, 11).setValues([trackProdHeaders]);
+  vaptHeader_(ws.getRange(11, 1, 1, 11), VAPT_COLORS.orange, VAPT_COLORS.white);
+  ws.setRowHeight(11, 40);
+
+  // Section 3: Tracking Vulnerability Overall (Row 10, starting Col M)
+  ws.getRange(10, 13, 1, 12).merge();
+  ws.getRange(10, 13)
+    .setValue('Tracking Vulnerability Overall')
+    .setBackground('#E8F5E9')
+    .setFontWeight('bold')
+    .setFontSize(11)
+    .setHorizontalAlignment('center');
+
+  const trackOverallHeaders = [
+    'VAPT Type', 'Application', 'Scp', 'Status Fix\n(Filled by Dev Team)', 'Risk', 'Adjusted Risk',
+    'Finding ID', 'Finding Name', 'Report Date', 'Target Remediation Date',
+    'Time to Remediate (Days)', 'Acceptance Proof / MAoR'
+  ];
+
+  ws.getRange(11, 13, 1, 12).setValues([trackOverallHeaders]);
+  vaptHeader_(ws.getRange(11, 13, 1, 12), '#2E7D32', VAPT_COLORS.white);
+
+  // Set column widths
+  const widths = [100, 120, 80, 150, 100, 120, 200, 100, 120, 100, 180];
+  widths.forEach((width, i) => {
+    ws.setColumnWidth(i + 1, width);
+    if (i < 11) ws.setColumnWidth(i + 13, width); // For second table
+  });
+
+  // Freeze rows
+  try {
+    ws.setFrozenRows(11);
+  } catch (e) {
+    // Silent skip
+  }
+
+  Logger.log('✅ VAPT - Helper created');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB 2: VAPT - Detail Finding
+// ═══════════════════════════════════════════════════════════════════════
+
+function createDetailFindingVAPT(ss) {
+  const ws = ss.getSheetByName('VAPT - Detail Finding') ||
+             ss.insertSheet('VAPT - Detail Finding');
+
+  ws.clear();
+  ws.setTabColor(VAPT_COLORS.detail);
+
+  // Title row
+  const title = 'VAPT DETAIL FINDING  .  QA PERURI';
+  ws.getRange(1, 1, 1, 32).merge();
+  vaptHeader_(ws.getRange(1, 1), VAPT_COLORS.detail, VAPT_COLORS.white, 11)
     .setValue(title);
   ws.setRowHeight(1, 32);
 
-  // Header row
+  // Header row (32 columns)
   const headers = [
-    'Finding ID',                    // A
-    'Application',                   // B
-    'Category',                      // C
-    'Scope',                         // D
-    'Status Fix (Dev)',              // E
-    'Status Re-VAPT (Pentester)',    // F
-    'Original Risk',                 // G
-    'Adjusted Risk',                 // H
-    'Finding Name',                  // I
-    'Description',                   // J
-    'Impact',                        // K
-    'Affected URL/Endpoint',         // L
-    'Recommendation',                // M
-    'Remediation Steps',             // N
-    'Report Date',                   // O
-    'Pentester',                     // P
-    'Target Remediation Date',       // Q
-    'Time to Remediate (Days)',      // R
-    'Actual Fix Date',               // S
-    'Verified By (QA)',              // T
-    'Verified Date',                 // U
-    'CVSS Score',                    // V
-    'CWE ID',                        // W
-    'OWASP Top 10',                  // X
-    'PoC Available',                 // Y
-    'Re-Test Required',              // Z
-    'Re-Test Date',                  // AA
-    'Re-Test Result',                // AB
-    'Notes / Comments',              // AC
-    'Jira Ticket',                   // AD
-    'Acceptance Proof / MAoR',       // AE
-    'Created By',                    // AF
-    'Last Updated',                  // AG
+    'No',                                    // A
+    'App',                                   // B
+    'Ver',                                   // C
+    'Scp',                                   // D
+    'Status Fix (Dev / Pentester)',          // E
+    'Status Re-VAPT (Pentester)',            // F
+    'Risk',                                  // G
+    'Adjusted Risk',                         // H
+    'Finding Name',                          // I
+    'Report Document',                       // J
+    'Description',                           // K
+    'Impact',                                // L
+    'Recommendation',                        // M
+    'Affected Target',                       // N
+    'Report Date',                           // O
+    'Finding Closed Date',                   // P
+    'Target Remediation Date (Automatic)',   // Q
+    'Time to Remediate (Automatic)',         // R
+    'Security Tester',                       // S
+    'Perban BSSN',                           // T
+    'OWASP\n(All Platform)',                 // U
+    'OWASP\n(Specific Platform)',            // V
+    'Tested By',                             // W
+    'Reporter',                              // X
+    'Envi',                                  // Y
+    'System PIC',                            // Z
+    'Already in Prod',                       // AA
+    'Go to Prod Date',                       // AB
+    'CVSS 4.0',                              // AC
+    'Ticket ID / Request ID',                // AD
+    'Acceptance Proof / MAoR',               // AE
+    'Notes'                                  // AF
   ];
 
   headers.forEach((header, i) => {
-    vaptHeader_(ws.getRange(2, i + 1), VAPT_COLORS.regular, VAPT_COLORS.white)
+    vaptHeader_(ws.getRange(2, i + 1), VAPT_COLORS.detail, VAPT_COLORS.white)
       .setValue(header);
   });
   ws.setRowHeight(2, 50);
 
   // Set column widths
   const widths = [
-    120, 120, 100, 80, 120, 120, 90, 90, 200,   // A-I
-    250, 180, 180, 220, 220, 100,                // J-O
-    100, 120, 100, 100, 100, 100,                // P-U
-    80, 80, 100, 80, 80, 100, 100,               // V-AB
-    200, 120, 200, 100, 120                      // AC-AG
+    120, 120, 80, 80, 150, 150, 90, 90, 200,      // A-I
+    180, 250, 180, 220, 180, 100,                  // J-O
+    100, 120, 100, 120, 180,                       // P-T
+    180, 200, 100, 100, 100, 120, 100, 100,        // U-AB
+    100, 150, 200, 200                             // AC-AF
   ];
   widths.forEach((width, i) => ws.setColumnWidth(i + 1, width));
 
   // Data validation dropdowns
   const lastRow = 1000;
 
-  // E: Status Fix (Dev)
+  // E: Status Fix (Dev / Pentester)
   const statusFixValues = [
     'Todo',
     'On Progress Remediation',
@@ -151,63 +263,162 @@ function createDetailFindingRegularVAPT(ss) {
     'Duplicated',
     'Out of Scope'
   ];
-  ws.getRange(`E3:E${lastRow}`).setDataValidation(vaptDropdown_(statusFixValues));
+  ws.getRange('E3:E' + lastRow).setDataValidation(vaptDropdown_(statusFixValues));
 
   // F: Status Re-VAPT (Pentester)
   const statusReVAPTValues = ['Open', 'Closed'];
-  ws.getRange(`F3:F${lastRow}`).setDataValidation(vaptDropdown_(statusReVAPTValues));
+  ws.getRange('F3:F' + lastRow).setDataValidation(vaptDropdown_(statusReVAPTValues));
 
   // G & H: Risk levels
   const riskValues = ['Informational', 'Low', 'Medium', 'High', 'Critical', 'False Positive'];
-  ws.getRange(`G3:G${lastRow}`).setDataValidation(vaptDropdown_(riskValues));
-  ws.getRange(`H3:H${lastRow}`).setDataValidation(vaptDropdown_(riskValues));
+  ws.getRange('G3:G' + lastRow).setDataValidation(vaptDropdown_(riskValues));
+  ws.getRange('H3:H' + lastRow).setDataValidation(vaptDropdown_(riskValues));
 
-  // Y: PoC Available
-  ws.getRange(`Y3:Y${lastRow}`).setDataValidation(vaptDropdown_(['Yes', 'No']));
+  // S: Security Tester
+  const securityTesterValues = ['Peruri', 'BSSN', 'MII', 'Telkomsigma'];
+  ws.getRange('S3:S' + lastRow).setDataValidation(vaptDropdown_(securityTesterValues));
 
-  // Z: Re-Test Required
-  ws.getRange(`Z3:Z${lastRow}`).setDataValidation(vaptDropdown_(['Yes', 'No']));
+  // T: Perban BSSN
+  const perbanBSSNValues = [
+    'Web - Autentikasi',
+    'Web - Manajemen Sesi',
+    'Web - Persyaratan Kontrol Akses',
+    'Web - Validasi Input',
+    'Web - Kriptografi pada Verifikasi Statis',
+    'Web - Penanganan Eror dan Pencatatan log',
+    'Web - Proteksi Data',
+    'Web - Keamanan Komunikasi',
+    'Web - Pengendalian Kode Berbahaya',
+    'Web - Logika Bisnis',
+    'Web - File',
+    'Web - Keamanan API dan Web Service',
+    'Web - Keamanan Konfigurasi',
+    'Mobile - Penyimpanan Data dan persyaratan privasi',
+    'Mobile - Kriptografi',
+    'Mobile - Autentikasi dan Manajemen Sesi',
+    'Mobile - Komunikasi Jaringan',
+    'Mobile - Interaksi Platform',
+    'Mobile - Kualitas Kode dan Pengaturan Build',
+    'Mobile - Ketahanan',
+    'N/A'
+  ];
+  ws.getRange('T3:T' + lastRow).setDataValidation(vaptDropdown_(perbanBSSNValues));
 
-  // AB: Re-Test Result
-  ws.getRange(`AB3:AB${lastRow}`).setDataValidation(vaptDropdown_(['Pass', 'Fail', 'Pending']));
+  // U: OWASP (All Platform)
+  const owaspAllValues = [
+    'A01:2025 - Broken Access Control',
+    'A02:2025 - Security Misconfiguration',
+    'A03:2025 - Software Supply Chain Failures',
+    'A04:2025 - Cryptographic Failures',
+    'A05:2025 - Injection',
+    'A06:2025 - Insecure Design',
+    'A07:2025 - Authentication Failures',
+    'A08:2025 - Software or Data Integrity Failures',
+    'A09:2025 - Security Logging & Alerting Failures',
+    'A10:2025 - Mishandling of Exceptional Conditions'
+  ];
+  ws.getRange('U3:U' + lastRow).setDataValidation(vaptDropdown_(owaspAllValues));
+
+  // V: OWASP (Specific Platform) - Very long list
+  const owaspSpecificValues = [
+    'N/A',
+    'A01:2025 - Broken Access Control',
+    'A02:2025 - Security Misconfiguration',
+    'A03:2025 - Software Supply Chain Failures',
+    'A04:2025 - Cryptographic Failures',
+    'A05:2025 - Injection',
+    'A06:2025 - Insecure Design',
+    'A07:2025 - Authentication Failures',
+    'A08:2025 - Software or Data Integrity Failures',
+    'A09:2025 - Security Logging and Alerting Failures',
+    'A10:2025 - Mishandling of Exceptional Conditions',
+    'M1: 2024 - Improper Credential Usage',
+    'M2: 2024 - Inadequate Supply Chain Security',
+    'M3: 2024 - Insecure Authentication/Authorization',
+    'M4: 2024 - Insufficient Input/Output Validation',
+    'M5: 2024 - Insecure Communication',
+    'M6: 2024 - Inadequate Privacy Controls',
+    'M7: 2024 - Insufficient Binary Protections',
+    'M8: 2024 - Security Misconfiguration',
+    'M9: 2024 - Insecure Data Storage',
+    'M10: 2024 - Insufficient Cryptography',
+    'API1: 2023 - Broken Object Level Authorization',
+    'API2: 2023 - Broken Authentication',
+    'API3: 2023 - Broken Object Property Level Authorization',
+    'API4: 2023 - Unrestricted Resource Consumption',
+    'API5: 2023 - Broken Function Level Authorization',
+    'API6: 2023 - Unrestricted Access to Sensitive Business Flows',
+    'API7: 2023 - Server Side Request Forgery',
+    'API8: 2023 - Security Misconfiguration',
+    'API9: 2023 - Improper Inventory Management',
+    'API10: 2023 - Unsafe Consumption of APIs',
+    'LLM01: 2025 - Prompt Injection',
+    'LLM02: 2025 - Insecure Output Handling',
+    'LLM03: 2025 - Training Data Poisoning',
+    'LLM04: 2025 - Model Denial of Service',
+    'LLM05: 2025 - Supply Chain Vulnerabilities',
+    'LLM06: 2025 - Sensitive Information Disclosure',
+    'LLM07: 2025 - Insecure Plugin Design',
+    'LLM08: 2025 - Excessive Agency',
+    'LLM09: 2025 - Overreliance',
+    'LLM10: 0225 - Model Theft',
+    'ISR01:2024 – Outdated Software',
+    'ISR02:2024 – Insufficient Threat Detection',
+    'ISR03:2024 – Insecure Configurations',
+    'ISR04:2024 – Insecure Resource and User Management',
+    'ISR05:2024 – Insecure Use of Cryptography',
+    'ISR06:2024 – Insecure Network Access Management',
+    'ISR07:2024 – Insecure Authentication Methods and Default Credentials',
+    'ISR08:2024 – Information Leakage',
+    'ISR09:2024 – Insecure Access to Resources and Management Components',
+    'ISR10:2024 – Insufficient Asset Management and Documentation'
+  ];
+  ws.getRange('V3:V' + lastRow).setDataValidation(vaptDropdown_(owaspSpecificValues));
+
+  // Y: Envi
+  const enviValues = ['Local', 'Development', 'Staging', 'Production'];
+  ws.getRange('Y3:Y' + lastRow).setDataValidation(vaptDropdown_(enviValues));
+
+  // AA: Already in Prod
+  ws.getRange('AA3:AA' + lastRow).setDataValidation(vaptDropdown_(['Yes', 'No']));
 
   // Conditional formatting for Status Fix
-  addVAPTStatusConditionalFormatting_(ws, `E3:E${lastRow}`);
+  addVAPTStatusConditionalFormatting_(ws, 'E3:E' + lastRow);
 
   // Conditional formatting for Status Re-VAPT
-  addVAPTReVAPTConditionalFormatting_(ws, `F3:F${lastRow}`);
+  addVAPTReVAPTConditionalFormatting_(ws, 'F3:F' + lastRow);
 
   // Conditional formatting for Risk levels
-  addRiskConditionalFormatting_(ws, `G3:G${lastRow}`);
-  addRiskConditionalFormatting_(ws, `H3:H${lastRow}`);
+  addRiskConditionalFormatting_(ws, 'G3:G' + lastRow);
+  addRiskConditionalFormatting_(ws, 'H3:H' + lastRow);
 
-  // Freeze header rows (with error handling for merged cells)
+  // Freeze header rows
   try {
     ws.setFrozenRows(2);
     ws.setFrozenColumns(1);
   } catch (e) {
-    // Silent skip - merged cells conflict with freeze
+    // Silent skip
   }
 
   // Add column notes
   addDetailFindingNotes_(ws);
 
-  Logger.log('✅ Detail Finding - Regular VAPT created');
+  Logger.log('✅ VAPT - Detail Finding created');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// TAB 2: Evidence - Regular VAPT
+// TAB 3: VAPT - Evidence
 // ═══════════════════════════════════════════════════════════════════════
 
-function createEvidenceRegularVAPT(ss) {
-  const ws = ss.getSheetByName('Evidence - Regular VAPT') ||
-             ss.insertSheet('Evidence - Regular VAPT');
+function createEvidenceVAPT(ss) {
+  const ws = ss.getSheetByName('VAPT - Evidence') ||
+             ss.insertSheet('VAPT - Evidence');
 
   ws.clear();
   ws.setTabColor(VAPT_COLORS.evidence);
 
   // Title row
-  const title = 'VAPT EVIDENCE  .  Regular VAPT  .  Proof of Concept & Re-Test Evidence';
+  const title = 'VAPT EVIDENCE  .  QA PERURI';
   ws.getRange(1, 1, 1, 26).merge();
   vaptHeader_(ws.getRange(1, 1), VAPT_COLORS.evidence, VAPT_COLORS.white, 11)
     .setValue(title);
@@ -215,32 +426,32 @@ function createEvidenceRegularVAPT(ss) {
 
   // Header row
   const headers = [
-    'No',                               // A
-    'App',                              // B
-    'Scp',                              // C
-    'Finding Name',                     // D
-    'Proof of Concept (PoC) Description', // E
-    'PoC Evidence 1',                   // F
-    'PoC Evidence 2',                   // G
-    'PoC Evidence 3',                   // H
-    'PoC Evidence 4',                   // I
-    'PoC Evidence 5',                   // J
-    'PoC Evidence 6',                   // K
-    'PoC Evidence 7',                   // L
-    'PoC Evidence 8',                   // M
-    'PoC Evidence 9',                   // N
-    'PoC Evidence 10',                  // O
-    'Re-VAPT Description',              // P
-    'Re-VAPT Evidence 1',               // Q
-    'Re-VAPT Evidence 2',               // R
-    'Re-VAPT Evidence 3',               // S
-    'Re-VAPT Evidence 4',               // T
-    'Re-VAPT Evidence 5',               // U
-    'Re-VAPT Evidence 6',               // V
-    'Re-VAPT Evidence 7',               // W
-    'Re-VAPT Evidence 8',               // X
-    'Re-VAPT Evidence 9',               // Y
-    'Re-VAPT Evidence 10',              // Z
+    'No',                                    // A
+    'App',                                   // B
+    'Scp',                                   // C
+    'Finding Name',                          // D
+    'Proof of Concept (PoC) Description',    // E
+    'PoC Evidence 1',                        // F
+    'PoC Evidence 2',                        // G
+    'PoC Evidence 3',                        // H
+    'PoC Evidence 4',                        // I
+    'PoC Evidence 5',                        // J
+    'PoC Evidence 6',                        // K
+    'PoC Evidence 7',                        // L
+    'PoC Evidence 8',                        // M
+    'PoC Evidence 9',                        // N
+    'PoC Evidence 10',                       // O
+    'Re-VAPT Description',                   // P
+    'Re-VAPT Evidence 1',                    // Q
+    'Re-VAPT Evidence 2',                    // R
+    'Re-VAPT Evidence 3',                    // S
+    'Re-VAPT Evidence 4',                    // T
+    'Re-VAPT Evidence 5',                    // U
+    'Re-VAPT Evidence 6',                    // V
+    'Re-VAPT Evidence 7',                    // W
+    'Re-VAPT Evidence 8',                    // X
+    'Re-VAPT Evidence 9',                    // Y
+    'Re-VAPT Evidence 10',                   // Z
   ];
 
   headers.forEach((header, i) => {
@@ -258,156 +469,18 @@ function createEvidenceRegularVAPT(ss) {
   ];
   widths.forEach((width, i) => ws.setColumnWidth(i + 1, width));
 
-  // Freeze header rows (with error handling for merged cells)
+  // Freeze header rows
   try {
     ws.setFrozenRows(2);
     ws.setFrozenColumns(4);  // Freeze first 4 columns (No, App, Scp, Finding Name)
   } catch (e) {
-    // Silent skip - merged cells conflict with freeze
+    // Silent skip
   }
 
   // Add column notes
   addEvidenceNotes_(ws);
 
-  Logger.log('✅ Evidence - Regular VAPT created');
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// TAB 3: Detail Finding - Ad Hoc VAPT
-// ═══════════════════════════════════════════════════════════════════════
-
-function createDetailFindingAdHocVAPT(ss) {
-  const ws = ss.getSheetByName('Detail Finding - Ad Hoc VAPT') ||
-             ss.insertSheet('Detail Finding - Ad Hoc VAPT');
-
-  ws.clear();
-  ws.setTabColor(VAPT_COLORS.adhoc);
-
-  // Title row
-  const title = 'VAPT DETAIL FINDING  .  Ad Hoc VAPT  .  QA PERURI';
-  ws.getRange(1, 1, 1, 33).merge();
-  vaptHeader_(ws.getRange(1, 1), VAPT_COLORS.adhoc, VAPT_COLORS.white, 11)
-    .setValue(title);
-  ws.setRowHeight(1, 32);
-
-  // Header row (same as Regular VAPT)
-  const headers = [
-    'Finding ID', 'Application', 'Category', 'Scope',
-    'Status Fix (Dev)', 'Status Re-VAPT (Pentester)', 'Original Risk', 'Adjusted Risk',
-    'Finding Name', 'Description', 'Impact', 'Affected URL/Endpoint',
-    'Recommendation', 'Remediation Steps', 'Report Date', 'Pentester',
-    'Target Remediation Date', 'Time to Remediate (Days)', 'Actual Fix Date',
-    'Verified By (QA)', 'Verified Date', 'CVSS Score', 'CWE ID',
-    'OWASP Top 10', 'PoC Available', 'Re-Test Required', 'Re-Test Date',
-    'Re-Test Result', 'Notes / Comments', 'Jira Ticket', 'Acceptance Proof / MAoR',
-    'Created By', 'Last Updated'
-  ];
-
-  headers.forEach((header, i) => {
-    vaptHeader_(ws.getRange(2, i + 1), VAPT_COLORS.adhoc, VAPT_COLORS.white)
-      .setValue(header);
-  });
-  ws.setRowHeight(2, 50);
-
-  // Set column widths (same as Regular)
-  const widths = [
-    120, 120, 100, 80, 120, 120, 90, 90, 200,
-    250, 180, 180, 220, 220, 100,
-    100, 120, 100, 100, 100, 100,
-    80, 80, 100, 80, 80, 100, 100,
-    200, 120, 200, 100, 120
-  ];
-  widths.forEach((width, i) => ws.setColumnWidth(i + 1, width));
-
-  // Data validation (same as Regular)
-  const lastRow = 1000;
-  const statusFixValues = ['Todo', 'On Progress Remediation', 'Ready to Retest', 'On Progress Retest', 'Done', 'Accepted', 'False Positive', 'Duplicated', 'Out of Scope'];
-  const statusReVAPTValues = ['Open', 'Closed'];
-  const riskValues = ['Informational', 'Low', 'Medium', 'High', 'Critical', 'False Positive'];
-
-  ws.getRange(`E3:E${lastRow}`).setDataValidation(vaptDropdown_(statusFixValues));
-  ws.getRange(`F3:F${lastRow}`).setDataValidation(vaptDropdown_(statusReVAPTValues));
-  ws.getRange(`G3:G${lastRow}`).setDataValidation(vaptDropdown_(riskValues));
-  ws.getRange(`H3:H${lastRow}`).setDataValidation(vaptDropdown_(riskValues));
-  ws.getRange(`Y3:Y${lastRow}`).setDataValidation(vaptDropdown_(['Yes', 'No']));
-  ws.getRange(`Z3:Z${lastRow}`).setDataValidation(vaptDropdown_(['Yes', 'No']));
-  ws.getRange(`AB3:AB${lastRow}`).setDataValidation(vaptDropdown_(['Pass', 'Fail', 'Pending']));
-
-  // Conditional formatting
-  addVAPTStatusConditionalFormatting_(ws, `E3:E${lastRow}`);
-  addVAPTReVAPTConditionalFormatting_(ws, `F3:F${lastRow}`);
-  addRiskConditionalFormatting_(ws, `G3:G${lastRow}`);
-  addRiskConditionalFormatting_(ws, `H3:H${lastRow}`);
-
-  // Freeze (with error handling for merged cells)
-  try {
-    ws.setFrozenRows(2);
-    ws.setFrozenColumns(1);
-  } catch (e) {
-    // Silent skip - merged cells conflict with freeze
-  }
-
-  // Add notes
-  addDetailFindingNotes_(ws);
-
-  Logger.log('✅ Detail Finding - Ad Hoc VAPT created');
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// TAB 4: Evidence - Ad Hoc VAPT
-// ═══════════════════════════════════════════════════════════════════════
-
-function createEvidenceAdHocVAPT(ss) {
-  const ws = ss.getSheetByName('Evidence - Ad Hoc VAPT') ||
-             ss.insertSheet('Evidence - Ad Hoc VAPT');
-
-  ws.clear();
-  ws.setTabColor(VAPT_COLORS.adhoc);
-
-  // Title row
-  const title = 'VAPT EVIDENCE  .  Ad Hoc VAPT  .  Proof of Concept & Re-Test Evidence';
-  ws.getRange(1, 1, 1, 26).merge();
-  vaptHeader_(ws.getRange(1, 1), VAPT_COLORS.adhoc, VAPT_COLORS.white, 11)
-    .setValue(title);
-  ws.setRowHeight(1, 32);
-
-  // Header row (same as Regular VAPT Evidence)
-  const headers = [
-    'No', 'App', 'Scp', 'Finding Name', 'Proof of Concept (PoC) Description',
-    'PoC Evidence 1', 'PoC Evidence 2', 'PoC Evidence 3', 'PoC Evidence 4', 'PoC Evidence 5',
-    'PoC Evidence 6', 'PoC Evidence 7', 'PoC Evidence 8', 'PoC Evidence 9', 'PoC Evidence 10',
-    'Re-VAPT Description',
-    'Re-VAPT Evidence 1', 'Re-VAPT Evidence 2', 'Re-VAPT Evidence 3', 'Re-VAPT Evidence 4', 'Re-VAPT Evidence 5',
-    'Re-VAPT Evidence 6', 'Re-VAPT Evidence 7', 'Re-VAPT Evidence 8', 'Re-VAPT Evidence 9', 'Re-VAPT Evidence 10'
-  ];
-
-  headers.forEach((header, i) => {
-    vaptHeader_(ws.getRange(2, i + 1), VAPT_COLORS.adhoc, VAPT_COLORS.white)
-      .setValue(header);
-  });
-  ws.setRowHeight(2, 50);
-
-  // Set column widths (same as Regular Evidence)
-  const widths = [
-    120, 120, 80, 200, 300,
-    250, 250, 250, 250, 250, 250, 250, 250, 250, 250,
-    300,
-    250, 250, 250, 250, 250, 250, 250, 250, 250, 250
-  ];
-  widths.forEach((width, i) => ws.setColumnWidth(i + 1, width));
-
-  // Freeze (with error handling for merged cells)
-  try {
-    ws.setFrozenRows(2);
-    ws.setFrozenColumns(4);
-  } catch (e) {
-    // Silent skip - merged cells conflict with freeze
-  }
-
-  // Add notes
-  addEvidenceNotes_(ws);
-
-  Logger.log('✅ Evidence - Ad Hoc VAPT created');
+  Logger.log('✅ VAPT - Evidence created');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -506,11 +579,10 @@ function addRiskConditionalFormatting_(ws, rangeA1) {
 
 function addDetailFindingNotes_(ws) {
   ws.getRange(2, 1).setNote(
-    'Finding ID\n\n' +
+    'No (Finding ID)\n\n' +
     'Unique identifier untuk setiap finding VAPT.\n' +
-    'Format: [PROJECT]-[TYPE]-[NUMBER]\n\n' +
-    'Example: BGN-REG-001, SIPGN-ADHOC-045\n\n' +
-    'TYPE: REG (Regular VAPT), ADHOC (Ad Hoc VAPT)'
+    'Format: [PROJECT]-[NUMBER]\n\n' +
+    'Example: BGN-001, SIPGN-045'
   );
 
   ws.getRange(2, 5).setNote(
@@ -535,15 +607,15 @@ function addDetailFindingNotes_(ws) {
   );
 
   ws.getRange(2, 7).setNote(
-    'Original Risk\n\n' +
-    'Risk level awal dari Pentester saat pertama kali ditemukan.\n\n' +
-    'Levels: Critical, High, Medium, Low, Informational'
+    'Risk\n\n' +
+    'Risk level dari Pentester.\n\n' +
+    'Levels: Critical, High, Medium, Low, Informational, False Positive'
   );
 
   ws.getRange(2, 8).setNote(
     'Adjusted Risk\n\n' +
     'Risk level yang sudah disesuaikan setelah analisis lebih lanjut.\n\n' +
-    'Bisa berbeda dari Original Risk karena:\n' +
+    'Bisa berbeda dari Risk karena:\n' +
     '• Mitigasi temporary sudah diterapkan\n' +
     '• Konteks bisnis / environment berbeda\n' +
     '• Impact analysis yang lebih detail\n\n' +
@@ -556,15 +628,24 @@ function addDetailFindingNotes_(ws) {
     'Auto-calculated dari:\n' +
     'Target Remediation Date - Report Date\n\n' +
     'atau\n\n' +
-    'Actual Fix Date - Report Date (jika sudah selesai)'
+    'Finding Closed Date - Report Date (jika sudah selesai)'
+  );
+
+  ws.getRange(2, 25).setNote(
+    'Envi (Environment)\n\n' +
+    'Environment dimana vulnerability ditemukan:\n\n' +
+    '• Local: Development local\n' +
+    '• Development: Dev server\n' +
+    '• Staging: Staging server\n' +
+    '• Production: Production server'
   );
 }
 
 function addEvidenceNotes_(ws) {
   ws.getRange(2, 1).setNote(
     'No (Finding ID)\n\n' +
-    'Finding ID yang sama dengan di tab Detail Finding.\n\n' +
-    'Format: BGN-REG-001, SIPGN-ADHOC-045'
+    'Finding ID yang sama dengan di tab VAPT - Detail Finding.\n\n' +
+    'Format: BGN-001, SIPGN-045'
   );
 
   ws.getRange(2, 5).setNote(
@@ -583,7 +664,7 @@ function addEvidenceNotes_(ws) {
     'Tips:\n' +
     '• Gunakan folder per-project di Drive\n' +
     '• Set permission: Anyone with link can view\n' +
-    '• Beri nama file yang jelas (contoh: BGN-REG-001-PoC-1.png)'
+    '• Beri nama file yang jelas (contoh: BGN-001-PoC-1.png)'
   );
 
   ws.getRange(2, 16).setNote(
@@ -604,11 +685,11 @@ function addEvidenceNotes_(ws) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// MASTER FUNCTION - CREATE ALL 4 VAPT TABS
+// MASTER FUNCTION - CREATE ALL 3 VAPT TABS
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
- * Create all 4 VAPT tabs in current spreadsheet
+ * Create all 3 VAPT tabs in current spreadsheet
  * Call this from MasterQATCM.js createQASheet() or run standalone
  */
 function createAllVAPTTabs() {
@@ -618,28 +699,23 @@ function createAllVAPTTabs() {
   try {
     Logger.log('🔒 Creating VAPT tabs...');
 
-    createDetailFindingRegularVAPT(ss);
+    createVAPTHelper(ss);
     SpreadsheetApp.flush();
     Utilities.sleep(500);
 
-    createEvidenceRegularVAPT(ss);
+    createDetailFindingVAPT(ss);
     SpreadsheetApp.flush();
     Utilities.sleep(500);
 
-    createDetailFindingAdHocVAPT(ss);
-    SpreadsheetApp.flush();
-    Utilities.sleep(500);
-
-    createEvidenceAdHocVAPT(ss);
+    createEvidenceVAPT(ss);
     SpreadsheetApp.flush();
 
     ui.alert(
       '✅ VAPT Tabs Created!',
-      'Successfully created 4 VAPT tabs:\n\n' +
-      '1. Detail Finding - Regular VAPT\n' +
-      '2. Evidence - Regular VAPT\n' +
-      '3. Detail Finding - Ad Hoc VAPT\n' +
-      '4. Evidence - Ad Hoc VAPT\n\n' +
+      'Successfully created 3 VAPT tabs:\n\n' +
+      '1. VAPT - Helper (Dashboard/Tracking)\n' +
+      '2. VAPT - Detail Finding\n' +
+      '3. VAPT - Evidence\n\n' +
       'All tabs include:\n' +
       '• Data validation dropdowns\n' +
       '• Conditional formatting\n' +
