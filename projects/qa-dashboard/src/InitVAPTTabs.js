@@ -74,6 +74,13 @@ function createVAPTHelper(ss) {
   ws.clear();
   ws.setTabColor(VAPT_COLORS.helper);
 
+  // Unmerge all cells first to avoid conflicts
+  try {
+    ws.getRange(1, 1, ws.getMaxRows(), ws.getMaxColumns()).breakApart();
+  } catch (e) {
+    // Silent skip if no merged cells
+  }
+
   // Title row
   const title = 'VAPT HELPER  .  QA PERURI';
   ws.getRange(1, 1, 1, 32).merge();
@@ -238,6 +245,13 @@ function createDetailFindingVAPT(ss) {
 
   ws.clear();
   ws.setTabColor(VAPT_COLORS.detail);
+
+  // Unmerge all cells first to avoid conflicts
+  try {
+    ws.getRange(1, 1, ws.getMaxRows(), ws.getMaxColumns()).breakApart();
+  } catch (e) {
+    // Silent skip if no merged cells
+  }
 
   // Title row
   const title = 'VAPT DETAIL FINDING  .  QA PERURI';
@@ -466,6 +480,13 @@ function createEvidenceVAPT(ss) {
 
   ws.clear();
   ws.setTabColor(VAPT_COLORS.evidence);
+
+  // Unmerge all cells first to avoid conflicts
+  try {
+    ws.getRange(1, 1, ws.getMaxRows(), ws.getMaxColumns()).breakApart();
+  } catch (e) {
+    // Silent skip if no merged cells
+  }
 
   // Title row
   const title = 'VAPT EVIDENCE  .  QA PERURI';
