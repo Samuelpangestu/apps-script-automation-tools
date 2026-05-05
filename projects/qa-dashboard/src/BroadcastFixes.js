@@ -1828,3 +1828,378 @@ function createSingleTabEvidenceVAPT() {
     Logger.log('❌ Error creating Evidence - VAPT: ' + e.message);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// V3: NEW VAPT STRUCTURE (3 TABS)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * V3 Broadcast - NEW VAPT Structure (3 tabs)
+ * - VAPT - Helper (Dashboard/Tracking)
+ * - VAPT - Detail Finding (32 columns)
+ * - VAPT - Evidence (26 columns)
+ * - Delete old VAPT tabs
+ * - Delete Config & Sheet 2
+ * - Reorder tabs: Summary, VAPT Helper, Bug Report, ...
+ * - Update VAPT Summary section
+ */
+function broadcastV3NewVAPTStructure() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const cfg = ss.getSheetByName('Config');
+  if (!cfg) {
+    ui.alert('❌ Error', 'Config tab not found. Run from QA Dashboard.', ui.ButtonSet.OK);
+    return;
+  }
+
+  const response = ui.alert(
+    '🔒 V3: NEW VAPT Structure',
+    'Broadcast 3 NEW VAPT tabs to ALL active QATMs:\n\n' +
+    '📋 New Tabs:\n' +
+    '• VAPT - Helper (Dashboard/Tracking)\n' +
+    '• VAPT - Detail Finding (32 columns)\n' +
+    '• VAPT - Evidence (26 columns)\n\n' +
+    '🗑️ Will Delete:\n' +
+    '• ALL old VAPT tabs\n' +
+    '• Config tab\n' +
+    '• Sheet 2\n\n' +
+    '🔄 Tab Order: Summary, VAPT Helper, Bug Report, ...\n\n' +
+    '⚠️ All VAPT data will be lost!\n' +
+    'Time: ~2 min/QATM\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    ui.alert('Broadcast cancelled.');
+    return;
+  }
+
+  try {
+    const cfgData = cfg.getDataRange().getValues();
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    for (let i = 3; i < cfgData.length; i++) {
+      const active = cfgData[i][0] === true;
+      const project = String(cfgData[i][2]).trim();
+      const modul = String(cfgData[i][3]).trim();
+      const qatmId = String(cfgData[i][6]).trim();
+
+      if (!active || !qatmId || qatmId.length < 10) continue;
+
+      try {
+        const qatmSs = SpreadsheetApp.openById(qatmId);
+
+        // Delete ALL old VAPT tabs
+        const oldVAPTTabs = [
+          'Detail Finding - Regular VAPT', 'Evidence - Regular VAPT',
+          'Detail Finding - Ad Hoc VAPT', 'Evidence - Ad Hoc VAPT',
+          'Detail Finding - VAPT', 'Evidence - VAPT',
+          'VAPT - Helper', 'VAPT - Detail Finding', 'VAPT - Evidence'
+        ];
+        oldVAPTTabs.forEach(name => {
+          const tab = qatmSs.getSheetByName(name);
+          if (tab) qatmSs.deleteSheet(tab);
+        });
+
+        // Delete Config & Sheet 2
+        ['Config', 'Sheet 2'].forEach(name => {
+          const tab = qatmSs.getSheetByName(name);
+          if (tab) qatmSs.deleteSheet(tab);
+        });
+
+        SpreadsheetApp.flush();
+        Utilities.sleep(300);
+
+        // Create NEW VAPT tabs
+        createVAPTHelper(qatmSs);
+        SpreadsheetApp.flush();
+        Utilities.sleep(300);
+
+        createDetailFindingVAPT(qatmSs);
+        SpreadsheetApp.flush();
+        Utilities.sleep(300);
+
+        createEvidenceVAPT(qatmSs);
+        SpreadsheetApp.flush();
+
+        // Reorder tabs: Summary, VAPT Helper, Bug Report, ...
+        const summary = qatmSs.getSheetByName('Summary');
+        const vaptHelper = qatmSs.getSheetByName('VAPT - Helper');
+        const bugReport = qatmSs.getSheetByName('Bug Report');
+
+        if (summary) qatmSs.setActiveSheet(summary);
+        if (vaptHelper) qatmSs.moveActiveSheet(2);
+        if (bugReport) {
+          qatmSs.setActiveSheet(bugReport);
+          qatmSs.moveActiveSheet(3);
+        }
+
+        SpreadsheetApp.flush();
+
+        // Update VAPT Summary section
+        addVAPTSummarySection_(qatmSs, 35);
+
+        successCount++;
+        Utilities.sleep(1000);
+
+      } catch (e) {
+        errorCount++;
+        errors.push(project + ' - ' + modul + ': ' + e.message);
+      }
+    }
+
+    let msg = '✅ V3 Broadcast Complete!\n\n';
+    msg += '✅ Success: ' + successCount + ' QATM(s)\n';
+    msg += '❌ Errors: ' + errorCount + ' QATM(s)\n';
+
+    if (errors.length > 0) {
+      msg += '\n❌ Errors:\n';
+      errors.slice(0, 3).forEach(err => msg += '• ' + err + '\n');
+      if (errors.length > 3) msg += '• ... +' + (errors.length - 3) + ' more\n';
+    }
+
+    ui.alert('🔒 V3 Broadcast', msg, ui.ButtonSet.OK);
+
+  } catch (e) {
+    ui.alert('❌ Error', 'Broadcast failed:\n\n' + e.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Add VAPT Summary Section to Summary tab
+ */
+function addVAPTSummarySection_(ss, startRow) {
+  const summarySheet = ss.getSheetByName('Summary');
+  if (!summarySheet) return;
+
+  startRow = startRow || 35;
+
+  const headerBg = '#263238';
+  const vaptBg = '#FF6F00';
+  const sectionBg = '#E3F2FD';
+  const white = '#FFFFFF';
+
+  try {
+    const titleRange = summarySheet.getRange(startRow, 1, 1, 3);
+    titleRange.merge()
+      .setValue('🔒 VAPT FINDINGS SUMMARY')
+      .setBackground(headerBg)
+      .setFontColor(white)
+      .setFontWeight('bold')
+      .setFontSize(12)
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle');
+    summarySheet.setRowHeight(startRow, 35);
+
+    let currentRow = startRow + 2;
+
+    summarySheet.getRange(currentRow, 1, 1, 2).merge()
+      .setValue('Overview')
+      .setBackground(sectionBg)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center');
+    currentRow++;
+
+    summarySheet.getRange(currentRow, 1).setValue('Total VAPT Findings').setFontWeight('bold');
+    summarySheet.getRange(currentRow, 2)
+      .setFormula('=COUNTA(\'VAPT - Detail Finding\'!A3:A1000)-COUNTBLANK(\'VAPT - Detail Finding\'!A3:A1000)')
+      .setNumberFormat('0')
+      .setHorizontalAlignment('center')
+      .setBackground(vaptBg)
+      .setFontColor(white)
+      .setFontWeight('bold')
+      .setFontSize(11);
+    currentRow += 2;
+
+    summarySheet.getRange(currentRow, 1, 1, 2).merge()
+      .setValue('By Risk Level (Adjusted Risk)')
+      .setBackground(sectionBg)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center');
+    currentRow++;
+
+    summarySheet.getRange(currentRow, 1).setValue('Risk Level').setFontWeight('bold');
+    summarySheet.getRange(currentRow, 2).setValue('Count').setFontWeight('bold').setHorizontalAlignment('center');
+    currentRow++;
+
+    const riskLevels = [
+      {level: 'Critical', color: '#FFEBEE'},
+      {level: 'High', color: '#FFCDD2'},
+      {level: 'Medium', color: '#FFF9C4'},
+      {level: 'Low', color: '#FFF8E1'},
+      {level: 'Informational', color: '#E3F2FD'}
+    ];
+
+    riskLevels.forEach(risk => {
+      summarySheet.getRange(currentRow, 1).setValue(risk.level)
+        .setBackground(risk.color)
+        .setFontWeight('bold');
+      summarySheet.getRange(currentRow, 2)
+        .setFormula('=COUNTIF(\'VAPT - Detail Finding\'!H:H,"' + risk.level + '")')
+        .setNumberFormat('0')
+        .setHorizontalAlignment('center');
+      currentRow++;
+    });
+
+    currentRow++;
+
+    summarySheet.getRange(currentRow, 1, 1, 2).merge()
+      .setValue('By Status Fix (Dev Team)')
+      .setBackground(sectionBg)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center');
+    currentRow++;
+
+    summarySheet.getRange(currentRow, 1).setValue('Status').setFontWeight('bold');
+    summarySheet.getRange(currentRow, 2).setValue('Count').setFontWeight('bold').setHorizontalAlignment('center');
+    currentRow++;
+
+    const statusFix = ['Todo', 'On Progress Remediation', 'Ready to Retest', 'Done', 'Accepted', 'False Positive'];
+    statusFix.forEach(status => {
+      summarySheet.getRange(currentRow, 1).setValue(status);
+      summarySheet.getRange(currentRow, 2)
+        .setFormula('=COUNTIF(\'VAPT - Detail Finding\'!E:E,"' + status + '")')
+        .setNumberFormat('0')
+        .setHorizontalAlignment('center');
+      currentRow++;
+    });
+
+    currentRow++;
+
+    summarySheet.getRange(currentRow, 1, 1, 2).merge()
+      .setValue('By Status Re-VAPT (Pentester)')
+      .setBackground(sectionBg)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center');
+    currentRow++;
+
+    summarySheet.getRange(currentRow, 1).setValue('Status').setFontWeight('bold');
+    summarySheet.getRange(currentRow, 2).setValue('Count').setFontWeight('bold').setHorizontalAlignment('center');
+    currentRow++;
+
+    summarySheet.getRange(currentRow, 1).setValue('Open')
+      .setBackground('#FFEBEE')
+      .setFontWeight('bold');
+    summarySheet.getRange(currentRow, 2)
+      .setFormula('=COUNTIF(\'VAPT - Detail Finding\'!F:F,"Open")')
+      .setNumberFormat('0')
+      .setHorizontalAlignment('center');
+    currentRow++;
+
+    summarySheet.getRange(currentRow, 1).setValue('Closed')
+      .setBackground('#E8F5E9')
+      .setFontWeight('bold');
+    summarySheet.getRange(currentRow, 2)
+      .setFormula('=COUNTIF(\'VAPT - Detail Finding\'!F:F,"Closed")')
+      .setNumberFormat('0')
+      .setHorizontalAlignment('center');
+    currentRow++;
+
+    summarySheet.setColumnWidth(1, 200);
+    summarySheet.setColumnWidth(2, 80);
+
+    const sectionRange = summarySheet.getRange(startRow, 1, currentRow - startRow, 2);
+    sectionRange.setBorder(
+      true, true, true, true, true, true,
+      '#CFD8DC', SpreadsheetApp.BorderStyle.SOLID
+    );
+
+  } catch (e) {
+    // Silent skip
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MENU FUNCTIONS - CREATE NEW VAPT TABS
+// ═══════════════════════════════════════════════════════════════════════
+
+function menuCreateVAPTHelper() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    '📝 Create VAPT - Helper',
+    'Create "VAPT - Helper" tab?\n\n' +
+    '⚠️ If exists, will be recreated (data lost).',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) return;
+
+  try {
+    const existing = ss.getSheetByName('VAPT - Helper');
+    if (existing) {
+      ss.deleteSheet(existing);
+      SpreadsheetApp.flush();
+    }
+
+    createVAPTHelper(ss);
+    SpreadsheetApp.flush();
+
+    ui.alert('✅ Tab Created!', 'VAPT - Helper created successfully.', ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('❌ Error', 'Failed:\n\n' + e.message, ui.ButtonSet.OK);
+  }
+}
+
+function menuCreateVAPTDetailFinding() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    '📝 Create VAPT - Detail Finding',
+    'Create "VAPT - Detail Finding" tab?\n\n' +
+    '⚠️ If exists, will be recreated (data lost).',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) return;
+
+  try {
+    const existing = ss.getSheetByName('VAPT - Detail Finding');
+    if (existing) {
+      ss.deleteSheet(existing);
+      SpreadsheetApp.flush();
+    }
+
+    createDetailFindingVAPT(ss);
+    SpreadsheetApp.flush();
+
+    ui.alert('✅ Tab Created!', 'VAPT - Detail Finding created successfully.', ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('❌ Error', 'Failed:\n\n' + e.message, ui.ButtonSet.OK);
+  }
+}
+
+function menuCreateVAPTEvidence() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    '📝 Create VAPT - Evidence',
+    'Create "VAPT - Evidence" tab?\n\n' +
+    '⚠️ If exists, will be recreated (data lost).',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) return;
+
+  try {
+    const existing = ss.getSheetByName('VAPT - Evidence');
+    if (existing) {
+      ss.deleteSheet(existing);
+      SpreadsheetApp.flush();
+    }
+
+    createEvidenceVAPT(ss);
+    SpreadsheetApp.flush();
+
+    ui.alert('✅ Tab Created!', 'VAPT - Evidence created successfully.', ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('❌ Error', 'Failed:\n\n' + e.message, ui.ButtonSet.OK);
+  }
+}
