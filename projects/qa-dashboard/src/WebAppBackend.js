@@ -6,13 +6,243 @@
  */
 
 /**
- * Web App entry point - serves HTML page
+ * Web App entry point - serves HTML page OR handles API requests
  * This function is required for Web App deployment
+ *
+ * API Endpoints for Next.js:
+ * - ?action=getBugsData        -> Returns bugs from Bugs tab
+ * - ?action=getVAPTData        -> Returns VAPT findings
+ * - ?action=getKPIData         -> Returns KPI metrics
+ * - No action parameter        -> Returns HTML dashboard
  */
 function doGet(e) {
+  // Check if this is an API request (has action parameter)
+  const action = e.parameter.action;
+
+  if (action) {
+    // Handle API requests - return JSON
+    return handleApiRequest_(action, e);
+  }
+
+  // Default: serve HTML dashboard
   return HtmlService.createHtmlOutputFromFile('WebApp')
     .setTitle('QA Dashboard')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/**
+ * Handle API requests from Next.js frontend
+ * Returns JSON response
+ */
+function handleApiRequest_(action, e) {
+  try {
+    let data = null;
+
+    switch (action) {
+      case 'getBugsData':
+        data = getApiBugsData_();
+        break;
+
+      case 'getVAPTData':
+        data = getApiVAPTData_();
+        break;
+
+      case 'getKPIData':
+        data = getApiKPIData_();
+        break;
+
+      case 'getDashboardSummary':
+        data = getApiDashboardSummary_();
+        break;
+
+      default:
+        throw new Error('Unknown action: ' + action);
+    }
+
+    // Return success response
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      data: data,
+      total: Array.isArray(data) ? data.length : null,
+      timestamp: new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    // Return error response
+    Logger.log('API Error [' + action + ']: ' + error.toString());
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * API: Get bugs data formatted for Next.js
+ * Returns array of bug objects
+ */
+function getApiBugsData_() {
+  const ss = getDashboardSpreadsheet_();
+  const bugs = ss.getSheetByName('Bugs');
+
+  if (!bugs) {
+    return [];
+  }
+
+  const data = bugs.getDataRange().getValues();
+  const bugsList = [];
+
+  // Column mapping (adjust based on actual Bugs tab structure):
+  // A: Project | B: Module | C: Bug ID | D: Title | E: Status | F: Priority | G: Severity | H: Assignee | I: Reporter | J: Created | K: Resolved | L: Description
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+
+    // Skip empty rows
+    if (!row[0] && !row[1]) continue;
+
+    // Skip TOTAL rows
+    if (String(row[0]).toUpperCase().includes('TOTAL')) continue;
+
+    bugsList.push({
+      id: String(row[2] || ''),
+      project: String(row[0] || ''),
+      module: String(row[1] || ''),
+      title: String(row[3] || ''),
+      status: String(row[4] || ''),
+      priority: String(row[5] || ''),
+      severity: String(row[6] || ''),
+      assignee: String(row[7] || ''),
+      reporter: String(row[8] || ''),
+      createdDate: row[9] ? new Date(row[9]).toISOString().split('T')[0] : '',
+      resolvedDate: row[10] ? new Date(row[10]).toISOString().split('T')[0] : null,
+      description: String(row[11] || '')
+    });
+  }
+
+  return bugsList;
+}
+
+/**
+ * API: Get VAPT findings formatted for Next.js
+ * Returns array of VAPT finding objects
+ */
+function getApiVAPTData_() {
+  const ss = getDashboardSpreadsheet_();
+  const vaptTab = ss.getSheetByName('VAPT');
+
+  if (!vaptTab) {
+    return [];
+  }
+
+  const data = vaptTab.getDataRange().getValues();
+  const findings = [];
+
+  // VAPT tab columns: Project(0) | Aplikasi(1) | Blocker(2) | Critical(3) | High(4) | Medium(5) | Low(6) | Info(7)
+
+  for (let i = 9; i < data.length; i++) {
+    const row = data[i];
+
+    // Skip empty rows
+    if (!row[0] && !row[1]) continue;
+
+    // Skip section headers
+    if (String(row[0]).includes('═══')) continue;
+
+    // Skip column headers
+    if (String(row[1]).trim() === 'Aplikasi') continue;
+
+    findings.push({
+      id: 'VAPT-' + i,
+      project: String(row[0] || ''),
+      module: String(row[1] || ''),
+      app: String(row[1] || ''),
+      statusFix: 'Open', // Not in current tab structure
+      statusReVAPT: 'Open',
+      risk: determineHighestRisk_(row),
+      adjustedRisk: determineHighestRisk_(row),
+      findingName: String(row[1] || ''),
+      reportDate: new Date().toISOString().split('T')[0],
+      alreadyInProd: 'Yes',
+      blocker: Number(row[2]) || 0,
+      critical: Number(row[3]) || 0,
+      high: Number(row[4]) || 0,
+      medium: Number(row[5]) || 0,
+      low: Number(row[6]) || 0
+    });
+  }
+
+  return findings;
+}
+
+/**
+ * API: Get KPI data formatted for Next.js
+ * Returns array of KPI objects per module
+ */
+function getApiKPIData_() {
+  const ss = getDashboardSpreadsheet_();
+  const overview = ss.getSheetByName('Overview');
+
+  if (!overview) {
+    return [];
+  }
+
+  const data = overview.getDataRange().getValues();
+  const kpiList = [];
+
+  // Skip header rows (first 5 rows)
+  for (let i = 5; i < data.length; i++) {
+    const row = data[i];
+
+    // Skip empty rows
+    if (!row[0]) continue;
+
+    // Skip TOTAL rows
+    if (String(row[0]).toUpperCase().includes('TOTAL')) continue;
+
+    const webTotal = Number(row[8]) || 0;
+    const webPass = Number(row[9]) || 0;
+    const webFail = Number(row[10]) || 0;
+    const webBlock = Number(row[11]) || 0;
+
+    kpiList.push({
+      project: String(row[0] || ''),
+      module: String(row[1] || ''),
+      testCases: webTotal,
+      automated: 0, // Not available in current structure
+      passed: webPass,
+      failed: webFail,
+      blocked: webBlock
+    });
+  }
+
+  return kpiList;
+}
+
+/**
+ * API: Get dashboard summary (for overview page)
+ */
+function getApiDashboardSummary_() {
+  const ss = getDashboardSpreadsheet_();
+  return getSummaryData_(ss);
+}
+
+/**
+ * Helper: Determine highest risk level from VAPT row
+ */
+function determineHighestRisk_(row) {
+  const critical = Number(row[3]) || 0;
+  const high = Number(row[4]) || 0;
+  const medium = Number(row[5]) || 0;
+  const low = Number(row[6]) || 0;
+
+  if (critical > 0) return 'Critical';
+  if (high > 0) return 'High';
+  if (medium > 0) return 'Medium';
+  if (low > 0) return 'Low';
+  return 'Informational';
 }
 
 /**
