@@ -29,11 +29,13 @@ function createDashboard() {
 
   let dashboard = ss.getSheetByName(DASHBOARD_TAB_NAME);
 
-  if (!dashboard) {
-    dashboard = ss.insertSheet(DASHBOARD_TAB_NAME, 0);
+  // Delete old dashboard if exists (to avoid merge/freeze conflicts)
+  if (dashboard) {
+    ss.deleteSheet(dashboard);
   }
 
-  dashboard.clear();
+  // Create fresh dashboard
+  dashboard = ss.insertSheet(DASHBOARD_TAB_NAME, 0);
 
   // Set column widths
   dashboard.setColumnWidth(1, 200);  // A: Period
@@ -248,7 +250,7 @@ function createDashboard() {
     .setVerticalAlignment('top');
   dashboard.setRowHeight(tipsRow, 100);
 
-  // Freeze header
+  // Freeze header (do this AFTER all merges)
   dashboard.setFrozenRows(3);
 
   Logger.log('✅ Dashboard created/updated');

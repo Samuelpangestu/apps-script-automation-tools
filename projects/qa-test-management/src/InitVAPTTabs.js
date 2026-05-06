@@ -233,8 +233,6 @@ function createVAPTHelper(ss) {
   } catch (e) {
     // Silent skip
   }
-
-  Logger.log('✅ VAPT - Helper created');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -470,8 +468,6 @@ function createDetailFindingVAPT(ss) {
 
   // Add column notes
   addDetailFindingNotes_(ws);
-
-  Logger.log('✅ VAPT - Detail Finding created');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -556,8 +552,6 @@ function createEvidenceVAPT(ss) {
 
   // Add column notes
   addEvidenceNotes_(ws);
-
-  Logger.log('✅ VAPT - Evidence created');
 }
 
 // ═══════════════════════════════════════════════════════════════════════

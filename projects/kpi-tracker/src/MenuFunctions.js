@@ -13,16 +13,17 @@ function onOpen() {
 
   ui.createMenu('🎯 KPI Tracker')
     .addSubMenu(ui.createMenu('⚙️ Setup')
-      .addItem('🚀 Initial Setup (Run Once)', 'initialSetup')
+      .addItem('🚀 Initial Setup (Create All Tabs)', 'initialSetup')
       .addSeparator()
-      .addItem('📋 Setup Config Tab', 'setupConfigTab')
-      .addItem('📊 Setup KPI Definition Tab', 'setupKPIDefinitionTab'))
+      .addItem('📋 Create Config Tab', 'menuSetupConfigTab')
+      .addItem('📊 Create KPI Definition Tab', 'menuSetupKPIDefinitionTab')
+      .addItem('📈 Create Dashboard Tab', 'menuSetupDashboard'))
     .addSeparator()
-    .addSubMenu(ui.createMenu('👥 Team Members (SSOT)')
-      .addItem('🔄 Sync from SSOT', 'syncFromSSOT')
+    .addSubMenu(ui.createMenu('👥 Team Members')
+      .addItem('🔄 Sync from QA Team Management', 'syncFromSSOT')
       .addSeparator()
-      .addItem('ℹ️ Show SSOT Info', 'showSSOTInfo')
-      .addItem('🔧 Test SSOT Connection', 'testSSOTConnection'))
+      .addItem('ℹ️ Show Team Info', 'showSSOTInfo')
+      .addItem('🔧 Test Connection', 'testSSOTConnection'))
     .addSeparator()
     .addSubMenu(ui.createMenu('📈 KPI Tracking')
       .addItem('➕ Create Period Tracker', 'menuCreateKPITracker')
@@ -46,10 +47,27 @@ function onOpen() {
  */
 function initialSetup() {
   const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Check if tabs already exist
+  const configExists = ss.getSheetByName(CONFIG_TAB_NAME);
+  const kpiDefExists = ss.getSheetByName(KPI_DEF_TAB_NAME);
+  const dashboardExists = ss.getSheetByName(DASHBOARD_TAB_NAME);
+
+  let warningMsg = '';
+  if (configExists || kpiDefExists || dashboardExists) {
+    warningMsg = '⚠️ WARNING: Existing tabs will be DELETED and recreated.\n\n' +
+      'Existing tabs found:\n' +
+      (configExists ? '• Config\n' : '') +
+      (kpiDefExists ? '• KPI Definition\n' : '') +
+      (dashboardExists ? '• Dashboard\n' : '') +
+      '\nAll data in these tabs will be LOST.\n\n';
+  }
+
   const response = ui.alert(
     'KPI Tracker — Initial Setup',
-    'This will create all necessary tabs and structure for the KPI Tracker.\n\n' +
-    'The following will be created:\n' +
+    warningMsg +
+    'This will create all necessary tabs for the KPI Tracker:\n' +
     '• Dashboard tab (overview & summary)\n' +
     '• Config tab (team members management)\n' +
     '• KPI Definition tab (maintainable KPI definitions)\n\n' +
@@ -64,27 +82,21 @@ function initialSetup() {
   try {
     Logger.log('Starting initial setup...');
 
-    // Step 1: Setup Config tab
-    ui.alert('Step 1/3: Creating Config tab...');
+    SpreadsheetApp.getActiveSpreadsheet().toast('Creating tabs...', 'Setup', 3);
+
+    // Create all tabs
     setupConfigTab();
-
-    // Step 2: Setup KPI Definition tab
-    ui.alert('Step 2/3: Creating KPI Definition tab...');
     setupKPIDefinitionTab();
-
-    // Step 3: Setup Dashboard tab
-    ui.alert('Step 3/3: Creating Dashboard tab...');
     createDashboard();
 
     Logger.log('✅ Initial setup complete');
 
-    // Ask if user wants to sync from SSOT
+    // Ask if user wants to sync from Team Management
     const syncResponse = ui.alert(
       'Setup Complete! ✅',
       'KPI Tracker has been set up successfully.\n\n' +
-      'Do you want to sync team members from SSOT now?\n' +
-      '(Team Member spreadsheet)\n\n' +
-      'Click YES to sync from SSOT\n' +
+      'Do you want to sync team members from QA Team Management now?\n\n' +
+      'Click YES to sync from QA Team Management\n' +
       'Click NO to use sample data (can sync later from menu)',
       ui.ButtonSet.YES_NO
     );
@@ -94,7 +106,7 @@ function initialSetup() {
     } else {
       ui.alert(
         'Next Steps',
-        '1. Sync team members: Menu → Team Members (SSOT) → Sync from SSOT\n' +
+        '1. Sync team members: Menu → Team Members → Sync from QA Team Management\n' +
         '   OR update manually in Config tab\n' +
         '2. Review and adjust KPI definitions if needed\n' +
         '3. Create period tracker (Menu: KPI Tracking → Create Period Tracker)\n' +
@@ -107,6 +119,87 @@ function initialSetup() {
   } catch (e) {
     Logger.log('❌ Setup failed: ' + e.message);
     ui.alert('Setup Failed', 'Error: ' + e.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Menu function to create Config tab
+ */
+function menuSetupConfigTab() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const exists = ss.getSheetByName(CONFIG_TAB_NAME);
+
+  let msg = exists
+    ? '⚠️ Config tab already exists and will be DELETED and recreated.\n\nAll data will be LOST.\n\nContinue?'
+    : 'This will create the Config tab for team member management.\n\nContinue?';
+
+  const response = ui.alert('Create Config Tab', msg, ui.ButtonSet.YES_NO);
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    setupConfigTab();
+    ui.alert('Success! ✅', 'Config tab created successfully.', ui.ButtonSet.OK);
+  } catch (e) {
+    Logger.log('❌ Config tab creation failed: ' + e.message);
+    ui.alert('Error', 'Failed to create Config tab:\n' + e.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Menu function to create KPI Definition tab
+ */
+function menuSetupKPIDefinitionTab() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const exists = ss.getSheetByName(KPI_DEF_TAB_NAME);
+
+  let msg = exists
+    ? '⚠️ KPI Definition tab already exists and will be DELETED and recreated.\n\nAll data will be LOST.\n\nContinue?'
+    : 'This will create the KPI Definition tab with all pre-configured KPIs.\n\nContinue?';
+
+  const response = ui.alert('Create KPI Definition Tab', msg, ui.ButtonSet.YES_NO);
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    setupKPIDefinitionTab();
+    ui.alert('Success! ✅', 'KPI Definition tab created successfully.', ui.ButtonSet.OK);
+  } catch (e) {
+    Logger.log('❌ KPI Definition tab creation failed: ' + e.message);
+    ui.alert('Error', 'Failed to create KPI Definition tab:\n' + e.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Menu function to create Dashboard tab
+ */
+function menuSetupDashboard() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const exists = ss.getSheetByName(DASHBOARD_TAB_NAME);
+
+  let msg = exists
+    ? '⚠️ Dashboard tab already exists and will be DELETED and recreated.\n\nAll data will be LOST.\n\nContinue?'
+    : 'This will create the Dashboard tab showing KPI overview.\n\nContinue?';
+
+  const response = ui.alert('Create Dashboard Tab', msg, ui.ButtonSet.YES_NO);
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    createDashboard();
+    ui.alert('Success! ✅', 'Dashboard tab created successfully.', ui.ButtonSet.OK);
+  } catch (e) {
+    Logger.log('❌ Dashboard creation failed: ' + e.message);
+    ui.alert('Error', 'Failed to create Dashboard:\n' + e.message, ui.ButtonSet.OK);
   }
 }
 

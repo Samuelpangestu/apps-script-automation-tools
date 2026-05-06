@@ -29,7 +29,7 @@ function createDashboard() {
   let currentRow = 1;
 
   // Title
-  sheet.getRange(currentRow, 1, 1, 10).merge()
+  sheet.getRange(currentRow, 1, 1, 8).merge()
     .setValue('📊 QA TEAM PROJECT & SUBMODUL DISTRIBUTION')
     .setBackground('#1a73e8')
     .setFontColor('#ffffff')
@@ -38,6 +38,18 @@ function createDashboard() {
     .setHorizontalAlignment('center')
     .setVerticalAlignment('middle');
   sheet.setRowHeight(currentRow, 50);
+  currentRow++;
+
+  // Filter note
+  sheet.getRange(currentRow, 1, 1, 8).merge()
+    .setValue('ℹ️ Only showing projects/moduls/submoduls with Status = Active | Inactive & On Hold are excluded')
+    .setBackground('#fff3cd')
+    .setFontColor('#856404')
+    .setFontSize(10)
+    .setFontStyle('italic')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+  sheet.setRowHeight(currentRow, 25);
   currentRow += 2;
 
   // Get data
@@ -92,8 +104,8 @@ function createDashboard() {
   currentRow += 2;
 
   // Submodul distribution section
-  sheet.getRange(currentRow, 1, 1, 10).merge()
-    .setValue('🎯 SUBMODUL TEAM ASSIGNMENTS (with Ratings)')
+  sheet.getRange(currentRow, 1, 1, 8).merge()
+    .setValue('🎯 SUBMODUL TEAM ASSIGNMENTS')
     .setBackground('#34a853')
     .setFontColor('#ffffff')
     .setFontWeight('bold')
@@ -104,8 +116,8 @@ function createDashboard() {
   currentRow++;
 
   // Table header
-  const tableHeaders = ['Project', 'Modul', 'Submodul', 'Diff.', 'Risk', 'Comp.', 'QA Team Lead', 'QA Lead', 'PIC Project', 'QE'];
-  sheet.getRange(currentRow, 1, 1, 10)
+  const tableHeaders = ['Project', 'Modul', 'Submodul', 'Category', 'QA Team Lead', 'QA Lead', 'PIC Project', 'QE'];
+  sheet.getRange(currentRow, 1, 1, 8)
     .setValues([tableHeaders])
     .setBackground('#666666')
     .setFontColor('#ffffff')
@@ -141,41 +153,41 @@ function createDashboard() {
       }
     });
 
+    // Calculate category from 5 parameters
+    const totalScore = calculateTotalScore(
+      submodul.difficulty,
+      submodul.risk,
+      submodul.complexity,
+      submodul.automation,
+      submodul.testComplexity
+    );
+    const category = getDifficultyCategory(totalScore);
+    const categoryEmoji = getCategoryEmoji(category);
+    const categoryDisplay = categoryEmoji + ' ' + category;
+
     const rowData = [
       projectName,
       submodul.modul,
       submodul.name,
-      submodul.difficulty,
-      submodul.risk,
-      submodul.complexity,
+      categoryDisplay,
       qaTeamLeads.join(', ') || '-',
       qaLeads.join(', ') || '-',
       pics.join(', ') || '-',
       qes.join(', ') || '-'
     ];
 
-    sheet.getRange(currentRow, 1, 1, 10).setValues([rowData]);
+    sheet.getRange(currentRow, 1, 1, 8).setValues([rowData]);
 
     // Row styling
     const bg = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
-    sheet.getRange(currentRow, 1, 1, 10)
+    sheet.getRange(currentRow, 1, 1, 8)
       .setBackground(bg)
       .setWrap(true)
       .setVerticalAlignment('top');
 
-    // Rating color coding (difficulty/risk/complexity)
-    const avgRating = (submodul.difficulty + submodul.risk + submodul.complexity) / 3;
-    let ratingBg = '#ffffff';
-    if (avgRating <= 3) {
-      ratingBg = '#d4edda'; // Low (green)
-    } else if (avgRating <= 6) {
-      ratingBg = '#fff3cd'; // Medium (yellow)
-    } else {
-      ratingBg = '#f8d7da'; // High (red)
-    }
-    sheet.getRange(currentRow, 4).setBackground(ratingBg);
-    sheet.getRange(currentRow, 5).setBackground(ratingBg);
-    sheet.getRange(currentRow, 6).setBackground(ratingBg);
+    // Category column color coding
+    const ratingBg = getCategoryColor(category);
+    sheet.getRange(currentRow, 4).setBackground(ratingBg).setFontWeight('bold');
 
     currentRow++;
   });
@@ -184,13 +196,11 @@ function createDashboard() {
   sheet.setColumnWidth(1, 150); // Project
   sheet.setColumnWidth(2, 150); // Modul
   sheet.setColumnWidth(3, 200); // Submodul
-  sheet.setColumnWidth(4, 70);  // Difficulty
-  sheet.setColumnWidth(5, 70);  // Risk
-  sheet.setColumnWidth(6, 70);  // Complexity
-  sheet.setColumnWidth(7, 160); // QA Team Lead
-  sheet.setColumnWidth(8, 160); // QA Lead
-  sheet.setColumnWidth(9, 160); // PIC Project
-  sheet.setColumnWidth(10, 160); // Quality Engineer
+  sheet.setColumnWidth(4, 150); // Category
+  sheet.setColumnWidth(5, 160); // QA Team Lead
+  sheet.setColumnWidth(6, 160); // QA Lead
+  sheet.setColumnWidth(7, 160); // PIC Project
+  sheet.setColumnWidth(8, 160); // Quality Engineer
 
   // Auto-resize rows for wrapped text
   for (let i = tableStartRow; i < currentRow; i++) {
@@ -199,20 +209,110 @@ function createDashboard() {
 
   currentRow += 2;
 
-  // Legend
-  sheet.getRange(currentRow, 1).setValue('📌 LEGEND:').setFontWeight('bold');
+  // Person Matrix Section
+  sheet.getRange(currentRow, 1, 1, 8).merge()
+    .setValue('👥 PERSON ASSIGNMENT MATRIX')
+    .setBackground('#ff6d00')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setFontSize(12)
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle');
+  sheet.setRowHeight(currentRow, 35);
   currentRow++;
-  sheet.getRange(currentRow, 1).setValue('Difficulty Levels:');
+
+  // Matrix header
+  const matrixHeaders = ['Name', 'Total Projects', 'Total Submoduls', 'Avg Score', 'Category'];
+  sheet.getRange(currentRow, 1, 1, 5)
+    .setValues([matrixHeaders])
+    .setBackground('#666666')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
   currentRow++;
-  sheet.getRange(currentRow, 1).setValue('🟢 Easy').setBackground('#d4edda');
-  currentRow++;
-  sheet.getRange(currentRow, 1).setValue('🟡 Medium').setBackground('#fff3cd');
-  currentRow++;
-  sheet.getRange(currentRow, 1).setValue('🔴 Hard').setBackground('#f8d7da');
+
+  const matrixStartRow = currentRow;
+
+  // Build person matrix
+  const personMap = new Map(); // Map<name, {projects: Set, submoduls: Array<submodul>}>
+
+  teamMembers.forEach(member => {
+    if (!personMap.has(member.name)) {
+      personMap.set(member.name, {
+        projects: new Set(),
+        submoduls: []
+      });
+    }
+
+    const personData = personMap.get(member.name);
+    member.projects.forEach(p => personData.projects.add(p));
+
+    // Find submoduls assigned to this person
+    member.submodul.forEach(submodulName => {
+      const found = submoduls.find(s => s.name === submodulName);
+      if (found) {
+        personData.submoduls.push(found);
+      }
+    });
+  });
+
+  let matrixIndex = 0;
+  personMap.forEach((data, name) => {
+    const totalProjects = data.projects.size;
+    const totalSubmoduls = data.submoduls.length;
+
+    // Calculate average score
+    let totalScore = 0;
+    data.submoduls.forEach(sub => {
+      totalScore += calculateTotalScore(
+        sub.difficulty,
+        sub.risk,
+        sub.complexity,
+        sub.automation,
+        sub.testComplexity
+      );
+    });
+
+    const avgScore = totalSubmoduls > 0 ? Math.round(totalScore / totalSubmoduls) : 0;
+    const avgCategory = getDifficultyCategory(avgScore);
+    const avgCategoryEmoji = getCategoryEmoji(avgCategory);
+    const avgCategoryDisplay = avgCategoryEmoji + ' ' + avgCategory;
+
+    const matrixRow = [name, totalProjects, totalSubmoduls, avgScore, avgCategoryDisplay];
+    sheet.getRange(currentRow, 1, 1, 5).setValues([matrixRow]);
+
+    // Row styling
+    const bg = matrixIndex % 2 === 0 ? '#ffffff' : '#f8f9fa';
+    sheet.getRange(currentRow, 1, 1, 5).setBackground(bg);
+
+    // Category color
+    const catBg = getCategoryColor(avgCategory);
+    sheet.getRange(currentRow, 5).setBackground(catBg).setFontWeight('bold');
+
+    currentRow++;
+    matrixIndex++;
+  });
+
+  // Set matrix column widths
+  sheet.setColumnWidth(1, 180); // Name
+  sheet.setColumnWidth(2, 120); // Total Projects
+  sheet.setColumnWidth(3, 140); // Total Submoduls
+  sheet.setColumnWidth(4, 100); // Avg Score
+  sheet.setColumnWidth(5, 150); // Category
+
+  currentRow += 2;
+
+  // Legend - Simplified
+  sheet.getRange(currentRow, 1, 1, 6).merge()
+    .setValue('🟢 Very Easy (5-14)  |  🔵 Easy (15-24)  |  🟡 Medium (25-34)  |  🟠 Hard (35-44)  |  🔴 Very Hard (45-50)')
+    .setFontWeight('bold')
+    .setFontSize(11)
+    .setHorizontalAlignment('center')
+    .setBackground('#f3f3f3');
   currentRow += 2;
 
   // Footer
-  sheet.getRange(currentRow, 1, 1, 10).merge()
+  sheet.getRange(currentRow, 1, 1, 8).merge()
     .setValue('Last updated: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'))
     .setFontStyle('italic')
     .setFontSize(9)

@@ -1929,16 +1929,16 @@ function broadcastV3NewVAPTStructure() {
         });
 
         SpreadsheetApp.flush();
-        Utilities.sleep(300);
+        Utilities.sleep(100);
 
         // Create NEW VAPT tabs
         createVAPTHelper(qatmSs);
         SpreadsheetApp.flush();
-        Utilities.sleep(300);
+        Utilities.sleep(100);
 
         createDetailFindingVAPT(qatmSs);
         SpreadsheetApp.flush();
-        Utilities.sleep(300);
+        Utilities.sleep(100);
 
         createEvidenceVAPT(qatmSs);
         SpreadsheetApp.flush();
@@ -1962,7 +1962,7 @@ function broadcastV3NewVAPTStructure() {
 
         successCount++;
         generated.push(project + ' - ' + modul);
-        Utilities.sleep(1000);
+        Utilities.sleep(500);
 
       } catch (e) {
         errorCount++;

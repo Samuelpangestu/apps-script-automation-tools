@@ -93,14 +93,30 @@ function createKPITrackerPeriod(period, periodType) {
     kpis.forEach(kpi => {
       // Skip KPIs that don't match the period type
       const frequency = kpi.frequency.toLowerCase();
-      if (periodType === 'sprint' && !frequency.includes('sprint')) {
-        return; // Skip non-sprint KPIs for sprint tracking
+
+      // More flexible frequency matching
+      let shouldInclude = false;
+
+      if (periodType === 'yearly') {
+        // Yearly: include ALL KPIs regardless of frequency
+        shouldInclude = true;
+      } else if (periodType === 'sprint') {
+        // Include if frequency contains "sprint" or "per sprint"
+        shouldInclude = frequency.includes('sprint');
+      } else if (periodType === 'monthly') {
+        // Include if frequency contains "bulan" or "monthly"
+        shouldInclude = frequency.includes('bulan') || frequency.includes('month');
+      } else if (periodType === 'quarterly') {
+        // Include if frequency contains "kuartal" or "quarter"
+        shouldInclude = frequency.includes('kuartal') || frequency.includes('quarter');
+      } else {
+        // If period type not recognized, include all
+        shouldInclude = true;
       }
-      if (periodType === 'monthly' && !frequency.includes('bulan')) {
-        return; // Skip non-monthly KPIs
-      }
-      if (periodType === 'quarterly' && !frequency.includes('kuartal')) {
-        return; // Skip non-quarterly KPIs
+
+      // Skip if doesn't match frequency
+      if (!shouldInclude) {
+        return;
       }
 
       const row = [
@@ -199,9 +215,8 @@ function createKPITrackerPeriod(period, periodType) {
     .setHorizontalAlignment('center')
     .setBackground('#e8f5e9');
 
-  // Freeze header
+  // Freeze header (only rows to avoid merge conflict)
   tracker.setFrozenRows(5);
-  tracker.setFrozenColumns(1);
 
   Logger.log('✅ KPI Tracker created for period: ' + period);
   return tracker;
@@ -216,7 +231,7 @@ function menuCreateKPITracker() {
   // Get period name
   const periodResponse = ui.prompt(
     'Create KPI Tracker',
-    'Enter period name:\n(e.g., "Sprint 24", "Jan 2026", "Q1 2026")',
+    'Enter period name:\n(e.g., "2026", "FY 2026")',
     ui.ButtonSet.OK_CANCEL
   );
 
@@ -230,34 +245,14 @@ function menuCreateKPITracker() {
     return;
   }
 
-  // Get period type
-  const typeResponse = ui.alert(
-    'Select Period Type',
-    'Period: ' + period + '\n\nSelect tracking frequency:',
-    ui.ButtonSet.YES_NO_CANCEL
-  );
-
-  let periodType;
-  if (typeResponse === ui.Button.YES) {
-    periodType = 'sprint';
-  } else if (typeResponse === ui.Button.NO) {
-    // Ask monthly or quarterly
-    const monthlyOrQuarterly = ui.alert(
-      'Monthly or Quarterly?',
-      'Choose tracking type:',
-      ui.ButtonSet.YES_NO
-    );
-    periodType = monthlyOrQuarterly === ui.Button.YES ? 'monthly' : 'quarterly';
-  } else {
-    return;
-  }
+  // Always use yearly type (all KPIs)
+  const periodType = 'yearly';
 
   try {
     createKPITrackerPeriod(period, periodType);
     ui.alert(
       'Success! ✅',
-      'KPI Tracker sheet created for period: ' + period + '\n' +
-      'Type: ' + periodType.toUpperCase() + '\n\n' +
+      'KPI Tracker sheet created for period: ' + period + '\n\n' +
       'Fill the "Actual" column to track KPI achievement.',
       ui.ButtonSet.OK
     );

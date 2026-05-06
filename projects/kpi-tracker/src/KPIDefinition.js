@@ -15,11 +15,13 @@ function setupKPIDefinitionTab() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let kpiDef = ss.getSheetByName(KPI_DEF_TAB_NAME);
 
-  if (!kpiDef) {
-    kpiDef = ss.insertSheet(KPI_DEF_TAB_NAME, 1);
+  // Delete old sheet if exists (to avoid merge/freeze conflicts)
+  if (kpiDef) {
+    ss.deleteSheet(kpiDef);
   }
 
-  kpiDef.clear();
+  // Create fresh sheet
+  kpiDef = ss.insertSheet(KPI_DEF_TAB_NAME, 1);
 
   // Set column widths
   kpiDef.setColumnWidth(1, 50);   // A: No
@@ -63,29 +65,26 @@ function setupKPIDefinitionTab() {
 
   // KPI Data based on user's table
   const kpiData = [
-    // QA Team Lead (CoE)
-    [1, 'QA Team Lead (CoE)', 'On-time Delivery Rate', '≥ 80%', 'Milestone on-time ÷ Total milestone × 100', 'Jira (due date vs closed date)', 'Bulanan', '-'],
-    [2, 'QA Team Lead (CoE)', 'Defect Detection Efficiency (DDE)', '≥ 75%', 'Bug pre-prod ÷ (Bug pre-prod + Bug prod) × 100', 'Jira (environment label)', 'Per sprint', '-'],
-    [3, 'QA Team Lead (CoE)', 'CoE Tool & Template Adoption Rate', '≥ 80%', 'Project pakai CoE ÷ Total project aktif × 100', 'Audit checklist spreadsheet', 'Bulanan', '-'],
-    [4, 'QA Team Lead (CoE)', 'Team Training Completion Rate', '≥ 85%', 'Anggota selesai training ÷ Total target × 100', 'Log training / absensi', 'Per kuartal', '-'],
+    // QA Team Lead (CoE) - 4 KPIs (no Module Health Score - portfolio level)
+    [1, 'QA Team Lead (CoE)', 'On-time Delivery Rate', '≥ 80%', 'Milestone on-time ÷ Total milestone × 100', 'Jira (due date vs closed date)', 'Tahunan', 'Process'],
+    [2, 'QA Team Lead (CoE)', 'CoE Tool & Template Adoption Rate', '≥ 80%', 'Project pakai CoE ÷ Total project aktif × 100', 'Audit checklist spreadsheet', 'Tahunan', 'Strategic'],
+    [3, 'QA Team Lead (CoE)', 'Team Training Completion Rate', '≥ 85%', 'Anggota selesai training ÷ Total target × 100', 'Log training / absensi', 'Tahunan', 'People'],
+    [4, 'QA Team Lead (CoE)', '360 Review Score', '≥ 3.5/5', 'Weighted: TL 35% + PM 25% + QE Peer 15% + Self 10% + Opsional 15%', 'Google Form → tab 360 Review', 'Tahunan', 'Collaboration'],
 
-    // QA Lead (Project Dedicated)
-    [5, 'QA Lead (Project Dedicated)', 'Test Automation Coverage', '≥ 70%', 'TC smoke diotomasi ÷ Total TC smoke eligible × 100', 'Repo GitHub/GitLab + spreadsheet TC', 'Per sprint', 'Agregat semua project'],
-    [6, 'QA Lead (Project Dedicated)', 'Defect Escape Rate', '≤ 10%', 'Bug UAT+prod ÷ Total bug × 100', 'Jira (environment tag)', 'Per sprint', 'Agregat semua project'],
-    [7, 'QA Lead (Project Dedicated)', '360 Review Score', '≥ 3.5/5', 'Weighted: TL 35% + PM 25% + QE Peer 15% + Self 10% + Opsional 15%', 'Google Form → tab 360 Review', 'Per semester / kontrak', '-'],
-    [8, 'QA Lead (Project Dedicated)', 'Test Pass Rate', '≥ 85%', 'TC passed ÷ Total TC executed × 100', 'Spreadsheet TC / test management tool', 'Per sprint', 'Agregat semua project'],
+    // QA Lead (Project Dedicated) - 3 KPIs
+    [5, 'QA Lead (Project Dedicated)', 'Test Automation Coverage', '≥ 70%', '(TC Manual + TC Exec API) ÷ (TC Manual + TC Exec + API Manual + API Exec) × 100', 'QA Dashboard → Coverage tab', 'Tahunan', 'Agregat semua project'],
+    [6, 'QA Lead (Project Dedicated)', 'Module Health Score', '≥ 75', '(Avg Pass Rate × 100) - (Blocker × 10) - (Critical × 5)', 'QA Dashboard → Web App → Module Health Scorecard', 'Tahunan', 'Agregat semua project'],
+    [7, 'QA Lead (Project Dedicated)', '360 Review Score', '≥ 3.5/5', 'Weighted: TL 35% + PM 25% + QE Peer 15% + Self 10% + Opsional 15%', 'Google Form → tab 360 Review', 'Tahunan', 'Collaboration'],
 
-    // PIC Project (QE + Koordinator)
-    [9, 'PIC Project (QE + Koordinator)', 'Test Automation Coverage', '≥ 65%', 'TC smoke diotomasi ÷ Total TC smoke eligible × 100', 'Repo GitHub/GitLab + spreadsheet TC', 'Per sprint', 'Per project'],
-    [10, 'PIC Project (QE + Koordinator)', 'Defect Escape Rate', '≤ 10%', 'Bug UAT+prod ÷ Total bug × 100', 'Jira (environment tag)', 'Per sprint', 'Per project'],
-    [11, 'PIC Project (QE + Koordinator)', '360 Review Score', '≥ 3.5/5', 'Weighted: TL 35% + PM 25% + QE Peer 15% + Self 10% + Opsional 15%', 'Google Form → tab 360 Review', 'Per semester / kontrak', '-'],
-    [12, 'PIC Project (QE + Koordinator)', 'Test Pass Rate', '≥ 80%', 'TC passed ÷ Total TC executed × 100', 'Spreadsheet TC / test management tool', 'Per sprint', 'Per project'],
+    // PIC Project (QE + Koordinator) - 3 KPIs
+    [8, 'PIC Project (QE + Koordinator)', 'Test Automation Coverage', '≥ 65%', '(TC Manual + TC Exec API) ÷ (TC Manual + TC Exec + API Manual + API Exec) × 100', 'QA Dashboard → Coverage tab', 'Tahunan', 'Per project'],
+    [9, 'PIC Project (QE + Koordinator)', 'Module Health Score', '≥ 75', '(Avg Pass Rate × 100) - (Blocker × 10) - (Critical × 5)', 'QA Dashboard → Web App → Module Health Scorecard', 'Tahunan', 'Per project'],
+    [10, 'PIC Project (QE + Koordinator)', '360 Review Score', '≥ 3.5/5', 'Weighted: TL 35% + PM 25% + QE Peer 15% + Self 10% + Opsional 15%', 'Google Form → tab 360 Review', 'Tahunan', 'Collaboration'],
 
-    // Quality Engineer (QE)
-    [13, 'Quality Engineer (QE)', 'Test Automation Coverage', '≥ 60%', 'TC smoke diotomasi ÷ Total TC smoke eligible × 100', 'Repo GitHub/GitLab + spreadsheet TC', 'Per sprint', 'Per project'],
-    [14, 'Quality Engineer (QE)', 'Defect Escape Rate', '≤ 10%', 'Bug UAT+prod ÷ Total bug × 100', 'Jira (environment tag)', 'Per sprint', 'Per project'],
-    [15, 'Quality Engineer (QE)', '360 Review Score', '≥ 3.5/5', 'Weighted: TL 35% + PM 25% + QE Peer 15% + Self 10% + Opsional 15%', 'Google Form → tab 360 Review', 'Per semester / kontrak', '-'],
-    [16, 'Quality Engineer (QE)', 'Test Pass Rate', '≥ 80%', 'TC passed ÷ Total TC executed × 100', 'Spreadsheet TC / test management tool', 'Per sprint', 'Per project']
+    // Quality Engineer (QE) - 3 KPIs
+    [11, 'Quality Engineer (QE)', 'Test Automation Coverage', '≥ 60%', '(TC Manual + TC Exec API) ÷ (TC Manual + TC Exec + API Manual + API Exec) × 100', 'QA Dashboard → Coverage tab', 'Tahunan', 'Per project'],
+    [12, 'Quality Engineer (QE)', 'Module Health Score', '≥ 75', '(Avg Pass Rate × 100) - (Blocker × 10) - (Critical × 5)', 'QA Dashboard → Web App → Module Health Scorecard', 'Tahunan', 'Per project'],
+    [13, 'Quality Engineer (QE)', '360 Review Score', '≥ 3.5/5', 'Weighted: TL 35% + PM 25% + QE Peer 15% + Self 10% + Opsional 15%', 'Google Form → tab 360 Review', 'Tahunan', 'Collaboration']
   ];
 
   const startRow = 5;
@@ -119,16 +118,43 @@ function setupKPIDefinitionTab() {
   // Set row heights for better readability
   kpiDef.setRowHeights(startRow, kpiData.length, 60);
 
-  // Freeze header
-  kpiDef.setFrozenRows(4);
-  kpiDef.setFrozenColumns(1);
+  // Add notes section
+  const notesRow = startRow + kpiData.length + 2;
 
-  // Add note
-  kpiDef.getRange(startRow + kpiData.length + 2, 1, 1, 8).merge()
+  kpiDef.getRange(notesRow, 1, 1, 8).merge()
     .setValue('💡 TIP: Update targets, formulas, or add new KPIs by editing this table. Changes will automatically reflect in KPI Tracker.')
     .setBackground('#fff9c4')
     .setFontStyle('italic')
     .setWrap(true);
+
+  kpiDef.getRange(notesRow + 2, 1, 1, 8).merge()
+    .setValue('📊 DATA SOURCE INTEGRATION')
+    .setBackground('#e3f2fd')
+    .setFontWeight('bold')
+    .setFontSize(11)
+    .setHorizontalAlignment('center');
+
+  kpiDef.getRange(notesRow + 3, 1, 1, 8).merge()
+    .setValue(
+      '✅ Test Automation Coverage: QA Dashboard → Coverage tab\n' +
+      '✅ Module Health Score: QA Dashboard → Web App Dashboard → Module Health Scorecard\n' +
+      '   Formula: (Avg Pass Rate × 100) - (Blocker × 10) - (Critical × 5)\n' +
+      '   Target: ≥ 75 (Green), 50-74 (Orange), < 50 (Red)\n\n' +
+      '📝 360 Review Score: Google Form (create via menu: 360 Review → Create Review Form)\n\n' +
+      '⚠️ Manual Data Collection:\n' +
+      '   • On-time Delivery Rate: From Jira milestone tracking\n' +
+      '   • CoE Tool Adoption: From audit checklist spreadsheet\n' +
+      '   • Team Training Completion: From training log/attendance'
+    )
+    .setBackground('#f1f3f4')
+    .setFontStyle('italic')
+    .setWrap(true)
+    .setVerticalAlignment('top');
+
+  kpiDef.setRowHeight(notesRow + 3, 150);
+
+  // Freeze header (do this AFTER all merges to avoid conflicts)
+  kpiDef.setFrozenRows(4);
 
   Logger.log('✅ KPI Definition tab setup complete with ' + kpiData.length + ' KPIs');
   return kpiDef;
