@@ -77,6 +77,8 @@ function createVAPTHelper(ss) {
   // Unmerge all cells first to avoid conflicts
   try {
     ws.getRange(1, 1, ws.getMaxRows(), ws.getMaxColumns()).breakApart();
+    SpreadsheetApp.flush();
+    Utilities.sleep(200);
   } catch (e) {
     // Silent skip if no merged cells
   }
@@ -249,6 +251,8 @@ function createDetailFindingVAPT(ss) {
   // Unmerge all cells first to avoid conflicts
   try {
     ws.getRange(1, 1, ws.getMaxRows(), ws.getMaxColumns()).breakApart();
+    SpreadsheetApp.flush();
+    Utilities.sleep(200);
   } catch (e) {
     // Silent skip if no merged cells
   }
@@ -484,6 +488,8 @@ function createEvidenceVAPT(ss) {
   // Unmerge all cells first to avoid conflicts
   try {
     ws.getRange(1, 1, ws.getMaxRows(), ws.getMaxColumns()).breakApart();
+    SpreadsheetApp.flush();
+    Utilities.sleep(200);
   } catch (e) {
     // Silent skip if no merged cells
   }
