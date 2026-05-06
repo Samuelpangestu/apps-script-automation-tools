@@ -16,12 +16,13 @@ function setupConfigTab() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let config = ss.getSheetByName(CONFIG_TAB_NAME);
 
-  if (!config) {
-    config = ss.insertSheet(CONFIG_TAB_NAME, 0);
+  // Delete old sheet if exists (to avoid merge/freeze conflicts)
+  if (config) {
+    ss.deleteSheet(config);
   }
 
-  // Clear existing content
-  config.clear();
+  // Create fresh sheet
+  config = ss.insertSheet(CONFIG_TAB_NAME, 0);
 
   // Set column widths
   config.setColumnWidth(1, 50);   // A: No
@@ -136,9 +137,9 @@ function setupConfigTab() {
   config.getRange(formRow + 3, 1).setValue('Form Edit URL:');
   config.getRange(formRow + 3, 2, 1, 6).merge();
 
-  // Freeze header rows
+  // Don't freeze columns to avoid merged cell conflicts
+  // Users can manually freeze if needed
   config.setFrozenRows(5);
-  config.setFrozenColumns(1);
 
   Logger.log('✅ Config tab setup complete');
   return config;

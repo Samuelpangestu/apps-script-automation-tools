@@ -12,17 +12,19 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
 
   ui.createMenu('👥 QA Team Management')
-    .addItem('🔨 Setup All Tabs', 'menuSetupAll')
+    .addItem('🔨 Create All Tabs', 'menuSetupAll')
     .addSeparator()
-    .addItem('⚙️ Setup Config', 'menuSetupConfig')
-    .addItem('👤 Setup Team Members', 'menuSetupTeam')
-    .addItem('📊 Create Dashboard', 'menuCreateDashboard')
+    .addItem('📋 Create Project Tab', 'menuSetupConfig')
+    .addItem('👤 Create Team Members Tab', 'menuSetupTeam')
+    .addItem('📊 Create Dashboard Tab', 'menuCreateDashboard')
     .addSeparator()
-    .addItem('🔄 Sync from Production & Refresh', 'menuSyncFromProduction')
-    .addItem('👥 Generate Team Members from Config', 'menuGenerateTeamMembers')
-    .addItem('🧪 Test Production Connection', 'menuTestSyncConnection')
-    .addItem('⏰ Configure Auto-Sync', 'menuConfigureAutoRefresh')
+    .addItem('📥 Inject Team Member Data', 'menuInjectData')
+    .addItem('🎨 Apply Dropdown Project', 'menuApplyDropdown')
     .addSeparator()
+    .addItem('🔄 Refresh Dashboard', 'menuRefreshDashboard')
+    .addItem('⏰ Setup Auto-Refresh', 'menuSetupAutoRefresh')
+    .addSeparator()
+    .addItem('📖 Parameter Guide', 'menuShowParameterGuide')
     .addItem('ℹ️ About', 'menuShowAbout')
     .addToUi();
 }
@@ -131,6 +133,77 @@ function menuRefreshDashboard() {
 }
 
 /**
+ * Show parameter guide
+ */
+function menuShowParameterGuide() {
+  const ui = SpreadsheetApp.getUi();
+
+  const message =
+    '📖 PARAMETER GUIDE FOR PROJECT CONFIGURATION\n\n' +
+    '═══════════════════════════════════════════════════════\n\n' +
+    'Gunakan skala 1-10 untuk setiap parameter:\n' +
+    '• 1-3 = Low (rendah)\n' +
+    '• 4-6 = Medium (sedang)\n' +
+    '• 7-10 = High (tinggi)\n\n' +
+    '═══════════════════════════════════════════════════════\n\n' +
+    '🔷 DIFFICULTY (Tingkat Kesulitan)\n' +
+    'Seberapa sulit modul ini untuk di-test?\n\n' +
+    '1-3: Modul sederhana, UI straightforward\n' +
+    '4-6: Modul dengan business logic moderate\n' +
+    '7-10: Modul kompleks, banyak edge cases\n\n' +
+    '═══════════════════════════════════════════════════════\n\n' +
+    '🔷 RISK (Tingkat Risiko)\n' +
+    'Seberapa besar dampak jika ada bug?\n\n' +
+    '1-3: Low impact, non-critical features\n' +
+    '4-6: Medium impact, affects user experience\n' +
+    '7-10: High impact, critical business function\n\n' +
+    '═══════════════════════════════════════════════════════\n\n' +
+    '🔷 COMPLEXITY (Kompleksitas Teknis)\n' +
+    'Seberapa kompleks arsitektur/integrasi modul?\n\n' +
+    '1-3: Simple, standalone module\n' +
+    '4-6: Multiple integrations, moderate logic\n' +
+    '7-10: High complexity, many dependencies\n\n' +
+    '═══════════════════════════════════════════════════════\n\n' +
+    '🔷 AUTOMATION (Tingkat Automasi)\n' +
+    'Seberapa banyak test yang perlu automation?\n\n' +
+    '1-3: Manual testing cukup\n' +
+    '4-6: Mix manual + automation\n' +
+    '7-10: Heavy automation needed (API, E2E)\n\n' +
+    '═══════════════════════════════════════════════════════\n\n' +
+    '🔷 TEST COMPLEXITY (Kompleksitas Testing)\n' +
+    'Seberapa kompleks test case yang diperlukan?\n\n' +
+    '1-3: Basic functional testing\n' +
+    '4-6: Moderate test scenarios\n' +
+    '7-10: Complex scenarios, many test cases\n\n' +
+    '═══════════════════════════════════════════════════════\n\n' +
+    '📊 TOTAL SCORE & CATEGORY:\n\n' +
+    'Total = Diff + Risk + Comp + Auto + Test (5-50)\n\n' +
+    '🟢 Very Easy: 5-14\n' +
+    '🔵 Easy: 15-24\n' +
+    '🟡 Medium: 25-34\n' +
+    '🟠 Hard: 35-44\n' +
+    '🔴 Very Hard: 45-50\n\n' +
+    '═══════════════════════════════════════════════════════\n\n' +
+    'Contoh Pengisian:\n\n' +
+    'SIPGN E2E DAPUR:\n' +
+    '• Diff: 7 (modul cukup kompleks)\n' +
+    '• Risk: 6 (medium impact)\n' +
+    '• Comp: 7 (banyak integrasi)\n' +
+    '• Auto: 8 (perlu E2E automation)\n' +
+    '• Test: 7 (many test scenarios)\n' +
+    'Total: 35 → 🟠 Hard\n\n' +
+    'INADigital POS:\n' +
+    '• Diff: 5 (moderate)\n' +
+    '• Risk: 4 (medium)\n' +
+    '• Comp: 5 (moderate)\n' +
+    '• Auto: 3 (mostly manual)\n' +
+    '• Test: 4 (basic scenarios)\n' +
+    'Total: 21 → 🔵 Easy';
+
+  ui.alert('Parameter Guide', message, ui.ButtonSet.OK);
+}
+
+/**
  * Show about dialog
  */
 function menuShowAbout() {
@@ -139,197 +212,159 @@ function menuShowAbout() {
   const message =
     '👥 QA TEAM MANAGEMENT SYSTEM\n\n' +
     '═══════════════════════════════\n\n' +
-    'Version: 4.0.0\n' +
+    'Version: 5.0.0 (Simplified)\n' +
     'Author: QA Team\n\n' +
     '📋 KEY FEATURES\n\n' +
     '✅ Simple & clean interface\n' +
     '✅ 3-level hierarchy (Project → Modul → Submodul)\n' +
-    '✅ Numerical ratings (1-10) for Difficulty, Risk, Complexity\n' +
+    '✅ 5 parameters (Diff, Risk, Comp, Auto, Test) - Scale 1-10\n' +
+    '✅ 5-category difficulty system (Very Easy to Very Hard)\n' +
+    '✅ Parameter guide based on QA Mandays Calculator\n' +
     '✅ Centralized configuration (all in one place)\n' +
     '✅ Copy-paste friendly team management\n' +
+    '✅ Auto-generate team members from Config (PIC QA)\n' +
     '✅ Submodul distribution dashboard with color coding\n' +
-    '✅ Production sync (pull data from production spreadsheet)\n' +
-    '✅ Scheduled auto-sync & refresh dashboard\n' +
-    '✅ Dashboard status monitoring in Config tab\n' +
-    '✅ Ready for KPI integration\n\n' +
+    '✅ Manual data input directly in Google Sheets\n\n' +
     '═══════════════════════════════\n\n' +
     'TABS:\n\n' +
     '1. Config\n' +
-    '   • Difficulty definitions\n' +
-    '   • Modul list (INADigital, SIPGN)\n' +
-    '   • Submodul list (centralized)\n\n' +
+    '   • Parameter guide (Diff, Risk, Comp, Auto, Test)\n' +
+    '   • Project/Modul/Submodul list (flat table)\n' +
+    '   • PIC QA assignments\n' +
+    '   • All parameters with 1-10 ratings\n\n' +
     '2. Team Members\n' +
-    '   • 7 columns\n' +
-    '   • Copy-paste data directly\n' +
-    '   • Modul + Submodul assignment\n\n' +
+    '   • 8 columns (No, Name, Role, Projects, Modul, Submodul, Email, Status)\n' +
+    '   • Copy-paste data directly or auto-generate from Config\n' +
+    '   • Multiple assignments per person supported\n\n' +
     '3. Dashboard\n' +
     '   • Team distribution per submodul\n' +
-    '   • Grouped by modul\n' +
-    '   • Auto-refresh available\n\n' +
+    '   • 5-parameter ratings with color coding\n' +
+    '   • Grouped by project and modul\n' +
+    '   • 5-category difficulty legend\n\n' +
     '═══════════════════════════════\n\n' +
     'STRUCTURE:\n\n' +
-    'Modul → Submodul → Team Members\n\n' +
+    'Project → Modul → Submodul → Team Members\n\n' +
     'Example:\n' +
-    'INADigital → INAgov → Samuel, Irvan\n' +
-    'SIPGN → Core System → Samuel\n\n' +
+    'INADigital → INAgov → INAgov → Irvan\n' +
+    'SIPGN → 4 → 4.1 → Adinda, Denta\n\n' +
     'WORKFLOW:\n\n' +
-    'LOCAL MODE (No Production):\n' +
-    '1. Menu → Setup All Tabs\n' +
-    '2. Edit project/modul/submodul in Config\n' +
-    '3. Add/paste team data\n' +
-    '4. View Dashboard\n\n' +
-    'PRODUCTION SYNC MODE:\n' +
-    '1. Menu → Setup All Tabs\n' +
-    '2. Open Config tab → Cell B3\n' +
-    '3. Paste Production Spreadsheet ID or URL\n' +
-    '4. Menu → Sync from Production & Refresh\n' +
-    '5. (Optional) Menu → Configure Auto-Sync\n\n' +
-    'PRODUCTION SYNC:\n\n' +
-    'Simple 3-step process:\n' +
-    '1. Config tab → Paste ID in cell B3\n' +
-    '2. Menu → Test Production Connection ✓\n' +
-    '3. Menu → Sync from Production & Refresh\n\n' +
-    'AUTO-SYNC:\n\n' +
-    'Menu → Configure Auto-Sync\n' +
-    'Choose: 1, 3, 6, 12, or 24 hours\n' +
-    'System will auto-sync + refresh dashboard\n\n' +
-    'DIFFICULTY LEVELS:\n\n' +
-    '🟢 Easy: 1-2 QE\n' +
-    '🟡 Medium: 1 PIC + 2-3 QE\n' +
-    '🔴 Hard: 1 Lead + 1 PIC + 3-5 QE\n\n' +
+    '1. Menu → Create All Tabs\n' +
+    '2. Fill Config tab (see parameter guide)\n' +
+    '3. Option A: Manual input team data in Team Members tab\n' +
+    '   Option B: Menu → Generate Team Members from Config\n' +
+    '4. Menu → Create Dashboard to view distribution\n\n' +
+    'DIFFICULTY CATEGORIES:\n\n' +
+    'Based on Total Score (5-50):\n' +
+    '🟢 Very Easy: 5-14\n' +
+    '🔵 Easy: 15-24\n' +
+    '🟡 Medium: 25-34\n' +
+    '🟠 Hard: 35-44\n' +
+    '🔴 Very Hard: 45-50\n\n' +
     '═══════════════════════════════\n\n' +
-    '© 2024 QA Department';
+    '© 2025 QA Department';
 
   ui.alert('About', message, ui.ButtonSet.OK);
 }
 
+// Production sync and auto-generate functions removed - using manual input only
+
 /**
- * Sync from production now (simplified - reads ID from Config tab)
+ * Apply dropdown validation to Team Members
  */
-function menuSyncFromProduction() {
-  const ui = SpreadsheetApp.getUi();
+function menuApplyDropdown() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Check if Production ID is configured in Config tab
-  const prodId = getProductionIdFromConfig();
-
-  if (!prodId) {
-    ui.alert(
-      'Production Not Configured',
-      'Please paste your Production Spreadsheet ID in the Config tab first.\n\n' +
-      'Location: Config tab → Cell B3 (Production Spreadsheet ID)\n\n' +
-      'You can paste either:\n' +
-      '• Just the ID: 1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY\n' +
-      '• Or full URL: https://docs.google.com/spreadsheets/d/ID/edit',
-      ui.ButtonSet.OK
-    );
-    return;
-  }
-
   try {
-    const result = syncFromProduction();
+    // Update helper columns in Project tab first
+    updateProjectHelperColumns();
+
+    // Apply formatting and validation to Team Members
+    const result = applyTeamMemberFormatting();
 
     if (result.success) {
-      ui.alert(
-        'Sync Complete! ✅',
-        result.message + '\n\n' +
-        'Synced:\n' +
-        '• Projects: ' + result.synced.projects + '\n' +
-        '• Moduls: ' + result.synced.moduls + '\n' +
-        '• Submoduls: ' + result.synced.submoduls + '\n\n' +
-        'Dashboard will be refreshed automatically.',
-        ui.ButtonSet.OK
-      );
-
-      // Refresh dashboard after sync
-      let dashSheet = ss.getSheetByName(DASHBOARD_TAB_NAME);
-      if (dashSheet) ss.deleteSheet(dashSheet);
-      SpreadsheetApp.flush();
-
-      createDashboard();
-      ss.toast('Dashboard refreshed with synced data!', 'Success', 3);
-
+      ss.toast('Dropdown applied! Check columns K, L, M in Project tab for dropdown values.', 'Success', 5);
     } else {
-      ui.alert('Sync Failed', result.message + '\n\nPlease check:\n1. Production Spreadsheet ID is correct in Config tab (cell B3)\n2. You have access to the production spreadsheet', ui.ButtonSet.OK);
+      ss.toast(result.message, 'Warning', 3);
     }
-
   } catch (error) {
-    ui.alert('Error', 'Sync failed: ' + error.message + '\n\nPlease verify the Production Spreadsheet ID in Config tab (cell B3).', ui.ButtonSet.OK);
+    ss.toast('Failed: ' + error.message, 'Error', 5);
+    Logger.log('Error applying dropdown: ' + error.message);
   }
 }
 
 /**
- * Test sync connection (reads from Config tab)
+ * Setup auto-refresh dashboard
  */
-function menuTestSyncConnection() {
+function menuSetupAutoRefresh() {
   const ui = SpreadsheetApp.getUi();
 
-  // Check if Production ID is configured in Config tab
-  const prodId = getProductionIdFromConfig();
+  const response = ui.alert(
+    'Setup Auto-Refresh Dashboard',
+    'Configure automatic dashboard refresh.\n\n' +
+    'Choose refresh interval:\n' +
+    '• Every 1 hour - Very frequent\n' +
+    '• Every 3 hours - Moderate\n' +
+    '• Every 6 hours - Less frequent\n' +
+    '• Every 12 hours - Twice daily\n' +
+    '• Every 24 hours - Once daily\n\n' +
+    'Do you want to enable auto-refresh?',
+    ui.ButtonSet.YES_NO
+  );
 
-  if (!prodId) {
-    ui.alert(
-      'Production Not Configured',
-      'Please paste your Production Spreadsheet ID in the Config tab first.\n\n' +
-      'Location: Config tab → Cell B3 (Production Spreadsheet ID)',
-      ui.ButtonSet.OK
-    );
+  if (response !== ui.Button.YES) {
+    // Check if there's existing trigger to disable
+    const triggers = ScriptApp.getProjectTriggers();
+    let removed = false;
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'autoRefreshDashboard') {
+        ScriptApp.deleteTrigger(trigger);
+        removed = true;
+      }
+    });
+
+    if (removed) {
+      ui.alert('Auto-Refresh Disabled', 'Auto-refresh has been turned off.', ui.ButtonSet.OK);
+    }
+    return;
+  }
+
+  const intervalResponse = ui.prompt(
+    'Enter Refresh Interval',
+    'Enter hours (1, 3, 6, 12, or 24):',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (intervalResponse.getSelectedButton() !== ui.Button.OK) return;
+
+  const hours = parseInt(intervalResponse.getResponseText().trim());
+
+  if (![1, 3, 6, 12, 24].includes(hours)) {
+    ui.alert('Invalid Input', 'Please enter: 1, 3, 6, 12, or 24', ui.ButtonSet.OK);
     return;
   }
 
   try {
-    const result = testSyncConnection();
+    // Remove existing triggers
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'autoRefreshDashboard') {
+        ScriptApp.deleteTrigger(trigger);
+      }
+    });
 
-    if (result.success) {
-      ui.alert(
-        'Connection Test: SUCCESS ✅',
-        result.message + '\n\n' +
-        'Production spreadsheet is accessible and has a Config tab.\n\n' +
-        'You can safely sync data from this source.',
-        ui.ButtonSet.OK
-      );
-    } else {
-      ui.alert(
-        'Connection Test: FAILED ❌',
-        result.message + '\n\n' +
-        'Please check:\n' +
-        '1. Production Spreadsheet ID in Config tab (cell B3)\n' +
-        '2. You have access to the production spreadsheet',
-        ui.ButtonSet.OK
-      );
-    }
+    // Create new trigger
+    ScriptApp.newTrigger('autoRefreshDashboard')
+      .timeBased()
+      .everyHours(hours)
+      .create();
 
+    ui.alert(
+      'Auto-Refresh Enabled! ✅',
+      'Dashboard will auto-refresh every ' + hours + ' hour(s).\n\n' +
+      'Next refresh in ' + hours + ' hour(s).',
+      ui.ButtonSet.OK
+    );
   } catch (error) {
-    ui.alert('Error', 'Test failed: ' + error.message + '\n\nPlease verify the Production Spreadsheet ID in Config tab.', ui.ButtonSet.OK);
-  }
-}
-
-/**
- * Generate Team Members from Config
- */
-function menuGenerateTeamMembers() {
-  const ui = SpreadsheetApp.getUi();
-
-  try {
-    const result = generateTeamMembersFromConfig();
-
-    if (result.success) {
-      ui.alert(
-        'Team Members Generated! ✅',
-        result.message + '\n\n' +
-        'Generated team members from PIC QA column in Config tab.\n\n' +
-        'Notes:\n' +
-        '• Multiple PICs per modul (e.g., "Adinda, Denta") are split automatically\n' +
-        '• Default role is "Quality Engineer" - update manually if needed\n' +
-        '• Email field is empty - please fill manually\n' +
-        '• Projects, Moduls, and Submoduls are auto-aggregated per person',
-        ui.ButtonSet.OK
-      );
-    } else {
-      ui.alert('Generation Failed', result.message, ui.ButtonSet.OK);
-    }
-
-  } catch (error) {
-    ui.alert('Error', 'Failed to generate team members: ' + error.message, ui.ButtonSet.OK);
+    ui.alert('Error', 'Failed to setup auto-refresh: ' + error.message, ui.ButtonSet.OK);
   }
 }

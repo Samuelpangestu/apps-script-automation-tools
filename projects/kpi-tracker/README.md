@@ -4,7 +4,7 @@ Maintainable and flexible KPI tracking tool for QA team with integrated 360 Revi
 
 ## Features
 
-- ✅ **SSOT Integration**: Sync team members from centralized Team Member spreadsheet
+- ✅ **QA Team Management Integration**: Sync team members from QA Team Management spreadsheet
 - ✅ **Centralized Configuration**: Manage team members in one place
 - ✅ **Maintainable KPI Definitions**: Update targets, formulas, or add new KPIs anytime
 - ✅ **Period-based Tracking**: Sprint/Monthly/Quarterly KPI tracking with auto-calculation
@@ -62,20 +62,20 @@ Maintainable and flexible KPI tracking tool for QA team with integrated 360 Revi
 
 ## Usage
 
-### Syncing Team Members from SSOT
+### Syncing Team Members from QA Team Management
 
-**SSOT (Single Source of Truth)** = Centralized Team Member spreadsheet
+**QA Team Management** = Centralized Team Member Management spreadsheet (19 columns)
 
 **One-click Sync:**
-1. Menu → **👥 Team Members (SSOT)** → **🔄 Sync from SSOT**
+1. Menu → **👥 Team Members** → **🔄 Sync from QA Team Management**
 2. Confirm sync
-3. Team members auto-populate in Config tab
+3. Active team members auto-populate in Config tab
 
 **What gets synced:**
-- Name, Role, Email, Status
-- Join date (Start Date)
-- Only QA/QE roles (filters out Security, UX, etc.)
-- Auto-maps SSOT roles to KPI Tracker roles:
+- Name, Role, Email, Status, Join Date
+- **Only Active members** (filters out Inactive & On Leave)
+- **Only QA/QE roles** (filters out Security Engineer, UX Research, etc.)
+- Auto-maps roles to KPI Tracker roles:
   - `Senior Quality Engineer` → `QA Team Lead (CoE)`
   - `QA Team Lead` → `QA Team Lead (CoE)`
   - `Quality Engineer` → `Quality Engineer (QE)`
@@ -83,15 +83,16 @@ Maintainable and flexible KPI tracking tool for QA team with integrated 360 Revi
   - `PIC QE` → `PIC Project (QE + Koordinator)`
   - `Lead Project` → `QA Lead (Project Dedicated)`
 - Auto-maps status:
-  - `Onboard` → `Aktif`
-  - Others → `Non-Aktif`
+  - `Active` → `Aktif`
+  - `Inactive` → `Non-Aktif`
+  - `On Leave` → `Non-Aktif`
 
 **Testing Connection:**
-- Menu → **👥 Team Members (SSOT)** → **🔧 Test SSOT Connection**
+- Menu → **👥 Team Members** → **🔧 Test Connection**
 
-**View SSOT Info:**
-- Menu → **👥 Team Members (SSOT)** → **ℹ️ Show SSOT Info**
-- Shows: Total members, role distribution, status distribution
+**View Team Info:**
+- Menu → **👥 Team Members** → **ℹ️ Show Team Info**
+- Shows: Total active members, role distribution, status distribution
 
 ### Managing Team Members Manually
 
@@ -100,7 +101,7 @@ Maintainable and flexible KPI tracking tool for QA team with integrated 360 Revi
 3. Set **Status** to "Aktif" or "Non-Aktif"
 4. Changes automatically reflect everywhere
 
-**Note**: Manual edits will be overwritten when syncing from SSOT
+**Note**: Manual edits will be overwritten when syncing from QA Team Management
 
 ### Updating KPI Definitions
 
@@ -177,7 +178,7 @@ Maintainable and flexible KPI tracking tool for QA team with integrated 360 Revi
 projects/kpi-tracker/
 ├── src/
 │   ├── appsscript.json       # Apps Script manifest
-│   ├── SSOTSync.js           # SSOT team member sync
+│   ├── SSOTSync.js           # QA Team Management sync
 │   ├── TeamConfig.js         # Team member management
 │   ├── KPIDefinition.js      # KPI definitions
 │   ├── KPITracker.js         # Period tracker creation

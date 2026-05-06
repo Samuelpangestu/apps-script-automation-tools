@@ -1,33 +1,39 @@
 /**
- * SSOTSync.js — SSOT Team Member Synchronization
+ * SSOTSync.js — Team Member Synchronization
  * ═══════════════════════════════════════════════════════════════════════
- * Sync team members from centralized SSOT spreadsheet
- * SSOT: 1PKZTLAhjcBAoBNcfhhOGdy7JUixEqvLbOwK5YAueSa4SdT5QzH1OHh_U
+ * Sync team members from QA Team Management spreadsheet
+ * Source: 1PKZTLAhjcBAoBNcfhhOGdy7JUixEqvLbOwK5YAueSa4SdT5QzH1OHh_U
+ * Tab: Team Members (19 columns)
  * ═══════════════════════════════════════════════════════════════════════
  */
 
-// SSOT Configuration
-const SSOT_SPREADSHEET_ID = '1PKZTLAhjcBAoBNcfhhOGdy7JUixEqvLbOwK5YAueSa4SdT5QzH1OHh_U';
-const SSOT_TAB_NAME = 'Team Member';
+// Team Management Spreadsheet Configuration
+const SSOT_SPREADSHEET_ID = '11BrTvbh6AWY9cmVIfDx30vfUD6f3vOi0_4D8vHC7Nyw';
+const SSOT_TAB_NAME = 'Team Members';
 const SSOT_DATA_START_ROW = 2; // Data starts at row 2 (row 1 is header)
 
-// Column mapping from SSOT (0-indexed)
+// Column mapping from Team Members tab (0-indexed, 19 columns)
+// Structure: No, NP, Name, Email, Email 2, HP, Join Date, Title, Role, Lead/PIC, Project, Modul, Submodul, Status, Status Hiring, Automation, Github Personal, VPN ABC, VPN Huwawei
 const SSOT_COLUMNS = {
-  NAME: 0,           // Column A: Name
-  JOIN: 1,           // Column B: Join
-  TITLE: 2,          // Column C: Title
-  LEAD_PIC: 3,       // Column D: Lead/PIC
-  PROJECT: 4,        // Column E: Project
-  NP: 5,             // Column F: NP
-  EMAIL: 6,          // Column G: Email
-  EMAIL_2: 7,        // Column H: Email 2
-  STATUS_HIRING: 8,  // Column I: Status Hiring
-  AUTOMATION: 9,     // Column J: Automation
-  GITHUB: 10,        // Column K: Github Personal
-  HP: 11,            // Column L: HP
-  ROLE: 12,          // Column M: Role
-  VPN_ABC: 13,       // Column N: VPN ABC
-  VPN_HUWAWEI: 14    // Column O: VPN Huwawei
+  NO: 0,             // Column A: No
+  NP: 1,             // Column B: NP
+  NAME: 2,           // Column C: Name
+  EMAIL: 3,          // Column D: Email
+  EMAIL_2: 4,        // Column E: Email 2
+  HP: 5,             // Column F: HP
+  JOIN: 6,           // Column G: Join Date
+  TITLE: 7,          // Column H: Title
+  ROLE: 8,           // Column I: Role
+  LEAD_PIC: 9,       // Column J: Lead/PIC
+  PROJECT: 10,       // Column K: Project
+  MODUL: 11,         // Column L: Modul
+  SUBMODUL: 12,      // Column M: Submodul
+  STATUS: 13,        // Column N: Status
+  STATUS_HIRING: 14, // Column O: Status Hiring
+  AUTOMATION: 15,    // Column P: Automation
+  GITHUB: 16,        // Column Q: Github Personal
+  VPN_ABC: 17,       // Column R: VPN ABC
+  VPN_HUWAWEI: 18    // Column S: VPN Huwawei
 };
 
 // Role mapping from SSOT to KPI Tracker roles
@@ -40,8 +46,11 @@ const ROLE_MAPPING = {
   'Lead Project': 'QA Lead (Project Dedicated)'
 };
 
-// Status mapping from SSOT to KPI Tracker
+// Status mapping from Team Members to KPI Tracker
 const STATUS_MAPPING = {
+  'Active': 'Aktif',
+  'Inactive': 'Non-Aktif',
+  'On Leave': 'Non-Aktif',
   'Onboard': 'Aktif',
   'Tidak Ada Kabar': 'Non-Aktif',
   'Digispark': 'Non-Aktif'
@@ -70,20 +79,25 @@ function fetchFromSSOT() {
       SSOT_DATA_START_ROW,
       1,
       lastRow - SSOT_DATA_START_ROW + 1,
-      15 // Read first 15 columns (A-O)
+      19 // Read all 19 columns (A-S)
     );
 
     const data = dataRange.getValues();
     const members = [];
 
     data.forEach((row, index) => {
-      const name = row[SSOT_COLUMNS.NAME].toString().trim();
-      const ssotRole = row[SSOT_COLUMNS.ROLE].toString().trim();
-      const statusHiring = row[SSOT_COLUMNS.STATUS_HIRING].toString().trim();
-      const email = row[SSOT_COLUMNS.EMAIL].toString().trim();
+      const name = row[SSOT_COLUMNS.NAME] ? row[SSOT_COLUMNS.NAME].toString().trim() : '';
+      const ssotRole = row[SSOT_COLUMNS.ROLE] ? row[SSOT_COLUMNS.ROLE].toString().trim() : '';
+      const status = row[SSOT_COLUMNS.STATUS] ? row[SSOT_COLUMNS.STATUS].toString().trim() : '';
+      const email = row[SSOT_COLUMNS.EMAIL] ? row[SSOT_COLUMNS.EMAIL].toString().trim() : '';
 
-      // Skip empty rows or section headers
-      if (!name || name === '' || name === 'MBG' || name.includes('Tidak Lolos') || name.includes('Riset/')) {
+      // Skip empty rows
+      if (!name || name === '') {
+        return;
+      }
+
+      // Filter only Active members
+      if (status !== 'Active') {
         return;
       }
 
@@ -94,10 +108,11 @@ function fetchFromSSOT() {
         return;
       }
 
-      // Map status
-      let status = STATUS_MAPPING[statusHiring] || 'Non-Aktif';
-      if (!statusHiring || statusHiring === '') {
-        status = 'Non-Aktif';
+      // Map status - use Status column (Active/Inactive) with fallback to Status Hiring
+      let kpiStatus = STATUS_MAPPING[status];
+      if (!kpiStatus) {
+        const statusHiring = row[SSOT_COLUMNS.STATUS_HIRING] ? row[SSOT_COLUMNS.STATUS_HIRING].toString().trim() : '';
+        kpiStatus = STATUS_MAPPING[statusHiring] || 'Non-Aktif';
       }
 
       // Extract join date
@@ -121,12 +136,15 @@ function fetchFromSSOT() {
         name: name,
         role: mappedRole,
         email: email,
-        status: status,
+        status: kpiStatus,
         startDate: startDate,
         ssotRow: index + SSOT_DATA_START_ROW,
         originalRole: ssotRole,
-        project: row[SSOT_COLUMNS.PROJECT].toString().trim(),
-        hp: row[SSOT_COLUMNS.HP].toString().trim()
+        project: row[SSOT_COLUMNS.PROJECT] ? row[SSOT_COLUMNS.PROJECT].toString().trim() : '',
+        hp: row[SSOT_COLUMNS.HP] ? row[SSOT_COLUMNS.HP].toString().trim() : '',
+        np: row[SSOT_COLUMNS.NP] ? row[SSOT_COLUMNS.NP].toString().trim() : '',
+        modul: row[SSOT_COLUMNS.MODUL] ? row[SSOT_COLUMNS.MODUL].toString().trim() : '',
+        submodul: row[SSOT_COLUMNS.SUBMODUL] ? row[SSOT_COLUMNS.SUBMODUL].toString().trim() : ''
       });
     });
 
@@ -148,9 +166,9 @@ function syncFromSSOT() {
 
   // Confirm sync
   const response = ui.alert(
-    'Sync from SSOT',
-    'This will sync team members from SSOT spreadsheet.\n\n' +
-    'SSOT: Team Member tab\n' +
+    'Sync from QA Team Management',
+    'This will sync team members from QA Team Management spreadsheet.\n\n' +
+    'Source: Team Members tab (Active only)\n' +
     'Target: Config tab\n\n' +
     'Current Config data will be overwritten.\n\n' +
     'Continue?',
@@ -162,17 +180,18 @@ function syncFromSSOT() {
   }
 
   try {
-    // Fetch from SSOT
-    ui.alert('Fetching data from SSOT...');
+    // Fetch from Team Management
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    ss.toast('Fetching data from QA Team Management...', 'Syncing', 3);
+
     const members = fetchFromSSOT();
 
     if (members.length === 0) {
-      ui.alert('No QA team members found in SSOT.');
+      ui.alert('No Active QA team members found in Team Members tab.\n\nPlease check:\n1. Team Members tab exists\n2. Members have Status = Active\n3. Members have QA/QE roles');
       return;
     }
 
     // Setup Config tab if not exists
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
     let config = ss.getSheetByName(CONFIG_TAB_NAME);
 
     if (!config) {
@@ -232,7 +251,7 @@ function syncFromSSOT() {
 
     ui.alert(
       'Sync Complete! ✅',
-      'Successfully synced ' + members.length + ' QA team members from SSOT.\n\n' +
+      'Successfully synced ' + members.length + ' Active QA team members from Team Management.\n\n' +
       'Role distribution:\n' +
       getRoleDistribution(members) + '\n\n' +
       'Time: ' + syncTime,
@@ -272,7 +291,7 @@ function getRoleDistribution(members) {
 }
 
 /**
- * Show SSOT info
+ * Show Team Management info
  */
 function showSSOTInfo() {
   const ui = SpreadsheetApp.getUi();
@@ -281,10 +300,11 @@ function showSSOTInfo() {
     const members = fetchFromSSOT();
 
     ui.alert(
-      'SSOT Team Member Info',
+      'QA Team Management Info',
+      'Spreadsheet: QA Team Management\n' +
       'Spreadsheet ID: ' + SSOT_SPREADSHEET_ID + '\n' +
       'Tab: ' + SSOT_TAB_NAME + '\n\n' +
-      'QA Team Members Found: ' + members.length + '\n\n' +
+      'Active QA Team Members: ' + members.length + '\n\n' +
       'Role Distribution:\n' +
       getRoleDistribution(members) + '\n\n' +
       'Status:\n' +
@@ -293,7 +313,7 @@ function showSSOTInfo() {
     );
 
   } catch (e) {
-    ui.alert('Error', 'Failed to fetch SSOT info:\n' + e.message, ui.ButtonSet.OK);
+    ui.alert('Error', 'Failed to fetch Team Management info:\n' + e.message, ui.ButtonSet.OK);
   }
 }
 
@@ -317,13 +337,13 @@ function getStatusDistribution(members) {
 }
 
 /**
- * Test SSOT connection
+ * Test Team Management connection
  */
 function testSSOTConnection() {
   const ui = SpreadsheetApp.getUi();
 
   try {
-    ui.alert('Testing SSOT connection...');
+    SpreadsheetApp.getActiveSpreadsheet().toast('Testing connection...', 'Test', 2);
 
     const ssotSS = SpreadsheetApp.openById(SSOT_SPREADSHEET_ID);
     const ssotSheet = ssotSS.getSheetByName(SSOT_TAB_NAME);
@@ -336,23 +356,23 @@ function testSSOTConnection() {
 
     ui.alert(
       'Connection Test Successful! ✅',
-      'SSOT Spreadsheet: ' + ssotSS.getName() + '\n' +
+      'QA Team Management Spreadsheet: ' + ssotSS.getName() + '\n' +
       'Tab: ' + SSOT_TAB_NAME + '\n' +
       'Total Rows: ' + lastRow + '\n\n' +
       'Connection is working correctly.',
       ui.ButtonSet.OK
     );
 
-    Logger.log('✅ SSOT connection test passed');
+    Logger.log('✅ Team Management connection test passed');
 
   } catch (e) {
-    Logger.log('❌ SSOT connection test failed: ' + e.message);
+    Logger.log('❌ Team Management connection test failed: ' + e.message);
     ui.alert(
       'Connection Test Failed ❌',
       'Error: ' + e.message + '\n\n' +
       'Please check:\n' +
       '1. Spreadsheet ID is correct\n' +
-      '2. You have access to the spreadsheet\n' +
+      '2. You have access to the QA Team Management spreadsheet\n' +
       '3. Tab name "' + SSOT_TAB_NAME + '" exists',
       ui.ButtonSet.OK
     );
