@@ -1855,17 +1855,19 @@ function broadcastV3NewVAPTStructure() {
 
   const response = ui.alert(
     '🔒 V3: NEW VAPT Structure',
-    'Broadcast 3 NEW VAPT tabs to ALL active QATMs:\n\n' +
+    'Broadcast 3 NEW VAPT tabs to active QATMs:\n\n' +
     '📋 New Tabs:\n' +
     '• VAPT - Helper (Dashboard/Tracking)\n' +
     '• VAPT - Detail Finding (32 columns)\n' +
     '• VAPT - Evidence (26 columns)\n\n' +
-    '🗑️ Will Delete:\n' +
+    '⏭️  Will Skip:\n' +
+    '• QATMs that already have all 3 V3 tabs\n\n' +
+    '🗑️ Will Delete (if not skipped):\n' +
     '• ALL old VAPT tabs\n' +
     '• Config tab\n' +
     '• Sheet 2\n\n' +
     '🔄 Tab Order: Summary, VAPT Helper, Bug Report, ...\n\n' +
-    '⚠️ All VAPT data will be lost!\n' +
+    '⚠️ VAPT data will be lost (if not skipped)!\n' +
     'Time: ~2 min/QATM\n\n' +
     'Continue?',
     ui.ButtonSet.YES_NO
@@ -1879,8 +1881,11 @@ function broadcastV3NewVAPTStructure() {
   try {
     const cfgData = cfg.getDataRange().getValues();
     let successCount = 0;
+    let skipCount = 0;
     let errorCount = 0;
     const errors = [];
+    const skipped = [];
+    const generated = [];
 
     for (let i = 3; i < cfgData.length; i++) {
       const active = cfgData[i][0] === true;
@@ -1892,6 +1897,18 @@ function broadcastV3NewVAPTStructure() {
 
       try {
         const qatmSs = SpreadsheetApp.openById(qatmId);
+
+        // Check if NEW VAPT tabs already exist
+        const existingHelper = qatmSs.getSheetByName('VAPT - Helper');
+        const existingDetail = qatmSs.getSheetByName('VAPT - Detail Finding');
+        const existingEvidence = qatmSs.getSheetByName('VAPT - Evidence');
+
+        if (existingHelper && existingDetail && existingEvidence) {
+          // All 3 V3 tabs already exist - skip
+          skipCount++;
+          skipped.push(project + ' - ' + modul);
+          continue;
+        }
 
         // Delete ALL old VAPT tabs
         const oldVAPTTabs = [
@@ -1944,6 +1961,7 @@ function broadcastV3NewVAPTStructure() {
         addVAPTSummarySection_(qatmSs, 35);
 
         successCount++;
+        generated.push(project + ' - ' + modul);
         Utilities.sleep(1000);
 
       } catch (e) {
@@ -1953,8 +1971,22 @@ function broadcastV3NewVAPTStructure() {
     }
 
     let msg = '✅ V3 Broadcast Complete!\n\n';
-    msg += '✅ Success: ' + successCount + ' QATM(s)\n';
-    msg += '❌ Errors: ' + errorCount + ' QATM(s)\n';
+    msg += '📊 Summary:\n';
+    msg += '• ✅ Generated: ' + successCount + ' QATM(s)\n';
+    msg += '• ⏭️  Skipped: ' + skipCount + ' QATM(s)\n';
+    msg += '• ❌ Errors: ' + errorCount + ' QATM(s)\n';
+
+    if (generated.length > 0) {
+      msg += '\n✅ Generated:\n';
+      generated.slice(0, 5).forEach(name => msg += '• ' + name + '\n');
+      if (generated.length > 5) msg += '• ... +' + (generated.length - 5) + ' more\n';
+    }
+
+    if (skipped.length > 0) {
+      msg += '\n⏭️  Skipped (already have V3 tabs):\n';
+      skipped.slice(0, 5).forEach(name => msg += '• ' + name + '\n');
+      if (skipped.length > 5) msg += '• ... +' + (skipped.length - 5) + ' more\n';
+    }
 
     if (errors.length > 0) {
       msg += '\n❌ Errors:\n';
