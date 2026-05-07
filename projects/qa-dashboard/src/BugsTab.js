@@ -117,7 +117,7 @@ function writeBugs(ss, allData) {
 
   // Clear ALL data rows
   const lastRow = ws.getMaxRows();
-  if (lastRow>=5) ws.getRange(5,1,lastRow-4,17).clearContent().clearFormat();
+  if (lastRow>=5) ws.getRange(5,1,lastRow-4,27).clearContent().clearFormat();
 
   const rules = [];
   const now = new Date();
