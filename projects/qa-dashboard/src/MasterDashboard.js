@@ -1012,15 +1012,22 @@ function getPerfResult_(perfSheet) {
 }
 
 function getBugStats_(bugSheet, summarySheet) {
-  const empty={total:0,open:0,inprog:0,fixed:0,verified:0,critical:0,high:0,medium:0,low:0,blocker:0,prodBugs:0};
+  const empty={
+    total:0,critical:0,high:0,medium:0,low:0,lowest:0,blocker:0,
+    devBugs:0,uatBugs:0,prodBugs:0,
+    open:0,inprog:0,fixed:0,reopen:0,verified:0,
+    blockerOpenBugs:0,blockerInProgressBugs:0,blockerFixedBugs:0,blockerReopenBugs:0,blockerVerifiedBugs:0
+  };
   if (!bugSheet) return empty;
   try {
     const rows=bugSheet.getDataRange().getValues().slice(4).filter(r=>r[0]&&r[0]!=='');
     const cnt=(fn)=>rows.filter(fn).length;
+    const isActive = r => r[3] !== 'Closed';
+    const isBlockerPriority = r => ['Critical','Highest','High','Medium'].includes(r[2]);
 
     // Get blocker count from Summary sheet (more accurate - uses formula)
-    let blockerCount = cnt(r=>['Open','In Progress','Reopen','Fixed','Verified'].includes(r[3])&&['Critical','High','Medium'].includes(r[2]));
-    let prodBugsCount = cnt(r=>['Open','In Progress','Reopen','Fixed','Verified'].includes(r[3])&&r[8]==='Production');
+    let blockerCount = cnt(r=>isActive(r) && r[3] !== "Won't Fix" && isBlockerPriority(r));
+    let prodBugsCount = cnt(r=>isActive(r) && r[8]==='Production');
 
     // Try to read from Summary sheet if available
     if (summarySheet) {
@@ -1050,17 +1057,26 @@ function getBugStats_(bugSheet, summarySheet) {
     }
 
     return {
-      total:rows.length,
+      total:   cnt(isActive),
+      critical:cnt(r=>isActive(r) && (r[2]==='Critical' || r[2]==='Highest')),
+      high:    cnt(r=>isActive(r) && r[2]==='High'),
+      medium:  cnt(r=>isActive(r) && r[2]==='Medium'),
+      low:     cnt(r=>isActive(r) && r[2]==='Low'),
+      lowest:  cnt(r=>isActive(r) && r[2]==='Lowest'),
+      blocker: blockerCount,
+      devBugs: cnt(r=>isActive(r) && (r[8]==='Development' || r[8]==='Dev')),
+      uatBugs: cnt(r=>isActive(r) && r[8]==='UAT'),
+      prodBugs: prodBugsCount,
       open:    cnt(r=>r[3]==='Open'),
       inprog:  cnt(r=>r[3]==='In Progress'),
       fixed:   cnt(r=>r[3]==='Fixed'),
-      verified:cnt(r=>r[3]==='Verified'),
-      critical:cnt(r=>r[2]==='Critical'),
-      high:    cnt(r=>r[2]==='High'),
-      medium:  cnt(r=>r[2]==='Medium'),
-      low:     cnt(r=>r[2]==='Low'),
-      blocker: blockerCount,
-      prodBugs: prodBugsCount,
+      reopen:  cnt(r=>r[3]==='Reopen'),
+      verified:cnt(r=>r[3]==='Verified' || r[3]==='Ready to Test' || r[3]==='Done VAPT'),
+      blockerOpenBugs:       cnt(r=>isBlockerPriority(r) && r[3]==='Open'),
+      blockerInProgressBugs: cnt(r=>isBlockerPriority(r) && r[3]==='In Progress'),
+      blockerFixedBugs:      cnt(r=>isBlockerPriority(r) && r[3]==='Fixed'),
+      blockerReopenBugs:     cnt(r=>isBlockerPriority(r) && r[3]==='Reopen'),
+      blockerVerifiedBugs:   cnt(r=>isBlockerPriority(r) && (r[3]==='Verified' || r[3]==='Ready to Test' || r[3]==='Done VAPT')),
     };
   } catch(e) { return empty; }
 }
@@ -2105,10 +2121,38 @@ function writeCoverage(ss, allData) {
 
 function buildHistory(ss) {
   const ws=ss.insertSheet('History'); ws.setTabColor('#4A148C'); ws.clear();
-  const hdrs=['Timestamp','Project','Modul','Submodul','PIC QA',
-    'wPass%','wExec%','aPass%','aExec%',
-    'wSmokePass%','wSmokeExec%','aSmokePass%','aSmokeExec%',
-    'Perf','Bugs','Open','Blocker','Critical'];
+  const hdrs=getHistoryHeaders_();
+  ws.getRange(1,1,2,hdrs.length).clearContent().breakApart();
+  ws.getRange(1,1,1,hdrs.length).merge().setValue('HISTORY  —  Trend Data (auto-appended setiap refresh)')
+      .setBackground('#4A148C').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
+  ws.getRange(2,1,1,hdrs.length).setValues([hdrs]).setFontWeight('bold')
+      .setBackground('#6A1B9A').setFontColor('#FFFFFF');
+  ws.setFrozenRows(2);
+  ws.setColumnWidth(1,130);
+  [2,3,4,5].forEach(c=>ws.setColumnWidth(c,90));
+  for(let c=6;c<=hdrs.length;c++)ws.setColumnWidth(c,72);
+}
+
+function getHistoryHeaders_() {
+  return ['Timestamp','Project','Modul','Submodul','PIC QA',
+    'webTestCases','webPassed','webFailed','webBlocked','webPassRate','webExecRate','webAutomationRate',
+    'apiTestCases','apiPassed','apiFailed','apiBlocked','apiPassRate','apiExecRate','apiAutomationRate',
+    'smokeWebTestCases','smokeWebPassed','smokeWebFailed','smokeWebBlocked','smokeWebPassRate','smokeWebExecRate',
+    'smokeApiTestCases','smokeApiPassed','smokeApiPassRate','smokeApiExecRate',
+    'Perf',
+    'totalBugs','critical','high','medium','low','lowest','blocker',
+    'dev','uat','prod',
+    'open','inProgress','fixed','reopen','verified',
+    'blkOpen','blkInProgress','blkFixed','blkReopen','blkVerified',
+    'healthScore'];
+}
+
+function ensureHistoryHeaders_(ws) {
+  const hdrs = getHistoryHeaders_();
+  const maxCols = Math.max(ws.getLastColumn(), hdrs.length);
+
+  ws.getRange(1,1,2,maxCols).breakApart().clearContent();
   ws.getRange(1,1,1,hdrs.length).merge().setValue('HISTORY  —  Trend Data (auto-appended setiap refresh)')
       .setBackground('#4A148C').setFontColor('#FFFFFF').setFontWeight('bold')
       .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
@@ -2122,6 +2166,8 @@ function buildHistory(ss) {
 
 function appendHistory(ss, allData) {
   const ws=ss.getSheetByName('History'); if(!ws)return;
+  ensureHistoryHeaders_(ws);
+  const HISTORY_COLS = 51;
   const now = new Date();
   const ts=Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm');
   const today=Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd');
@@ -2129,16 +2175,25 @@ function appendHistory(ss, allData) {
   // Build all rows at once (batch operation)
   const rows = allData.map(d => {
     const bs=d.bugStats||{};
+    const avgQualityRate = ((d.wPassRate || 0) + (d.aPassRate || 0) + (d.wAutoRate || 0) + (d.aAutoRate || 0)) / 4;
+    const healthScore = Math.max(0, Math.round((avgQualityRate * 100) - ((bs.blocker || 0) * 10) - ((bs.critical || 0) * 5) - ((bs.high || 0) * 2)));
     return [ts,d.project||'',d.module||'',d.submodule||d.name,d.team||'',
-      d.wPassRate,d.wExecRate,d.aPassRate,d.aExecRate,
-      d.wSmokePassRate,d.wSmokeExecRate,d.aSmokePassRate,d.aSmokeExecRate,
-      d.perfResult,bs.total||0,bs.open||0,bs.blocker||0,bs.critical||0];
+      d.wTotal||0,d.wPassed||0,d.wFailed||0,d.wBlocked||0,d.wPassRate||0,d.wExecRate||0,d.wAutoRate||0,
+      d.aTotal||0,d.aPassed||0,d.aFailed||0,d.aBlocked||0,d.aPassRate||0,d.aExecRate||0,d.aAutoRate||0,
+      d.wSmokeTotal||0,d.wSmokePassed||0,d.wSmokeFailed||0,d.wSmokeBlocked||0,d.wSmokePassRate||0,d.wSmokeExecRate||0,
+      d.aSmokeTotal||0,d.aSmokePassed||0,d.aSmokePassRate||0,d.aSmokeExecRate||0,
+      d.perfResult,
+      bs.total||0,bs.critical||0,bs.high||0,bs.medium||0,bs.low||0,bs.lowest||0,bs.blocker||0,
+      bs.devBugs||0,bs.uatBugs||0,bs.prodBugs||0,
+      bs.open||0,bs.inprog||0,bs.fixed||0,bs.reopen||0,bs.verified||0,
+      bs.blockerOpenBugs||0,bs.blockerInProgressBugs||0,bs.blockerFixedBugs||0,bs.blockerReopenBugs||0,bs.blockerVerifiedBugs||0,
+      healthScore];
   });
 
   // SMART APPEND: Check if today's data already exists
   const lastRow = ws.getLastRow();
   if(lastRow>=3){
-    const existingData = ws.getRange(3,1,lastRow-2,18).getValues();
+    const existingData = ws.getRange(3,1,lastRow-2,HISTORY_COLS).getValues();
     const todayRows = {};  // Map: "project-module-submodule" => row index
 
     // Find all rows from today
@@ -2156,7 +2211,7 @@ function appendHistory(ss, allData) {
       const key=`${row[1]||''}-${row[2]||''}-${row[3]||''}`;
       if(todayRows[key]){
         // Update existing row (overwrite with latest data)
-        ws.getRange(todayRows[key],1,1,18).setValues([row]);
+        ws.getRange(todayRows[key],1,1,HISTORY_COLS).setValues([row]);
       }else{
         // Collect for batch append
         newRows.push(row);
@@ -2166,17 +2221,17 @@ function appendHistory(ss, allData) {
     // Append only new rows
     if(newRows.length>0){
       const startRow=lastRow+1;
-      ws.getRange(startRow,1,newRows.length,18).setValues(newRows);
+      ws.getRange(startRow,1,newRows.length,HISTORY_COLS).setValues(newRows);
     }
   }else{
     // No data yet, just append
-    ws.getRange(3,1,rows.length,18).setValues(rows);
+    ws.getRange(3,1,rows.length,HISTORY_COLS).setValues(rows);
   }
 
   // Apply number formatting to percentage columns
   const newLastRow = ws.getLastRow();
   if(newLastRow>=3){
-    for(const col of [7,8,9,10,11,12,13,14])ws.getRange(3,col,newLastRow-2,1).setNumberFormat('0%');
+    for(const col of [10,11,12,17,18,19,24,25,28,29])ws.getRange(3,col,newLastRow-2,1).setNumberFormat('0%');
   }
 
   // Charts removed - will use Web App dashboard for visualization
@@ -2201,7 +2256,8 @@ function cleanupHistoryData() {
   }
 
   // Get all data
-  const data = ws.getRange(3,1,lastRow-2,18).getValues();
+  const historyCols = ws.getLastColumn();
+  const data = ws.getRange(3,1,lastRow-2,historyCols).getValues();
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - 90);  // 90 days ago
 
@@ -2232,15 +2288,15 @@ function cleanupHistoryData() {
   }
 
   // Clear all data and rewrite cleaned data
-  ws.getRange(3,1,lastRow-2,18).clearContent();
+  ws.getRange(3,1,lastRow-2,historyCols).clearContent();
   if(cleanedData.length>0){
-    ws.getRange(3,1,cleanedData.length,18).setValues(cleanedData);
+    ws.getRange(3,1,cleanedData.length,historyCols).setValues(cleanedData);
   }
 
   // Reapply number formatting
   const newLastRow = ws.getLastRow();
   if(newLastRow>=3){
-    for(const col of [7,8,9,10,11,12,13,14])ws.getRange(3,col,newLastRow-2,1).setNumberFormat('0%');
+    for(const col of [10,11,12,17,18,19,24,25,28,29])ws.getRange(3,col,newLastRow-2,1).setNumberFormat('0%');
   }
 
   SpreadsheetApp.getUi().alert(
@@ -2326,5 +2382,3 @@ function ragRules_(rng, greenMin, yellowMin) {
         .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true).setRanges([rng]).build(),
   ];
 }
-
-
