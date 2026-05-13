@@ -1017,7 +1017,7 @@ function getBugStats_(bugSheet, summarySheet) {
     devBugs:0,uatBugs:0,prodBugs:0,
     open:0,inprog:0,fixed:0,reopen:0,verified:0,
     blockerOpenBugs:0,blockerInProgressBugs:0,blockerFixedBugs:0,blockerReopenBugs:0,blockerVerifiedBugs:0,
-    prodBlockerBugs:0,prodCriticalBugs:0,prodHighBugs:0,prodMediumBugs:0,
+    prodBlockerBugs:0,prodCriticalBugs:0,prodHighBugs:0,prodMediumBugs:0,prodLowBugs:0,prodLowestBugs:0,
     prodOpenBugs:0,prodInProgressBugs:0,prodFixedBugs:0,prodReopenBugs:0,prodVerifiedBugs:0
   };
   if (!bugSheet) return empty;
@@ -1092,6 +1092,8 @@ function getBugStats_(bugSheet, summarySheet) {
       prodCriticalBugs:      cnt(r=>isProduction(r) && (priorityOf(r)==='Critical' || priorityOf(r)==='Highest')),
       prodHighBugs:          cnt(r=>isProduction(r) && priorityOf(r)==='High'),
       prodMediumBugs:        cnt(r=>isProduction(r) && priorityOf(r)==='Medium'),
+      prodLowBugs:           cnt(r=>isProduction(r) && priorityOf(r)==='Low'),
+      prodLowestBugs:        cnt(r=>isProduction(r) && priorityOf(r)==='Lowest'),
       prodOpenBugs:          cnt(r=>isProduction(r) && hasStatus(r, ['open'])),
       prodInProgressBugs:    cnt(r=>isProduction(r) && hasStatus(r, ['in progress','in progress vapt'])),
       prodFixedBugs:         cnt(r=>isProduction(r) && hasStatus(r, ['fixed'])),
@@ -2179,7 +2181,7 @@ function getHistoryHeaders_() {
     'dev','uat','prod',
     'open','inProgress','fixed','reopen','verified',
     'blkOpen','blkInProgress','blkFixed','blkReopen','blkVerified',
-    'prodBlocker','prodCritical','prodHigh','prodMedium',
+    'prodBlocker','prodCritical','prodHigh','prodMedium','prodLow','prodLowest',
     'prodOpen','prodInProgress','prodFixed','prodReopen','prodVerified',
     'healthScore'];
 }
@@ -2204,7 +2206,7 @@ function ensureHistoryHeaders_(ws) {
 function appendHistory(ss, allData) {
   const ws=ss.getSheetByName('History'); if(!ws)return;
   ensureHistoryHeaders_(ws);
-  const HISTORY_COLS = 60;
+  const HISTORY_COLS = 62;
   const now = new Date();
   const ts=Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm');
   const today=Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd');
@@ -2228,7 +2230,7 @@ function appendHistory(ss, allData) {
       bs.devBugs||0,bs.uatBugs||0,bs.prodBugs||0,
       bs.open||0,bs.inprog||0,bs.fixed||0,bs.reopen||0,bs.verified||0,
       bs.blockerOpenBugs||0,bs.blockerInProgressBugs||0,bs.blockerFixedBugs||0,bs.blockerReopenBugs||0,bs.blockerVerifiedBugs||0,
-      prodBlocker,prodCritical,prodHigh,prodMedium,
+      prodBlocker,prodCritical,prodHigh,prodMedium,bs.prodLowBugs||0,bs.prodLowestBugs||0,
       bs.prodOpenBugs||0,bs.prodInProgressBugs||0,bs.prodFixedBugs||0,bs.prodReopenBugs||0,bs.prodVerifiedBugs||0,
       healthScore];
   });

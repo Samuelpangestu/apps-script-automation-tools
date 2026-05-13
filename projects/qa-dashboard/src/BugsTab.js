@@ -22,7 +22,7 @@ function buildBugs(ss) {
   ws.clear();
   initBugsHeaders_(ws);
 
-  ws.getRange(5,1,1,36).merge()
+  ws.getRange(5,1,1,38).merge()
       .setValue('▶ Run refreshDashboard() untuk mengisi data')
       .setBackground('#FFEBEE').setFontColor('#C62828').setFontStyle('italic')
       .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
@@ -30,7 +30,7 @@ function buildBugs(ss) {
 }
 
 function ensureBugsColumns_(ws) {
-  const requiredColumns = 36;
+  const requiredColumns = 38;
   const currentColumns = ws.getMaxColumns();
   if (currentColumns < requiredColumns) {
     ws.insertColumnsAfter(currentColumns, requiredColumns - currentColumns);
@@ -39,7 +39,7 @@ function ensureBugsColumns_(ws) {
 
 function initBugsHeaders_(ws) {
   ensureBugsColumns_(ws);
-  ws.setColumnWidths(1,36,90);
+  ws.setColumnWidths(1,38,90);
   ws.setColumnWidth(3,180);  // Submodul wider
 
   function h_(r,c,rCnt,cCnt,txt,bg,fg) {
@@ -53,13 +53,13 @@ function initBugsHeaders_(ws) {
   }
 
   // Row 1 — last refresh
-  ws.getRange(1,1,1,36).merge().setValue('Last refreshed: —')
+  ws.getRange(1,1,1,38).merge().setValue('Last refreshed: —')
       .setBackground('#FFEBEE').setFontColor('#C62828').setFontStyle('italic')
       .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
   ws.setRowHeight(1,16);
 
   // Row 2 — title
-  h_(2,1,1,36,'🐛 BUG TRACKING  |  HISTORICAL METRICS WITH DELTA','#B71C1C','#FFFFFF');
+  h_(2,1,1,38,'🐛 BUG TRACKING  |  HISTORICAL METRICS WITH DELTA','#B71C1C','#FFFFFF');
   ws.getRange(2,1).setFontSize(13);
   ws.setRowHeight(2,30);
 
@@ -71,7 +71,7 @@ function initBugsHeaders_(ws) {
   h_(3,16,1,5, 'STATUS BREAKDOWN',   '#1976D2');
   h_(3,21,1,5, 'BLOCKER STATUS',     '#E91E63');
   h_(3,26,1,2, 'METADATA',           '#37474F');
-  h_(3,28,1,9, 'PRODUCTION BREAKDOWN','#4A148C');
+  h_(3,28,1,11, 'PRODUCTION BREAKDOWN','#4A148C');
   ws.setRowHeight(3,22);
 
   // Row 4 — column headers
@@ -83,7 +83,7 @@ function initBugsHeaders_(ws) {
     'Open','In Progress','Fixed','Reopen','Verified',
     'BLK Open','BLK InProg','BLK Fixed','BLK Reopen','BLK Verified',
     'Prev Total',
-    'Last Updated','Prod Blocker','Prod Critical','Prod High','Prod Medium','Prod Open','Prod InProg','Prod Fixed','Prod Reopen','Prod Verified'
+    'Last Updated','Prod Blocker','Prod Critical','Prod High','Prod Medium','Prod Low','Prod Lowest','Prod Open','Prod InProg','Prod Fixed','Prod Reopen','Prod Verified'
   ];
   headers.forEach((lbl,i) => h_(4,i+1,1,1,lbl,'#1565C0'));
 
@@ -112,11 +112,13 @@ function initBugsHeaders_(ws) {
   ws.getRange(4,29).setNote('Production Critical\n\nBugs di Production dengan priority Critical/Highest.');
   ws.getRange(4,30).setNote('Production High\n\nBugs di Production dengan priority High.');
   ws.getRange(4,31).setNote('Production Medium\n\nBugs di Production dengan priority Medium.');
-  ws.getRange(4,32).setNote('Production Open\n\nBugs di Production dengan status Open.');
-  ws.getRange(4,33).setNote('Production In Progress\n\nBugs di Production dengan status In Progress.');
-  ws.getRange(4,34).setNote('Production Fixed\n\nBugs di Production dengan status Fixed.');
-  ws.getRange(4,35).setNote('Production Reopen\n\nBugs di Production dengan status Reopen.');
-  ws.getRange(4,36).setNote('Production Verified\n\nBugs di Production dengan status Verified/Ready to Test/Done VAPT.');
+  ws.getRange(4,32).setNote('Production Low\n\nBugs di Production dengan priority Low.');
+  ws.getRange(4,33).setNote('Production Lowest\n\nBugs di Production dengan priority Lowest.');
+  ws.getRange(4,34).setNote('Production Open\n\nBugs di Production dengan status Open.');
+  ws.getRange(4,35).setNote('Production In Progress\n\nBugs di Production dengan status In Progress.');
+  ws.getRange(4,36).setNote('Production Fixed\n\nBugs di Production dengan status Fixed.');
+  ws.getRange(4,37).setNote('Production Reopen\n\nBugs di Production dengan status Reopen.');
+  ws.getRange(4,38).setNote('Production Verified\n\nBugs di Production dengan status Verified/Ready to Test/Done VAPT.');
 
   ws.setRowHeight(4,26);
   ws.setFrozenRows(4);
@@ -137,7 +139,7 @@ function writeBugs(ss, allData) {
 
   // Clear ALL data rows
   const lastRow = ws.getMaxRows();
-  if (lastRow>=5) ws.getRange(5,1,lastRow-4,36).clearContent().clearFormat();
+  if (lastRow>=5) ws.getRange(5,1,lastRow-4,38).clearContent().clearFormat();
 
   const rules = [];
   const now = new Date();
@@ -224,16 +226,18 @@ function writeBugs(ss, allData) {
     cell(26,prev.total||0,'0');  // Previous Total
     cell(27,Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'));
 
-    // Production Breakdown (col 28-36)
+    // Production Breakdown (col 28-38)
     cell(28,bs.prodBlockerBugs||0,'0');
     cell(29,bs.prodCriticalBugs||0,'0');
     cell(30,bs.prodHighBugs||0,'0');
     cell(31,bs.prodMediumBugs||0,'0');
-    cell(32,bs.prodOpenBugs||0,'0');
-    cell(33,bs.prodInProgressBugs||0,'0');
-    cell(34,bs.prodFixedBugs||0,'0');
-    cell(35,bs.prodReopenBugs||0,'0');
-    cell(36,bs.prodVerifiedBugs||0,'0');
+    cell(32,bs.prodLowBugs||0,'0');
+    cell(33,bs.prodLowestBugs||0,'0');
+    cell(34,bs.prodOpenBugs||0,'0');
+    cell(35,bs.prodInProgressBugs||0,'0');
+    cell(36,bs.prodFixedBugs||0,'0');
+    cell(37,bs.prodReopenBugs||0,'0');
+    cell(38,bs.prodVerifiedBugs||0,'0');
 
     // ═══════════════════════════════════════════════════════════════
     // CONDITIONAL FORMATTING
@@ -305,8 +309,8 @@ function writeBugs(ss, allData) {
      [13,'devBugs'],[14,'uatBugs'],[15,'prodBugs'],
      [16,'openBugs'],[17,'inProgressBugs'],[18,'fixedBugs'],[19,'reopenBugs'],[20,'verifiedBugs'],
      [21,'blockerOpenBugs'],[22,'blockerInProgressBugs'],[23,'blockerFixedBugs'],[24,'blockerReopenBugs'],[25,'blockerVerifiedBugs'],
-     [28,'prodBlockerBugs'],[29,'prodCriticalBugs'],[30,'prodHighBugs'],[31,'prodMediumBugs'],
-     [32,'prodOpenBugs'],[33,'prodInProgressBugs'],[34,'prodFixedBugs'],[35,'prodReopenBugs'],[36,'prodVerifiedBugs']].forEach(([col,key]) => {
+     [28,'prodBlockerBugs'],[29,'prodCriticalBugs'],[30,'prodHighBugs'],[31,'prodMediumBugs'],[32,'prodLowBugs'],[33,'prodLowestBugs'],
+     [34,'prodOpenBugs'],[35,'prodInProgressBugs'],[36,'prodFixedBugs'],[37,'prodReopenBugs'],[38,'prodVerifiedBugs']].forEach(([col,key]) => {
       ws.getRange(tr,col).setValue(sumBugs(key)).setNumberFormat('0')
           .setBackground('#E8F5E9').setFontWeight('bold').setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('center');
     });
@@ -418,6 +422,8 @@ function aggregateBugsBySubmodul_(allData) {
               prodCriticalBugs: 0,
               prodHighBugs: 0,
               prodMediumBugs: 0,
+              prodLowBugs: 0,
+              prodLowestBugs: 0,
               prodOpenBugs: 0,
               prodInProgressBugs: 0,
               prodFixedBugs: 0,
@@ -456,6 +462,8 @@ function aggregateBugsBySubmodul_(allData) {
             if (priority === 'Critical' || priority === 'Highest') stats.prodCriticalBugs++;
             else if (priority === 'High') stats.prodHighBugs++;
             else if (priority === 'Medium') stats.prodMediumBugs++;
+            else if (priority === 'Low') stats.prodLowBugs++;
+            else if (priority === 'Lowest') stats.prodLowestBugs++;
             if (['Critical','Highest','High','Medium'].includes(priority) && status !== "Won't Fix") stats.prodBlockerBugs++;
           }
 
