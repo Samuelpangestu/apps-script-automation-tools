@@ -167,6 +167,8 @@
                     <th>Prod Critical</th>
                     <th>Prod High</th>
                     <th>Prod Medium</th>
+                    <th>Prod Low</th>
+                    <th>Prod Lowest</th>
                     <th>Prod Open</th>
                     <th>Prod In Prog</th>
                     <th>Prod Fixed</th>
@@ -176,7 +178,7 @@
                   </tr>
                 </thead>
                 <tbody id="productionDefectsTableBody">
-                  <tr><td colspan="12" class="text-center">Loading...</td></tr>
+                  <tr><td colspan="14" class="text-center">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -670,7 +672,9 @@
       prodCritical: 51,
       prodHigh: 52,
       prodMedium: 53,
-      healthScore: 59
+      prodLow: 54,
+      prodLowest: 55,
+      healthScore: 61
     };
 
     const BUGS_COL = {
@@ -699,11 +703,13 @@
       prodCritical: 28,
       prodHigh: 29,
       prodMedium: 30,
-      prodOpen: 31,
-      prodInProgress: 32,
-      prodFixed: 33,
-      prodReopen: 34,
-      prodVerified: 35
+      prodLow: 31,
+      prodLowest: 32,
+      prodOpen: 33,
+      prodInProgress: 34,
+      prodFixed: 35,
+      prodReopen: 36,
+      prodVerified: 37
     };
 
     // Helper function to format date to WIB readable format
@@ -1589,6 +1595,8 @@
             critical: Number(row[BUGS_COL.prodCritical]) || 0,
             high: Number(row[BUGS_COL.prodHigh]) || 0,
             medium: Number(row[BUGS_COL.prodMedium]) || 0,
+            low: Number(row[BUGS_COL.prodLow]) || 0,
+            lowest: Number(row[BUGS_COL.prodLowest]) || 0,
             open: Number(row[BUGS_COL.prodOpen]) || 0,
             inProgress: Number(row[BUGS_COL.prodInProgress]) || 0,
             fixed: Number(row[BUGS_COL.prodFixed]) || 0,
@@ -1599,7 +1607,7 @@
       });
 
       if (prodDefects.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" class="text-center" style="color: #4CAF50; font-weight: bold;">Excellent! No bugs in Production</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="14" class="text-center" style="color: #4CAF50; font-weight: bold;">Excellent! No bugs in Production</td></tr>';
         return;
       }
 
@@ -1632,6 +1640,8 @@
           <td><span class="badge ${p.critical > 0 ? 'badge-warning' : 'badge-success'}">${p.critical}</span></td>
           <td><span class="badge ${p.high > 0 ? 'badge-warning' : 'badge-success'}">${p.high}</span></td>
           <td>${p.medium}</td>
+          <td>${p.low}</td>
+          <td>${p.lowest}</td>
           <td>${p.open}</td>
           <td>${p.inProgress}</td>
           <td>${p.fixed}</td>
