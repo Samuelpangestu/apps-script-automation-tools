@@ -153,9 +153,9 @@
           <div class="chart-container" style="background: #fef5f5; border-left: 4px solid #ef5350;">
             <h5 class="chart-title" style="color: #e53935;">Production Defects</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
-              <strong>Definition:</strong> Bugs found in Production environment with status Open or In Progress.
+              <strong>Definition:</strong> Bugs found in Production environment.
               <br><strong>Target:</strong> 0 bugs in production.
-              <br><strong>Note:</strong> Severity breakdown is proportionally estimated. Sorted by severity (worst first).
+              <br><strong>Source:</strong> Production severity and ticket status are read from Google Sheets Bugs tab.
             </p>
             <div class="table-responsive">
               <table class="table table-sm table-hover" id="productionDefectsTable">
@@ -163,16 +163,20 @@
                   <tr>
                     <th>Module</th>
                     <th>Total Prod Bugs</th>
-                    <th>Blocker</th>
-                    <th>Critical</th>
-                    <th>High</th>
-                    <th>Medium</th>
-                    <th>Low</th>
+                    <th>Prod Blocker</th>
+                    <th>Prod Critical</th>
+                    <th>Prod High</th>
+                    <th>Prod Medium</th>
+                    <th>Prod Open</th>
+                    <th>Prod In Prog</th>
+                    <th>Prod Fixed</th>
+                    <th>Prod Reopen</th>
+                    <th>Prod Verified</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody id="productionDefectsTableBody">
-                  <tr><td colspan="8" class="text-center">Loading...</td></tr>
+                  <tr><td colspan="12" class="text-center">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -605,7 +609,7 @@
           <div class="chart-container">
             <h5 class="chart-title">Module Health Scorecard</h5>
             <p class="text-muted" style="font-size: 12px; margin: 5px 0 10px 0;">
-              <strong>Formula:</strong> Health Score = (Avg Pass Rate × 100) - (Blocker × 10) - (Critical × 5)
+              <strong>Formula:</strong> Health Score is pre-calculated in Google Sheets History tab.
               <br><strong>Rating:</strong> Red (&lt;50) = Urgent attention needed | Orange (50-75) = Needs improvement | Green (&gt;75) = Healthy
               <br><strong>Note:</strong> Sorted by worst first (modules needing urgent attention at top).
             </p>
@@ -614,15 +618,16 @@
                 <thead class="table-light">
                   <tr>
                     <th>Module</th>
-                    <th>Pass Rate</th>
-                    <th>Blockers</th>
-                    <th>Critical</th>
-                    <th>Total Bugs</th>
+                    <th>API Pass</th>
+                    <th>Web Pass</th>
+                    <th>Prod Critical</th>
+                    <th>Prod High</th>
+                    <th>Prod Medium</th>
                     <th>Health Score</th>
                   </tr>
                 </thead>
                 <tbody id="moduleHealthTableBody">
-                  <tr><td colspan="6" class="text-center">Loading...</td></tr>
+                  <tr><td colspan="7" class="text-center">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -640,6 +645,66 @@
 
     let dashboardData = null;
     let currentFilter = '';
+
+    const HISTORY_COL = {
+      timestamp: 0,
+      project: 1,
+      modul: 2,
+      webPassRate: 9,
+      webExecRate: 10,
+      apiPassRate: 16,
+      apiExecRate: 17,
+      smokeWebPassRate: 23,
+      smokeWebExecRate: 24,
+      smokeApiPassRate: 27,
+      smokeApiExecRate: 28,
+      perfResult: 29,
+      totalBugs: 30,
+      criticalBugs: 31,
+      highBugs: 32,
+      mediumBugs: 33,
+      prodBugs: 39,
+      openBugs: 40,
+      blockerBugs: 36,
+      prodBlocker: 50,
+      prodCritical: 51,
+      prodHigh: 52,
+      prodMedium: 53,
+      healthScore: 59
+    };
+
+    const BUGS_COL = {
+      project: 0,
+      modul: 1,
+      total: 3,
+      critical: 4,
+      high: 5,
+      medium: 6,
+      low: 7,
+      blocker: 9,
+      dev: 12,
+      uat: 13,
+      prod: 14,
+      open: 15,
+      inProgress: 16,
+      fixed: 17,
+      reopen: 18,
+      verified: 19,
+      blockerOpen: 20,
+      blockerInProgress: 21,
+      blockerFixed: 22,
+      blockerReopen: 23,
+      blockerVerified: 24,
+      prodBlocker: 27,
+      prodCritical: 28,
+      prodHigh: 29,
+      prodMedium: 30,
+      prodOpen: 31,
+      prodInProgress: 32,
+      prodFixed: 33,
+      prodReopen: 34,
+      prodVerified: 35
+    };
 
     // Helper function to format date to WIB readable format
     function formatDateWIB(dateString) {
@@ -819,8 +884,8 @@
         // Get latest entry per module (in case of multiple entries per module)
         const latestPerModule = {};
         filteredHistory.forEach(row => {
-          const moduleKey = String(row[1]) + ' - ' + String(row[2]); // Project - Modul
-          if (!latestPerModule[moduleKey] || new Date(row[0]) > new Date(latestPerModule[moduleKey][0])) {
+          const moduleKey = String(row[HISTORY_COL.project]) + ' - ' + String(row[HISTORY_COL.modul]);
+          if (!latestPerModule[moduleKey] || new Date(row[HISTORY_COL.timestamp]) > new Date(latestPerModule[moduleKey][HISTORY_COL.timestamp])) {
             latestPerModule[moduleKey] = row;
           }
         });
@@ -831,20 +896,20 @@
         if (moduleCount > 0) {
           // Aggregate: Average for rates, Sum for bugs
           summary = {
-            webPassRate: latestEntries.reduce((sum, row) => sum + (row[5] || 0), 0) / moduleCount,
-            webExecRate: latestEntries.reduce((sum, row) => sum + (row[6] || 0), 0) / moduleCount,
-            apiPassRate: latestEntries.reduce((sum, row) => sum + (row[7] || 0), 0) / moduleCount,
-            apiExecRate: latestEntries.reduce((sum, row) => sum + (row[8] || 0), 0) / moduleCount,
-            smokeWebPassRate: latestEntries.reduce((sum, row) => sum + (row[9] || 0), 0) / moduleCount,
-            smokeWebExecRate: latestEntries.reduce((sum, row) => sum + (row[10] || 0), 0) / moduleCount,
-            smokeApiPassRate: latestEntries.reduce((sum, row) => sum + (row[11] || 0), 0) / moduleCount,
-            smokeApiExecRate: latestEntries.reduce((sum, row) => sum + (row[12] || 0), 0) / moduleCount,
+            webPassRate: latestEntries.reduce((sum, row) => sum + (row[HISTORY_COL.webPassRate] || 0), 0) / moduleCount,
+            webExecRate: latestEntries.reduce((sum, row) => sum + (row[HISTORY_COL.webExecRate] || 0), 0) / moduleCount,
+            apiPassRate: latestEntries.reduce((sum, row) => sum + (row[HISTORY_COL.apiPassRate] || 0), 0) / moduleCount,
+            apiExecRate: latestEntries.reduce((sum, row) => sum + (row[HISTORY_COL.apiExecRate] || 0), 0) / moduleCount,
+            smokeWebPassRate: latestEntries.reduce((sum, row) => sum + (row[HISTORY_COL.smokeWebPassRate] || 0), 0) / moduleCount,
+            smokeWebExecRate: latestEntries.reduce((sum, row) => sum + (row[HISTORY_COL.smokeWebExecRate] || 0), 0) / moduleCount,
+            smokeApiPassRate: latestEntries.reduce((sum, row) => sum + (row[HISTORY_COL.smokeApiPassRate] || 0), 0) / moduleCount,
+            smokeApiExecRate: latestEntries.reduce((sum, row) => sum + (row[HISTORY_COL.smokeApiExecRate] || 0), 0) / moduleCount,
             perfResult: '-', // Not aggregated
-            totalBugs: latestEntries.reduce((sum, row) => sum + (row[21] || 0), 0),
-            openBugs: latestEntries.reduce((sum, row) => sum + (row[15] || 0), 0),
-            blockerBugs: latestEntries.reduce((sum, row) => sum + (row[22] || 0), 0),
-            criticalBugs: latestEntries.reduce((sum, row) => sum + (row[23] || 0), 0),
-            lastUpdated: latestEntries[0][0], // Use latest timestamp
+            totalBugs: latestEntries.reduce((sum, row) => sum + (row[HISTORY_COL.totalBugs] || 0), 0),
+            openBugs: latestEntries.reduce((sum, row) => sum + (row[HISTORY_COL.openBugs] || 0), 0),
+            blockerBugs: latestEntries.reduce((sum, row) => sum + (row[HISTORY_COL.blockerBugs] || 0), 0),
+            criticalBugs: latestEntries.reduce((sum, row) => sum + (row[HISTORY_COL.criticalBugs] || 0), 0),
+            lastUpdated: latestEntries[0][HISTORY_COL.timestamp],
             // Preserve VAPT data (not affected by project/module filter)
             vaptBlocker: data.summary.vaptBlocker,
             vaptCritical: data.summary.vaptCritical,
@@ -877,12 +942,12 @@
 
         // Filter history by project only
         const filteredHistory = data.history.filter(row => {
-          return String(row[1]).trim() === projectName;
+          return String(row[HISTORY_COL.project]).trim() === projectName;
         });
 
         // Filter bugs table by project only
         const filteredBugsTable = data.bugsTable ? data.bugsTable.filter(row => {
-          return String(row[0]).trim() === projectName;
+          return String(row[BUGS_COL.project]).trim() === projectName;
         }) : [];
 
         // Aggregate summary from filtered history
@@ -895,15 +960,15 @@
       const modulName = parts.slice(1).join(' - ');
 
       // Filter history by module (project + modul)
-      // IMPORTANT: Convert row[2] to string for comparison (can be number like 1, 2, 3)
+      // IMPORTANT: Convert module values to string for comparison (can be number like 1, 2, 3)
       const filteredHistory = data.history.filter(row => {
-        return String(row[1]).trim() === projectName && String(row[2]).trim() === modulName;
+        return String(row[HISTORY_COL.project]).trim() === projectName && String(row[HISTORY_COL.modul]).trim() === modulName;
       });
 
       // Filter bugs table by module (project + modul)
-      // Bugs table: [0]=Project, [1]=Modul
+      // Bugs table is sourced from the Apps Script Bugs tab.
       const filteredBugsTable = data.bugsTable ? data.bugsTable.filter(row => {
-        return String(row[0]).trim() === projectName && String(row[1]).trim() === modulName;
+        return String(row[BUGS_COL.project]).trim() === projectName && String(row[BUGS_COL.modul]).trim() === modulName;
       }) : [];
 
       // Aggregate summary from filtered history (use latest entry)
@@ -911,20 +976,20 @@
       if (filteredHistory.length > 0) {
         const latest = filteredHistory[0]; // Already sorted newest first
         summary = {
-          webPassRate: latest[5],
-          webExecRate: latest[6],
-          apiPassRate: latest[7],
-          apiExecRate: latest[8],
-          smokeWebPassRate: latest[9],
-          smokeWebExecRate: latest[10],
-          smokeApiPassRate: latest[11],
-          smokeApiExecRate: latest[12],
-          perfResult: latest[13],
-          totalBugs: latest[14],
-          openBugs: latest[15],
-          blockerBugs: latest[16],
-          criticalBugs: latest[17],
-          lastUpdated: latest[0],
+          webPassRate: latest[HISTORY_COL.webPassRate],
+          webExecRate: latest[HISTORY_COL.webExecRate],
+          apiPassRate: latest[HISTORY_COL.apiPassRate],
+          apiExecRate: latest[HISTORY_COL.apiExecRate],
+          smokeWebPassRate: latest[HISTORY_COL.smokeWebPassRate],
+          smokeWebExecRate: latest[HISTORY_COL.smokeWebExecRate],
+          smokeApiPassRate: latest[HISTORY_COL.smokeApiPassRate],
+          smokeApiExecRate: latest[HISTORY_COL.smokeApiExecRate],
+          perfResult: latest[HISTORY_COL.perfResult],
+          totalBugs: latest[HISTORY_COL.totalBugs],
+          openBugs: latest[HISTORY_COL.openBugs],
+          blockerBugs: latest[HISTORY_COL.blockerBugs],
+          criticalBugs: latest[HISTORY_COL.criticalBugs],
+          lastUpdated: latest[HISTORY_COL.timestamp],
           // Preserve VAPT data (not affected by module filter)
           vaptBlocker: data.summary.vaptBlocker,
           vaptCritical: data.summary.vaptCritical,
@@ -965,11 +1030,7 @@
       document.getElementById('perfResult').textContent = summary.perfResult || '-';
 
       // Calculate bug breakdown from bugsTable (overrides summary values)
-      // Bugs table columns: [0]=Project, [1]=Modul, [2]=Submodul, [3]=Total,
-      // [4]=Critical, [5]=High, [6]=Medium, [7]=Low, [8]=Lowest, [9]=Blocker,
-      // [10]=Δ Total, [11]=Δ Blocker, [12]=Dev, [13]=UAT, [14]=Prod,
-      // [15]=Open, [16]=In Progress, [17]=Fixed, [18]=Reopen, [19]=Verified,
-      // [20]=BLK Open, [21]=BLK InProg, [22]=BLK Fixed, [23]=BLK Reopen, [24]=BLK Verified
+      // Bugs table values are pre-calculated by Apps Script.
       let highBugs = 0, mediumBugs = 0, lowBugs = 0;
       let prodBugs = 0, uatBugs = 0, devBugs = 0;
       let openBugs = 0, inProgressBugs = 0, fixedBugs = 0, reopenBugs = 0, verifiedBugs = 0;
@@ -978,24 +1039,24 @@
 
       if (bugsTableData && Array.isArray(bugsTableData) && bugsTableData.length > 0) {
         bugsTableData.forEach(row => {
-          if (!row || !row[0]) return;
+          if (!row || !row[BUGS_COL.project]) return;
           // IMPORTANT: Convert to Number to avoid string concatenation
-          highBugs += Number(row[5]) || 0;     // High
-          mediumBugs += Number(row[6]) || 0;   // Medium
-          lowBugs += Number(row[7]) || 0;      // Low
-          devBugs += Number(row[12]) || 0;     // Dev
-          uatBugs += Number(row[13]) || 0;     // UAT
-          prodBugs += Number(row[14]) || 0;    // Prod
-          openBugs += Number(row[15]) || 0;    // Open
-          inProgressBugs += Number(row[16]) || 0;  // In Progress
-          fixedBugs += Number(row[17]) || 0;   // Fixed
-          reopenBugs += Number(row[18]) || 0;  // Reopen
-          verifiedBugs += Number(row[19]) || 0;  // Verified
-          blockerOpenBugs += Number(row[20]) || 0;  // Blocker Open
-          blockerInProgressBugs += Number(row[21]) || 0;  // Blocker In Progress
-          blockerFixedBugs += Number(row[22]) || 0;  // Blocker Fixed
-          blockerReopenBugs += Number(row[23]) || 0;  // Blocker Reopen
-          blockerVerifiedBugs += Number(row[24]) || 0;  // Blocker Verified
+          highBugs += Number(row[BUGS_COL.high]) || 0;
+          mediumBugs += Number(row[BUGS_COL.medium]) || 0;
+          lowBugs += Number(row[BUGS_COL.low]) || 0;
+          devBugs += Number(row[BUGS_COL.dev]) || 0;
+          uatBugs += Number(row[BUGS_COL.uat]) || 0;
+          prodBugs += Number(row[BUGS_COL.prod]) || 0;
+          openBugs += Number(row[BUGS_COL.open]) || 0;
+          inProgressBugs += Number(row[BUGS_COL.inProgress]) || 0;
+          fixedBugs += Number(row[BUGS_COL.fixed]) || 0;
+          reopenBugs += Number(row[BUGS_COL.reopen]) || 0;
+          verifiedBugs += Number(row[BUGS_COL.verified]) || 0;
+          blockerOpenBugs += Number(row[BUGS_COL.blockerOpen]) || 0;
+          blockerInProgressBugs += Number(row[BUGS_COL.blockerInProgress]) || 0;
+          blockerFixedBugs += Number(row[BUGS_COL.blockerFixed]) || 0;
+          blockerReopenBugs += Number(row[BUGS_COL.blockerReopen]) || 0;
+          blockerVerifiedBugs += Number(row[BUGS_COL.blockerVerified]) || 0;
         });
       }
 
@@ -1037,7 +1098,7 @@
       // Aggregate data by DATE (not by entry) to avoid duplicate dates
       const dailyData = {};
       historyData.forEach(row => {
-        const dateStr = row[0].split('T')[0]; // "2026-03-24"
+        const dateStr = row[HISTORY_COL.timestamp].split('T')[0]; // "2026-03-24"
         if (!dailyData[dateStr]) {
           dailyData[dateStr] = {
             webPassSum: 0,
@@ -1045,8 +1106,8 @@
             count: 0
           };
         }
-        dailyData[dateStr].webPassSum += (row[5] || 0);
-        dailyData[dateStr].apiPassSum += (row[7] || 0);
+        dailyData[dateStr].webPassSum += (row[HISTORY_COL.webPassRate] || 0);
+        dailyData[dateStr].apiPassSum += (row[HISTORY_COL.apiPassRate] || 0);
         dailyData[dateStr].count++;
       });
 
@@ -1118,12 +1179,12 @@
       // Aggregate by date
       const dailyData = {};
       historyData.forEach(row => {
-        const dateStr = row[0].split('T')[0];
+        const dateStr = row[HISTORY_COL.timestamp].split('T')[0];
         if (!dailyData[dateStr]) {
           dailyData[dateStr] = { webExecSum: 0, apiExecSum: 0, count: 0 };
         }
-        dailyData[dateStr].webExecSum += (row[6] || 0);
-        dailyData[dateStr].apiExecSum += (row[8] || 0);
+        dailyData[dateStr].webExecSum += (row[HISTORY_COL.webExecRate] || 0);
+        dailyData[dateStr].apiExecSum += (row[HISTORY_COL.apiExecRate] || 0);
         dailyData[dateStr].count++;
       });
 
@@ -1181,13 +1242,13 @@
       // Aggregate by date - SUM bugs per day
       const dailyData = {};
       historyData.forEach(row => {
-        const dateStr = row[0].split('T')[0];
+        const dateStr = row[HISTORY_COL.timestamp].split('T')[0];
         if (!dailyData[dateStr]) {
           dailyData[dateStr] = { totalBugs: 0, blocker: 0, critical: 0 };
         }
-        dailyData[dateStr].totalBugs += (row[14] || 0);
-        dailyData[dateStr].blocker += (row[16] || 0);
-        dailyData[dateStr].critical += (row[17] || 0);
+        dailyData[dateStr].totalBugs += (row[HISTORY_COL.totalBugs] || 0);
+        dailyData[dateStr].blocker += (row[HISTORY_COL.blockerBugs] || 0);
+        dailyData[dateStr].critical += (row[HISTORY_COL.criticalBugs] || 0);
       });
 
       const dailyArray = Object.keys(dailyData).sort().map(date => ({
@@ -1246,12 +1307,12 @@
       // Aggregate by date
       const dailyData = {};
       historyData.forEach(row => {
-        const dateStr = row[0].split('T')[0];
+        const dateStr = row[HISTORY_COL.timestamp].split('T')[0];
         if (!dailyData[dateStr]) {
           dailyData[dateStr] = { webSmokeSum: 0, apiSmokeSum: 0, count: 0 };
         }
-        dailyData[dateStr].webSmokeSum += (row[9] || 0);
-        dailyData[dateStr].apiSmokeSum += (row[11] || 0);
+        dailyData[dateStr].webSmokeSum += (row[HISTORY_COL.smokeWebPassRate] || 0);
+        dailyData[dateStr].apiSmokeSum += (row[HISTORY_COL.smokeApiPassRate] || 0);
         dailyData[dateStr].count++;
       });
 
@@ -1433,17 +1494,16 @@
 
       // Only require historyData - bugsTable is optional (0 bugs is valid!)
       if (!historyData || historyData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No data available</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No data available</td></tr>';
         return;
       }
 
-      // Group data by module (Project - Modul)
       const moduleData = {};
 
-      // Get latest history data per module for pass rates
+      // Get latest pre-calculated History data per module.
       historyData.forEach(row => {
-        const project = String(row[1]).trim();
-        const modul = String(row[2]).trim();
+        const project = String(row[HISTORY_COL.project]).trim();
+        const modul = String(row[HISTORY_COL.modul]).trim();
 
         // Skip invalid/empty module names
         if (!project || !modul || project === '-' || modul === '-') {
@@ -1456,49 +1516,17 @@
           moduleData[moduleKey] = {
             project: project,
             modul: modul,
-            webPassRate: Number(row[5]) || 0,  // Web Pass Rate
-            apiPassRate: Number(row[7]) || 0,  // API Pass Rate
-            totalBugs: 0,
-            blockerBugs: 0,
-            criticalBugs: 0
+            webPassRate: Number(row[HISTORY_COL.webPassRate]) || 0,
+            apiPassRate: Number(row[HISTORY_COL.apiPassRate]) || 0,
+            prodCritical: Number(row[HISTORY_COL.prodCritical]) || 0,
+            prodHigh: Number(row[HISTORY_COL.prodHigh]) || 0,
+            prodMedium: Number(row[HISTORY_COL.prodMedium]) || 0,
+            healthScore: Number(row[HISTORY_COL.healthScore]) || 0
           };
         }
       });
 
-      // Aggregate bugs by module (if available)
-      if (bugsTable && bugsTable.length > 0) {
-        bugsTable.forEach(row => {
-          const project = String(row[0]).trim();
-          const modul = String(row[1]).trim();
-
-          // Skip invalid/empty module names
-          if (!project || !modul || project === '-' || modul === '-') {
-            return;
-          }
-
-          const moduleKey = `${project} - ${modul}`;
-
-          if (moduleData[moduleKey]) {
-            moduleData[moduleKey].totalBugs = Number(row[3]) || 0;      // Total Bugs (col 4)
-            moduleData[moduleKey].criticalBugs = Number(row[4]) || 0;   // Critical (col 5)
-            moduleData[moduleKey].blockerBugs = Number(row[9]) || 0;    // Blocker (col 10)
-          }
-        });
-      }
-
-      // Calculate health score for each module and sort
-      const modules = Object.values(moduleData).map(m => {
-        // Health Score = (Avg Pass Rate) - (Blocker Weight) - (Critical Weight)
-        // Pass Rate contribution: 0-100
-        // Blocker penalty: -10 per blocker
-        // Critical penalty: -5 per critical
-        const avgPassRate = ((m.webPassRate + m.apiPassRate) / 2) * 100;
-        const blockerPenalty = m.blockerBugs * 10;
-        const criticalPenalty = m.criticalBugs * 5;
-
-        m.healthScore = Math.max(0, Math.round(avgPassRate - blockerPenalty - criticalPenalty));
-        return m;
-      });
+      const modules = Object.values(moduleData);
 
       // Sort by health score (worst first - needs attention)
       modules.sort((a, b) => a.healthScore - b.healthScore);
@@ -1518,14 +1546,13 @@
           healthBg = '#FFF3E0';
         }
 
-        const avgPassRate = ((m.webPassRate + m.apiPassRate) / 2) * 100;
-
         tr.innerHTML = `
           <td><strong>${m.project} - ${m.modul}</strong></td>
-          <td>${Math.round(avgPassRate)}%</td>
-          <td><span class="badge ${m.blockerBugs > 0 ? 'badge-danger' : 'badge-success'}">${m.blockerBugs}</span></td>
-          <td><span class="badge ${m.criticalBugs > 0 ? 'badge-warning' : 'badge-success'}">${m.criticalBugs}</span></td>
-          <td>${m.totalBugs}</td>
+          <td>${Math.round(m.apiPassRate * 100)}%</td>
+          <td>${Math.round(m.webPassRate * 100)}%</td>
+          <td><span class="badge ${m.prodCritical > 0 ? 'badge-warning' : 'badge-success'}">${m.prodCritical}</span></td>
+          <td>${m.prodHigh}</td>
+          <td>${m.prodMedium}</td>
           <td style="background: ${healthBg}; color: ${healthColor}; font-weight: bold;">${m.healthScore}</td>
         `;
 
@@ -1535,14 +1562,14 @@
 
     /**
      * Update Production Defects Table
-     * Shows bugs that escaped to production and are still open
+     * Shows production bug counts pre-calculated by the Bugs tab.
      */
     function updateProductionDefectsTable(bugsTable) {
       const tbody = document.getElementById('productionDefectsTableBody');
       tbody.innerHTML = '';
 
       if (!bugsTable || bugsTable.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No data available</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted">No data available</td></tr>';
         return;
       }
 
@@ -1550,47 +1577,29 @@
       const prodDefects = [];
 
       bugsTable.forEach(row => {
-        const project = String(row[0]).trim();
-        const modul = String(row[1]).trim();
-        const prodBugs = Number(row[14]) || 0;  // Production bugs column
+        const project = String(row[BUGS_COL.project]).trim();
+        const modul = String(row[BUGS_COL.modul]).trim();
+        const prodBugs = Number(row[BUGS_COL.prod]) || 0;
 
         if (prodBugs > 0) {
-          // We have production bugs, now estimate severity breakdown
-          // Since Bugs tab doesn't break down by environment + severity,
-          // we'll use proportion from total bugs
-          const totalBugs = Number(row[3]) || 0;
-          const critical = Number(row[4]) || 0;
-          const high = Number(row[5]) || 0;
-          const medium = Number(row[6]) || 0;
-          const low = Number(row[7]) || 0;
-          const blocker = Number(row[9]) || 0;
-
-          // Estimate production bugs by severity (proportional distribution)
-          let prodCritical = 0, prodHigh = 0, prodMedium = 0, prodLow = 0, prodBlocker = 0;
-
-          if (totalBugs > 0) {
-            const ratio = prodBugs / totalBugs;
-            prodCritical = Math.round(critical * ratio);
-            prodHigh = Math.round(high * ratio);
-            prodMedium = Math.round(medium * ratio);
-            prodLow = Math.round(low * ratio);
-            prodBlocker = Math.round(blocker * ratio);
-          }
-
           prodDefects.push({
             module: `${project} - ${modul}`,
             prodBugs: prodBugs,
-            blocker: prodBlocker,
-            critical: prodCritical,
-            high: prodHigh,
-            medium: prodMedium,
-            low: prodLow
+            blocker: Number(row[BUGS_COL.prodBlocker]) || 0,
+            critical: Number(row[BUGS_COL.prodCritical]) || 0,
+            high: Number(row[BUGS_COL.prodHigh]) || 0,
+            medium: Number(row[BUGS_COL.prodMedium]) || 0,
+            open: Number(row[BUGS_COL.prodOpen]) || 0,
+            inProgress: Number(row[BUGS_COL.prodInProgress]) || 0,
+            fixed: Number(row[BUGS_COL.prodFixed]) || 0,
+            reopen: Number(row[BUGS_COL.prodReopen]) || 0,
+            verified: Number(row[BUGS_COL.prodVerified]) || 0
           });
         }
       });
 
       if (prodDefects.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center" style="color: #4CAF50; font-weight: bold;">✅ Excellent! No bugs in Production</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center" style="color: #4CAF50; font-weight: bold;">Excellent! No bugs in Production</td></tr>';
         return;
       }
 
@@ -1623,7 +1632,11 @@
           <td><span class="badge ${p.critical > 0 ? 'badge-warning' : 'badge-success'}">${p.critical}</span></td>
           <td><span class="badge ${p.high > 0 ? 'badge-warning' : 'badge-success'}">${p.high}</span></td>
           <td>${p.medium}</td>
-          <td>${p.low}</td>
+          <td>${p.open}</td>
+          <td>${p.inProgress}</td>
+          <td>${p.fixed}</td>
+          <td>${p.reopen}</td>
+          <td>${p.verified}</td>
           <td style="background: ${statusBg}; color: ${statusColor}; font-weight: bold;">${statusText}</td>
         `;
 

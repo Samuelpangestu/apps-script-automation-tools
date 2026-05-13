@@ -286,14 +286,14 @@ function setupWebAppUrl() {
   const response = ui.prompt(
     'Setup Web App URL',
     'Paste Web App URL dari deployment:\n\n' +
-    '(Format: https://script.google.com/a/macros/.../exec)',
+    '(Format: https://qa-platform.inadigital.co.id/)',
     ui.ButtonSet.OK_CANCEL
   );
 
   if (response.getSelectedButton() === ui.Button.OK) {
     const webAppUrl = response.getResponseText().trim();
 
-    if (webAppUrl && webAppUrl.includes('script.google.com')) {
+    if (webAppUrl && webAppUrl.indexOf('https://') === 0) {
       PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', webAppUrl);
 
       ui.alert(
@@ -308,8 +308,8 @@ function setupWebAppUrl() {
     } else {
       ui.alert(
         '❌ Invalid URL',
-        'Please enter a valid Apps Script Web App URL.\n\n' +
-        'Format: https://script.google.com/a/macros/.../exec',
+        'Please enter a valid HTTPS dashboard URL.\n\n' +
+        'Format: https://qa-platform.inadigital.co.id/',
         ui.ButtonSet.OK
       );
     }
@@ -768,10 +768,10 @@ function getBugsTableData_(ss) {
       return [];
     }
 
-    // Skip header row, get all bug data rows
+    // Skip Bugs tab header rows 1-4, get data rows only.
     const rows = [];
 
-    for (let i = 1; i < data.length; i++) {
+    for (let i = 4; i < data.length; i++) {
       const row = data[i];
 
       // Skip empty rows
@@ -779,8 +779,8 @@ function getBugsTableData_(ss) {
 
       const moduleName = String(row[0]).toUpperCase();
 
-      // Skip TOTAL rows
-      if (moduleName.includes('TOTAL')) {
+      // Skip TOTAL/header rows
+      if (moduleName.includes('TOTAL') || moduleName === 'PROJECT') {
         continue;
       }
 

@@ -1016,18 +1016,29 @@ function getBugStats_(bugSheet, summarySheet) {
     total:0,critical:0,high:0,medium:0,low:0,lowest:0,blocker:0,
     devBugs:0,uatBugs:0,prodBugs:0,
     open:0,inprog:0,fixed:0,reopen:0,verified:0,
-    blockerOpenBugs:0,blockerInProgressBugs:0,blockerFixedBugs:0,blockerReopenBugs:0,blockerVerifiedBugs:0
+    blockerOpenBugs:0,blockerInProgressBugs:0,blockerFixedBugs:0,blockerReopenBugs:0,blockerVerifiedBugs:0,
+    prodBlockerBugs:0,prodCriticalBugs:0,prodHighBugs:0,prodMediumBugs:0,
+    prodOpenBugs:0,prodInProgressBugs:0,prodFixedBugs:0,prodReopenBugs:0,prodVerifiedBugs:0
   };
   if (!bugSheet) return empty;
   try {
     const rows=bugSheet.getDataRange().getValues().slice(4).filter(r=>r[0]&&r[0]!=='');
     const cnt=(fn)=>rows.filter(fn).length;
-    const isActive = r => r[3] !== 'Closed';
-    const isBlockerPriority = r => ['Critical','Highest','High','Medium'].includes(r[2]);
+    const statusOf = r => String(r[3] || '').toLowerCase().trim();
+    const priorityOf = r => String(r[2] || '').trim();
+    const envOf = r => String(r[8] || '').toLowerCase().trim();
+    const isActive = r => statusOf(r) !== 'closed';
+    const isWontFix = r => statusOf(r) === "won't fix";
+    const isBlockerPriority = r => ['Critical','Highest','High','Medium'].includes(priorityOf(r));
+    const isProduction = r => {
+      const env = envOf(r);
+      return isActive(r) && (env === 'production' || env === 'prod');
+    };
+    const hasStatus = (r, statuses) => statuses.includes(statusOf(r));
 
     // Get blocker count from Summary sheet (more accurate - uses formula)
-    let blockerCount = cnt(r=>isActive(r) && r[3] !== "Won't Fix" && isBlockerPriority(r));
-    let prodBugsCount = cnt(r=>isActive(r) && r[8]==='Production');
+    let blockerCount = cnt(r=>isActive(r) && !isWontFix(r) && isBlockerPriority(r));
+    let prodBugsCount = cnt(isProduction);
 
     // Try to read from Summary sheet if available
     if (summarySheet) {
@@ -1058,25 +1069,34 @@ function getBugStats_(bugSheet, summarySheet) {
 
     return {
       total:   cnt(isActive),
-      critical:cnt(r=>isActive(r) && (r[2]==='Critical' || r[2]==='Highest')),
-      high:    cnt(r=>isActive(r) && r[2]==='High'),
-      medium:  cnt(r=>isActive(r) && r[2]==='Medium'),
-      low:     cnt(r=>isActive(r) && r[2]==='Low'),
-      lowest:  cnt(r=>isActive(r) && r[2]==='Lowest'),
+      critical:cnt(r=>isActive(r) && (priorityOf(r)==='Critical' || priorityOf(r)==='Highest')),
+      high:    cnt(r=>isActive(r) && priorityOf(r)==='High'),
+      medium:  cnt(r=>isActive(r) && priorityOf(r)==='Medium'),
+      low:     cnt(r=>isActive(r) && priorityOf(r)==='Low'),
+      lowest:  cnt(r=>isActive(r) && priorityOf(r)==='Lowest'),
       blocker: blockerCount,
-      devBugs: cnt(r=>isActive(r) && (r[8]==='Development' || r[8]==='Dev')),
-      uatBugs: cnt(r=>isActive(r) && r[8]==='UAT'),
+      devBugs: cnt(r=>isActive(r) && (envOf(r)==='development' || envOf(r)==='dev')),
+      uatBugs: cnt(r=>isActive(r) && envOf(r)==='uat'),
       prodBugs: prodBugsCount,
-      open:    cnt(r=>r[3]==='Open'),
-      inprog:  cnt(r=>r[3]==='In Progress'),
-      fixed:   cnt(r=>r[3]==='Fixed'),
-      reopen:  cnt(r=>r[3]==='Reopen'),
-      verified:cnt(r=>r[3]==='Verified' || r[3]==='Ready to Test' || r[3]==='Done VAPT'),
-      blockerOpenBugs:       cnt(r=>isBlockerPriority(r) && r[3]==='Open'),
-      blockerInProgressBugs: cnt(r=>isBlockerPriority(r) && r[3]==='In Progress'),
-      blockerFixedBugs:      cnt(r=>isBlockerPriority(r) && r[3]==='Fixed'),
-      blockerReopenBugs:     cnt(r=>isBlockerPriority(r) && r[3]==='Reopen'),
-      blockerVerifiedBugs:   cnt(r=>isBlockerPriority(r) && (r[3]==='Verified' || r[3]==='Ready to Test' || r[3]==='Done VAPT')),
+      open:    cnt(r=>hasStatus(r, ['open'])),
+      inprog:  cnt(r=>hasStatus(r, ['in progress','in progress vapt'])),
+      fixed:   cnt(r=>hasStatus(r, ['fixed'])),
+      reopen:  cnt(r=>hasStatus(r, ['reopen'])),
+      verified:cnt(r=>hasStatus(r, ['verified','ready to test','done vapt'])),
+      blockerOpenBugs:       cnt(r=>isBlockerPriority(r) && hasStatus(r, ['open'])),
+      blockerInProgressBugs: cnt(r=>isBlockerPriority(r) && hasStatus(r, ['in progress','in progress vapt'])),
+      blockerFixedBugs:      cnt(r=>isBlockerPriority(r) && hasStatus(r, ['fixed'])),
+      blockerReopenBugs:     cnt(r=>isBlockerPriority(r) && hasStatus(r, ['reopen'])),
+      blockerVerifiedBugs:   cnt(r=>isBlockerPriority(r) && hasStatus(r, ['verified','ready to test','done vapt'])),
+      prodBlockerBugs:       cnt(r=>isProduction(r) && !isWontFix(r) && isBlockerPriority(r)),
+      prodCriticalBugs:      cnt(r=>isProduction(r) && (priorityOf(r)==='Critical' || priorityOf(r)==='Highest')),
+      prodHighBugs:          cnt(r=>isProduction(r) && priorityOf(r)==='High'),
+      prodMediumBugs:        cnt(r=>isProduction(r) && priorityOf(r)==='Medium'),
+      prodOpenBugs:          cnt(r=>isProduction(r) && hasStatus(r, ['open'])),
+      prodInProgressBugs:    cnt(r=>isProduction(r) && hasStatus(r, ['in progress','in progress vapt'])),
+      prodFixedBugs:         cnt(r=>isProduction(r) && hasStatus(r, ['fixed'])),
+      prodReopenBugs:        cnt(r=>isProduction(r) && hasStatus(r, ['reopen'])),
+      prodVerifiedBugs:      cnt(r=>isProduction(r) && hasStatus(r, ['verified','ready to test','done vapt'])),
     };
   } catch(e) { return empty; }
 }
@@ -1617,12 +1637,18 @@ function buildOverview(ss) {
  * Get Web App Dashboard URL from script properties
  * URL should be set via: PropertiesService.getScriptProperties().setProperty('WEB_APP_URL', 'https://...')
  */
+const DEFAULT_DASHBOARD_WEB_URL = 'https://qa-platform.inadigital.co.id/';
+
 function getWebAppUrl_() {
   try {
-    return PropertiesService.getScriptProperties().getProperty('WEB_APP_URL') || '';
+    const configuredUrl = PropertiesService.getScriptProperties().getProperty('WEB_APP_URL') || '';
+    if (!configuredUrl || configuredUrl.indexOf('script.google.com') !== -1) {
+      return DEFAULT_DASHBOARD_WEB_URL;
+    }
+    return configuredUrl;
   } catch (e) {
     Logger.log('Error getting web app URL: ' + e.toString());
-    return '';
+    return DEFAULT_DASHBOARD_WEB_URL;
   }
 }
 
@@ -2122,6 +2148,7 @@ function writeCoverage(ss, allData) {
 function buildHistory(ss) {
   const ws=ss.insertSheet('History'); ws.setTabColor('#4A148C'); ws.clear();
   const hdrs=getHistoryHeaders_();
+  ensureSheetColumns_(ws, hdrs.length);
   ws.getRange(1,1,2,hdrs.length).clearContent().breakApart();
   ws.getRange(1,1,1,hdrs.length).merge().setValue('HISTORY  —  Trend Data (auto-appended setiap refresh)')
       .setBackground('#4A148C').setFontColor('#FFFFFF').setFontWeight('bold')
@@ -2132,6 +2159,13 @@ function buildHistory(ss) {
   ws.setColumnWidth(1,130);
   [2,3,4,5].forEach(c=>ws.setColumnWidth(c,90));
   for(let c=6;c<=hdrs.length;c++)ws.setColumnWidth(c,72);
+}
+
+function ensureSheetColumns_(ws, requiredColumns) {
+  const currentColumns = ws.getMaxColumns();
+  if (currentColumns < requiredColumns) {
+    ws.insertColumnsAfter(currentColumns, requiredColumns - currentColumns);
+  }
 }
 
 function getHistoryHeaders_() {
@@ -2145,11 +2179,14 @@ function getHistoryHeaders_() {
     'dev','uat','prod',
     'open','inProgress','fixed','reopen','verified',
     'blkOpen','blkInProgress','blkFixed','blkReopen','blkVerified',
+    'prodBlocker','prodCritical','prodHigh','prodMedium',
+    'prodOpen','prodInProgress','prodFixed','prodReopen','prodVerified',
     'healthScore'];
 }
 
 function ensureHistoryHeaders_(ws) {
   const hdrs = getHistoryHeaders_();
+  ensureSheetColumns_(ws, hdrs.length);
   const maxCols = Math.max(ws.getLastColumn(), hdrs.length);
 
   ws.getRange(1,1,2,maxCols).breakApart().clearContent();
@@ -2167,7 +2204,7 @@ function ensureHistoryHeaders_(ws) {
 function appendHistory(ss, allData) {
   const ws=ss.getSheetByName('History'); if(!ws)return;
   ensureHistoryHeaders_(ws);
-  const HISTORY_COLS = 51;
+  const HISTORY_COLS = 60;
   const now = new Date();
   const ts=Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm');
   const today=Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd');
@@ -2175,8 +2212,12 @@ function appendHistory(ss, allData) {
   // Build all rows at once (batch operation)
   const rows = allData.map(d => {
     const bs=d.bugStats||{};
-    const avgQualityRate = ((d.wPassRate || 0) + (d.aPassRate || 0) + (d.wAutoRate || 0) + (d.aAutoRate || 0)) / 4;
-    const healthScore = Math.max(0, Math.round((avgQualityRate * 100) - ((bs.blocker || 0) * 10) - ((bs.critical || 0) * 5) - ((bs.high || 0) * 2)));
+    const prodBlocker = bs.prodBlockerBugs || 0;
+    const prodCritical = bs.prodCriticalBugs || 0;
+    const prodHigh = bs.prodHighBugs || 0;
+    const prodMedium = bs.prodMediumBugs || 0;
+    const avgQualityRate = ((d.aPassRate || 0) + (d.wPassRate || 0) + (d.aAutoRate || 0) + (d.wAutoRate || 0) + (d.wExecRate || 0) + (d.aExecRate || 0)) / 6;
+    const healthScore = Math.max(0, Math.round((avgQualityRate * 100) - (prodCritical * 8) - (prodHigh * 5) - (prodMedium * 2)));
     return [ts,d.project||'',d.module||'',d.submodule||d.name,d.team||'',
       d.wTotal||0,d.wPassed||0,d.wFailed||0,d.wBlocked||0,d.wPassRate||0,d.wExecRate||0,d.wAutoRate||0,
       d.aTotal||0,d.aPassed||0,d.aFailed||0,d.aBlocked||0,d.aPassRate||0,d.aExecRate||0,d.aAutoRate||0,
@@ -2187,6 +2228,8 @@ function appendHistory(ss, allData) {
       bs.devBugs||0,bs.uatBugs||0,bs.prodBugs||0,
       bs.open||0,bs.inprog||0,bs.fixed||0,bs.reopen||0,bs.verified||0,
       bs.blockerOpenBugs||0,bs.blockerInProgressBugs||0,bs.blockerFixedBugs||0,bs.blockerReopenBugs||0,bs.blockerVerifiedBugs||0,
+      prodBlocker,prodCritical,prodHigh,prodMedium,
+      bs.prodOpenBugs||0,bs.prodInProgressBugs||0,bs.prodFixedBugs||0,bs.prodReopenBugs||0,bs.prodVerifiedBugs||0,
       healthScore];
   });
 
