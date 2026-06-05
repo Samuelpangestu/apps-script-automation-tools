@@ -2413,8 +2413,8 @@ function appendHistory(ss, allData) {
     rows.forEach(row=>{
       const key=`${row[1]||''}-${row[2]||''}-${row[3]||''}`;
       if(todayRows[key]){
-        // Update existing row (overwrite with latest data)
-        ws.getRange(todayRows[key],1,1,HISTORY_COLS).setValues([row]);
+        const existingRow = ws.getRange(todayRows[key],1,1,HISTORY_COLS).getValues()[0];
+        ws.getRange(todayRows[key],1,1,HISTORY_COLS).setValues([mergeHistoryAutomationColumns_(existingRow, row, hdrs)]);
       }else{
         // Collect for batch append
         newRows.push(row);
@@ -2438,6 +2438,25 @@ function appendHistory(ss, allData) {
   }
 
   // Charts removed - will use Web App dashboard for visualization
+}
+
+function mergeHistoryAutomationColumns_(existingRow, latestRow, hdrs) {
+  const merged = existingRow.slice();
+  merged[0] = latestRow[0];
+  [
+    'webAutomationPassed',
+    'webAutomationFailed',
+    'webAutomationPassRate',
+    'webAutomationStatus',
+    'apiAutomationPassed',
+    'apiAutomationFailed',
+    'apiAutomationPassRate',
+    'apiAutomationStatus'
+  ].forEach(header => {
+    const index = hdrs.indexOf(header);
+    if (index >= 0) merged[index] = latestRow[index];
+  });
+  return merged;
 }
 
 function getLatestAutomationRunsByDashboardKey_(ss) {
