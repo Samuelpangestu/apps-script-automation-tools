@@ -31,6 +31,139 @@ function doGet(e) {
 }
 
 /**
+ * Web App write entry point for Jenkins automation result ingestion.
+ *
+ * Expected request:
+ * POST { action: "ingestAutomationResult", token: "...", payload: {...} }
+ *
+ * Token source: Script Properties key AUTOMATION_INGEST_TOKEN.
+ */
+function doPost(e) {
+  try {
+    const body = parsePostBody_(e);
+    const action = body.action || (e.parameter && e.parameter.action);
+
+    switch (action) {
+      case 'ingestAutomationResult':
+        return jsonResponse_(ingestAutomationResult_(body.payload || body));
+      default:
+        throw new Error('Unknown action: ' + action);
+    }
+  } catch (error) {
+    Logger.log('POST API Error: ' + error.toString());
+    return jsonResponse_({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+}
+
+function parsePostBody_(e) {
+  if (!e || !e.postData || !e.postData.contents) return {};
+  const type = String(e.postData.type || '').toLowerCase();
+  if (type.indexOf('application/json') >= 0 || String(e.postData.contents).trim().charAt(0) === '{') {
+    return JSON.parse(e.postData.contents);
+  }
+  const params = {};
+  String(e.postData.contents).split('&').forEach(pair => {
+    const parts = pair.split('=');
+    if (parts[0]) params[decodeURIComponent(parts[0])] = decodeURIComponent(parts.slice(1).join('=') || '');
+  });
+  return params;
+}
+
+function jsonResponse_(payload) {
+  return ContentService.createTextOutput(JSON.stringify(payload))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function ingestAutomationResult_(payload) {
+  const expectedToken = PropertiesService.getScriptProperties().getProperty('AUTOMATION_INGEST_TOKEN');
+  if (!expectedToken) {
+    throw new Error('AUTOMATION_INGEST_TOKEN is not configured in Script Properties');
+  }
+  const providedToken = String(payload.token || payload.authToken || '').trim();
+  if (providedToken !== expectedToken) {
+    throw new Error('Invalid automation ingestion token');
+  }
+
+  const ss = getDashboardSpreadsheet_();
+  const ws = ensureAutomationRunsSheet_(ss);
+  const timestamp = payload.timestamp ? new Date(payload.timestamp) : new Date();
+  const channel = normalizeAutomationChannel_(payload.channel || payload.testType);
+  if (channel !== 'web' && channel !== 'api') {
+    throw new Error('Automation channel must be web or api');
+  }
+
+  const total = Number(payload.total) || 0;
+  const passed = Number(payload.passed) || 0;
+  const failed = Number(payload.failed) || 0;
+  const skipped = Number(payload.skipped) || 0;
+  const broken = Number(payload.broken) || 0;
+  const flaky = Number(payload.flaky) || 0;
+  const passRate = total > 0 ? passed / total : 0;
+  const status = String(payload.status || payload.buildStatus || deriveAutomationStatus_(total, failed, broken)).trim();
+
+  const row = [
+    timestamp,
+    String(payload.project || ''),
+    String(payload.module || payload.modul || ''),
+    String(payload.submodule || payload.submodul || ''),
+    channel,
+    String(payload.suite || ''),
+    String(payload.environment || payload.env || ''),
+    String(payload.contractKey || payload.automationContract || payload.tag || payload.jobName || ''),
+    String(payload.tag || ''),
+    String(payload.jobName || ''),
+    String(payload.buildNumber || ''),
+    String(payload.buildUrl || ''),
+    String(payload.reportUrl || ''),
+    status,
+    total,
+    passed,
+    failed,
+    skipped,
+    broken,
+    flaky,
+    passRate,
+    String(payload.source || 'jenkins'),
+    JSON.stringify(payload)
+  ];
+
+  ws.appendRow(row);
+  const lastRow = ws.getLastRow();
+  ws.getRange(lastRow, 1).setNumberFormat('yyyy-mm-dd hh:mm:ss');
+  ws.getRange(lastRow, 21).setNumberFormat('0%');
+
+  return {
+    success: true,
+    data: {
+      row: lastRow,
+      channel,
+      project: row[1],
+      module: row[2],
+      submodule: row[3],
+      status,
+      passRate
+    },
+    timestamp: new Date().toISOString()
+  };
+}
+
+function normalizeAutomationChannel_(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized.indexOf('api') >= 0) return 'api';
+  if (normalized.indexOf('web') >= 0 || normalized.indexOf('speedweb') >= 0) return 'web';
+  return normalized;
+}
+
+function deriveAutomationStatus_(total, failed, broken) {
+  if (total <= 0) return 'No Tests';
+  return (failed > 0 || broken > 0) ? 'Failed' : 'Passed';
+}
+
+/**
  * Handle API requests from Next.js frontend
  * Returns JSON response
  */
@@ -268,9 +401,7 @@ const DEFAULT_SPREADSHEET_ID = IS_PRODUCTION ? PRODUCTION_SPREADSHEET_ID : TESTI
  * @returns {Spreadsheet} Dashboard spreadsheet
  */
 function getDashboardSpreadsheet_() {
-  // FORCE PRODUCTION SPREADSHEET ONLY
-  // This ensures web app always shows production data
-  return SpreadsheetApp.openById(PRODUCTION_SPREADSHEET_ID);
+  return SpreadsheetApp.openById(DEFAULT_SPREADSHEET_ID);
 }
 
 
