@@ -2329,7 +2329,13 @@ function getHistoryHeaders_() {
     'totalExecuted','totalNotRun','totalTodo','totalExecutable','totalExecutionRate',
     'smokeWebInProgress','smokeWebTodo','smokeApiInProgress','smokeApiTodo',
     'webAutomationPassed','webAutomationFailed','webAutomationPassRate','webAutomationStatus',
-    'apiAutomationPassed','apiAutomationFailed','apiAutomationPassRate','apiAutomationStatus'];
+    'apiAutomationPassed','apiAutomationFailed','apiAutomationPassRate','apiAutomationStatus',
+    'webDevPassed','webDevFailed','webDevPassRate','webDevStatus',
+    'apiDevPassed','apiDevFailed','apiDevPassRate','apiDevStatus',
+    'webStgPassed','webStgFailed','webStgPassRate','webStgStatus',
+    'apiStgPassed','apiStgFailed','apiStgPassRate','apiStgStatus',
+    'webProdPassed','webProdFailed','webProdPassRate','webProdStatus',
+    'apiProdPassed','apiProdFailed','apiProdPassRate','apiProdStatus'];
 }
 
 function ensureHistoryHeaders_(ws) {
@@ -2362,8 +2368,14 @@ function appendHistory(ss, allData) {
   // Build all rows at once (batch operation)
   const rows = allData.map(d => {
     const bs=d.bugStats||{};
-    const webRun = getAutomationRunForModule_(automationRunsByKey, d, 'web');
-    const apiRun = getAutomationRunForModule_(automationRunsByKey, d, 'api');
+    const webDevRun = getAutomationRunForModule_(automationRunsByKey, d, 'web', 'dev');
+    const apiDevRun = getAutomationRunForModule_(automationRunsByKey, d, 'api', 'dev');
+    const webStgRun = getAutomationRunForModule_(automationRunsByKey, d, 'web', 'stg');
+    const apiStgRun = getAutomationRunForModule_(automationRunsByKey, d, 'api', 'stg');
+    const webProdRun = getAutomationRunForModule_(automationRunsByKey, d, 'web', 'prod');
+    const apiProdRun = getAutomationRunForModule_(automationRunsByKey, d, 'api', 'prod');
+    const webRun = firstAutomationRun_(webProdRun, webStgRun, webDevRun);
+    const apiRun = firstAutomationRun_(apiProdRun, apiStgRun, apiDevRun);
     const prodBlocker = bs.prodBlockerBugs || 0;
     const prodCritical = bs.prodCriticalBugs || 0;
     const prodHigh = bs.prodHighBugs || 0;
@@ -2390,7 +2402,13 @@ function appendHistory(ss, allData) {
       (d.wTodo||0)+(d.aTodo||0),(d.wTotal||0)+(d.aTotal||0),((d.wTotal||0)+(d.aTotal||0))>0?(((d.wPassed||0)+(d.wFailed||0)+(d.wBlocked||0)+(d.aPassed||0)+(d.aFailed||0)+(d.aBlocked||0))/((d.wTotal||0)+(d.aTotal||0))):0,
       d.wSmokeInProg||0,d.wSmokeTodo||0,d.aSmokeInProg||0,d.aSmokeTodo||0,
       webRun ? webRun.passed : '',webRun ? webRun.failed : '',webRun ? webRun.passRate : '',webRun ? webRun.status : 'Coming Soon',
-      apiRun ? apiRun.passed : '',apiRun ? apiRun.failed : '',apiRun ? apiRun.passRate : '',apiRun ? apiRun.status : 'Coming Soon'];
+      apiRun ? apiRun.passed : '',apiRun ? apiRun.failed : '',apiRun ? apiRun.passRate : '',apiRun ? apiRun.status : 'Coming Soon',
+      webDevRun ? webDevRun.passed : '',webDevRun ? webDevRun.failed : '',webDevRun ? webDevRun.passRate : '',webDevRun ? webDevRun.status : 'Coming Soon',
+      apiDevRun ? apiDevRun.passed : '',apiDevRun ? apiDevRun.failed : '',apiDevRun ? apiDevRun.passRate : '',apiDevRun ? apiDevRun.status : 'Coming Soon',
+      webStgRun ? webStgRun.passed : '',webStgRun ? webStgRun.failed : '',webStgRun ? webStgRun.passRate : '',webStgRun ? webStgRun.status : 'Coming Soon',
+      apiStgRun ? apiStgRun.passed : '',apiStgRun ? apiStgRun.failed : '',apiStgRun ? apiStgRun.passRate : '',apiStgRun ? apiStgRun.status : 'Coming Soon',
+      webProdRun ? webProdRun.passed : '',webProdRun ? webProdRun.failed : '',webProdRun ? webProdRun.passRate : '',webProdRun ? webProdRun.status : 'Coming Soon',
+      apiProdRun ? apiProdRun.passed : '',apiProdRun ? apiProdRun.failed : '',apiProdRun ? apiProdRun.passRate : '',apiProdRun ? apiProdRun.status : 'Coming Soon'];
   });
 
   // SMART APPEND: Check if today's data already exists
@@ -2434,7 +2452,7 @@ function appendHistory(ss, allData) {
   // Apply number formatting to percentage columns
   const newLastRow = ws.getLastRow();
   if(newLastRow>=3){
-    for(const col of [10,11,12,17,18,19,24,25,28,29,75,82,86])ws.getRange(3,col,newLastRow-2,1).setNumberFormat('0%');
+    for(const col of getHistoryPercentageColumns_(hdrs))ws.getRange(3,col,newLastRow-2,1).setNumberFormat('0%');
   }
 
   // Charts removed - will use Web App dashboard for visualization
@@ -2451,12 +2469,49 @@ function mergeHistoryAutomationColumns_(existingRow, latestRow, hdrs) {
     'apiAutomationPassed',
     'apiAutomationFailed',
     'apiAutomationPassRate',
-    'apiAutomationStatus'
+    'apiAutomationStatus',
+    'webDevPassed',
+    'webDevFailed',
+    'webDevPassRate',
+    'webDevStatus',
+    'apiDevPassed',
+    'apiDevFailed',
+    'apiDevPassRate',
+    'apiDevStatus',
+    'webStgPassed',
+    'webStgFailed',
+    'webStgPassRate',
+    'webStgStatus',
+    'apiStgPassed',
+    'apiStgFailed',
+    'apiStgPassRate',
+    'apiStgStatus',
+    'webProdPassed',
+    'webProdFailed',
+    'webProdPassRate',
+    'webProdStatus',
+    'apiProdPassed',
+    'apiProdFailed',
+    'apiProdPassRate',
+    'apiProdStatus'
   ].forEach(header => {
     const index = hdrs.indexOf(header);
     if (index >= 0) merged[index] = latestRow[index];
   });
   return merged;
+}
+
+function getHistoryPercentageColumns_(hdrs) {
+  return hdrs
+    .map((header, index) => /(?:Rate|PassRate)$/.test(header) ? index + 1 : null)
+    .filter(Boolean);
+}
+
+function firstAutomationRun_() {
+  for (let i = 0; i < arguments.length; i++) {
+    if (arguments[i]) return arguments[i];
+  }
+  return null;
 }
 
 function getLatestAutomationRunsByDashboardKey_(ss) {
@@ -2478,6 +2533,7 @@ function getLatestAutomationRunsByDashboardKey_(ss) {
       module: String(row[2] || ''),
       submodule: String(row[3] || ''),
       channel,
+      environment: normalizeAutomationEnvironment_(row[6]),
       contractKey: String(row[7] || ''),
       tag: String(row[8] || ''),
       jobName: String(row[9] || ''),
@@ -2493,7 +2549,7 @@ function getLatestAutomationRunsByDashboardKey_(ss) {
 
     const aliases = getAutomationRunAliases_(run);
     aliases.forEach(alias => {
-      const key = channel + '|' + alias;
+      const key = run.environment + '|' + channel + '|' + alias;
       if (!byKey[key] || byKey[key].timestamp < timestamp) byKey[key] = run;
     });
   });
@@ -2501,10 +2557,11 @@ function getLatestAutomationRunsByDashboardKey_(ss) {
   return byKey;
 }
 
-function getAutomationRunForModule_(runsByKey, moduleData, channel) {
+function getAutomationRunForModule_(runsByKey, moduleData, channel, environment) {
   const aliases = getDashboardAutomationAliases_(moduleData, channel);
+  const normalizedEnvironment = normalizeAutomationEnvironment_(environment);
   for (let i = 0; i < aliases.length; i++) {
-    const run = runsByKey[channel + '|' + aliases[i]];
+    const run = runsByKey[normalizedEnvironment + '|' + channel + '|' + aliases[i]];
     if (run) return run;
   }
   return null;
@@ -2557,6 +2614,14 @@ function normalizeAutomationValue_(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function normalizeAutomationEnvironment_(value) {
+  const normalized = normalizeAutomationValue_(value);
+  if (normalized === 'staging' || normalized === 'stage') return 'stg';
+  if (normalized === 'production') return 'prod';
+  if (normalized === 'development') return 'dev';
+  return normalized;
 }
 
 function parseAutomationTimestamp_(value) {
