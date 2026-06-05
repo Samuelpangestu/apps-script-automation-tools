@@ -101,6 +101,7 @@ function onOpen() {
       .addItem('Failure Scenario', 'rebuildFailureScenario')
       .addItem('Coverage', 'rebuildCoverage')
       .addItem('History', 'rebuildHistory')
+      .addItem('Automation Runs', 'rebuildAutomationRuns')
       .addItem('_Raw', 'rebuildRaw')
       .addSeparator()
       .addItem('🔒 VAPT - Helper', 'menuCreateVAPTHelper')
@@ -114,7 +115,8 @@ function onOpen() {
       .addItem('Cleanup History Data (90 days)', 'cleanupHistoryData')
       .addItem('Cleanup VAPT History Data (90 days)', 'cleanupVAPTHistoryData'))
     .addSubMenu(ui.createMenu('⚙️ Settings')
-      .addItem('Set Web App Dashboard URL', 'menuSetWebAppUrl'))
+      .addItem('Set Web App Dashboard URL', 'menuSetWebAppUrl')
+      .addItem('Set Automation Ingest Token', 'menuSetAutomationIngestToken'))
     .addToUi();
 }
 
@@ -207,6 +209,28 @@ function menuSetWebAppUrl() {
   }
 }
 
+function menuSetAutomationIngestToken() {
+  const ui = SpreadsheetApp.getUi();
+  const currentToken = PropertiesService.getScriptProperties().getProperty('AUTOMATION_INGEST_TOKEN') || '';
+  const response = ui.prompt(
+    'Set Automation Ingest Token',
+    (currentToken ? 'Current token is already configured.\n\n' : '') +
+      'Enter the shared token Jenkins will send as DASHBOARD_INGEST_TOKEN.\nLeave blank to clear it.',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+
+  const token = response.getResponseText().trim();
+  if (token) {
+    PropertiesService.getScriptProperties().setProperty('AUTOMATION_INGEST_TOKEN', token);
+    ui.alert('Automation ingestion token saved.');
+  } else {
+    PropertiesService.getScriptProperties().deleteProperty('AUTOMATION_INGEST_TOKEN');
+    ui.alert('Automation ingestion token cleared.');
+  }
+}
+
 /**
  * Quick Start Guide - REMOVED
  * Reason: showModalDialog() requires special permissions that cause authorization issues
@@ -267,7 +291,7 @@ function createDashboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   // Cleanup old tabs (including old naming: 'Blockers', 'Scenario Failure')
-  ['Overview','Bugs','VAPT','VAPT History','Smoke','Failure Scenario','Scenario Failure','Blockers','Coverage','History','_Raw','Config','Credentials'].forEach(name => {
+  ['Overview','Bugs','VAPT','VAPT History','Smoke','Failure Scenario','Scenario Failure','Blockers','Coverage','History','Automation Runs','_Raw','Config','Credentials'].forEach(name => {
     const s = ss.getSheetByName(name);
     if (s) ss.deleteSheet(s);
   });
@@ -283,6 +307,7 @@ function createDashboard() {
   buildFailureScenario(ss);  // Uses "Failure Scenario" naming
   buildCoverage(ss);
   buildHistory(ss);
+  buildAutomationRuns(ss);
   buildRaw(ss);
 
   // Notes are added by init*Headers_() functions in each build*() function
@@ -668,8 +693,16 @@ function rebuildCoverage() {
 function rebuildHistory() {
   rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'History', buildHistory, 'History tab rebuilt!');
 }
+function rebuildAutomationRuns() {
+  rebuildTab_(getActiveOrDashboardSpreadsheet_(), 'Automation Runs', buildAutomationRuns, 'Automation Runs tab rebuilt!');
+}
 function rebuildRaw() {
   rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), '_Raw', buildRaw, '_Raw tab rebuilt!');
+}
+
+function getActiveOrDashboardSpreadsheet_() {
+  const active = SpreadsheetApp.getActiveSpreadsheet();
+  return active || getDashboardSpreadsheet_();
 }
 
 /**
@@ -681,6 +714,22 @@ function getModuleList_(ss) {
   const cfg = ss.getSheetByName('Config');
   if (!cfg) return [];
   const data = cfg.getDataRange().getValues();
+  const headerRow = data[2] || [];
+  const headerIndex = {};
+  headerRow.forEach((header, idx) => {
+    const key = normalizeAutomationValue_(header);
+    if (key) headerIndex[key] = idx;
+  });
+  const readOptional = (row, names) => {
+    for (let i = 0; i < names.length; i++) {
+      const idx = headerIndex[normalizeAutomationValue_(names[i])];
+      if (idx !== undefined) {
+        const value = String(row[idx] || '').trim();
+        if (value) return value;
+      }
+    }
+    return '';
+  };
   const modules = [];
   for (let i = 3; i < data.length; i++) {
     const active    = data[i][0] === true;  // col A = Active (TRUE/FALSE)
@@ -706,7 +755,12 @@ function getModuleList_(ss) {
       active: true,
       jiraSync,
       jiraInst,
-      jiraProj
+      jiraProj,
+      automationContracts: {
+        all: readOptional(data[i], ['Automation Contract', 'Automation Key', 'Automation Alias', 'Jenkins Job', 'Jenkins Job Pattern']),
+        web: readOptional(data[i], ['Web Automation Contract', 'Web Automation Key', 'Web Jenkins Job', 'Web Jenkins Job Pattern']),
+        api: readOptional(data[i], ['API Automation Contract', 'API Automation Key', 'API Jenkins Job', 'API Jenkins Job Pattern'])
+      }
     });
   }
   return modules;
@@ -880,6 +934,7 @@ function pullModuleData_(mod) {
   return {
     name:mod.name, team:picQA, lead:qaLead, id:mod.id,
     project:projectName, module:moduleName, submodule:submoduleName,
+    automationContracts: mod.automationContracts || {},
     refreshed:new Date(),
     wTotal,wPassed,wFailed,wBlocked,wInProg,wTodo,wPassRate,wAutoRate,wExecRate,
     aTotal,aPassed,aFailed,aBlocked,aInProg,aTodo,aPassRate,aAutoRate,aExecRate,
@@ -898,6 +953,7 @@ function emptyModuleData_(mod, errorMsg) {
   return {
     name:mod.name,team:mod.team||'',lead:mod.lead||'',id:mod.id,
     sprint:'',project:mod.project||'',module:mod.module||'',submodule:mod.submodule||'',
+    automationContracts: mod.automationContracts || {},
     refreshed:new Date(),error:errorMsg,
     wTotal:0,wPassed:0,wFailed:0,wBlocked:0,wInProg:0,wTodo:0,wPassRate:0,wAutoRate:0,wExecRate:0,
     aTotal:0,aPassed:0,aFailed:0,aBlocked:0,aInProg:0,aTodo:0,aPassRate:0,aAutoRate:0,aExecRate:0,
@@ -1578,6 +1634,42 @@ function buildConfig(ss) {
   // Merge all rules including VAPT
   const finalConfigRules = ws.getConditionalFormatRules();
   ws.setConditionalFormatRules([...finalConfigRules, vaptEnableTrueRule, vaptEnableFalseRule]);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // AUTOMATION CONTRACT SECTION (Kolom X-Z)
+  // ─────────────────────────────────────────────────────────────────────
+
+  const autoContractCol = 24; // Start at column X (24)
+
+  ws.getRange(1, autoContractCol, 1, 3).merge()
+    .setValue('AUTOMATION CONTRACT')
+    .setBackground('#00695C').setFontColor('#FFFFFF').setFontWeight('bold')
+    .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+
+  ws.getRange(2, autoContractCol, 1, 3).merge()
+    .setValue('Mapping Jenkins automation result ke Project/Modul/Submodul dashboard. Isi jika nama job/tag berbeda dari nama di dashboard.')
+    .setBackground('#E0F2F1').setFontColor('#00695C').setFontStyle('italic')
+    .setFontSize(8).setHorizontalAlignment('center');
+
+  const contractHeaders = [
+    ['Automation Contract', 180, 'Alias umum untuk Web/API jika sama.\nContoh: qa-web-4-menuplanner-regression-prod atau menuplanner'],
+    ['Web Automation Contract', 180, 'Alias khusus Web automation.\nDipakai untuk match payload channel=web dari Jenkins.'],
+    ['API Automation Contract', 180, 'Alias khusus API automation.\nDipakai untuk match payload channel=api dari Jenkins.']
+  ];
+
+  contractHeaders.forEach(([h, w, note], i) => {
+    const col = autoContractCol + i;
+    const headerCell = ws.getRange(3, col);
+    headerCell
+      .setValue(h)
+      .setBackground('#00897B').setFontColor('#FFFFFF')
+      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setWrap(true)
+      .setBorder(true, true, true, true, false, false, '#80CBC4', SpreadsheetApp.BorderStyle.SOLID);
+    ws.setColumnWidth(col, w);
+    if (note) headerCell.setNote(note);
+  });
 }
 
 
@@ -2163,6 +2255,54 @@ function buildHistory(ss) {
   for(let c=6;c<=hdrs.length;c++)ws.setColumnWidth(c,72);
 }
 
+function buildAutomationRuns(ss) {
+  const existing = ss.getSheetByName('Automation Runs');
+  const ws = existing || ss.insertSheet('Automation Runs');
+  ws.setTabColor('#00695C');
+  ws.clear();
+  const hdrs = getAutomationRunHeaders_();
+  ensureSheetColumns_(ws, hdrs.length);
+  ws.getRange(1,1,1,hdrs.length).merge()
+      .setValue('AUTOMATION RUNS  —  Raw Jenkins automation execution results')
+      .setBackground('#00695C').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
+  ws.getRange(2,1,1,hdrs.length).setValues([hdrs]).setFontWeight('bold')
+      .setBackground('#00897B').setFontColor('#FFFFFF');
+  ws.setFrozenRows(2);
+  ws.setColumnWidth(1,130);
+  [2,3,4,5,6,7,8,9,10,11,12,13].forEach(c=>ws.setColumnWidth(c,120));
+  [14,15].forEach(c=>ws.setColumnWidth(c,260));
+  for(let c=16;c<=hdrs.length;c++)ws.setColumnWidth(c,90);
+}
+
+function getAutomationRunHeaders_() {
+  return ['Timestamp','Project','Modul','Submodul','Channel','Suite','Environment',
+    'Contract Key','Tag','Job Name','Build Number','Build URL','Report URL',
+    'Status','Total','Passed','Failed','Skipped','Broken','Flaky','Pass Rate','Source','Raw Payload'];
+}
+
+function ensureAutomationRunsSheet_(ss) {
+  let ws = ss.getSheetByName('Automation Runs');
+  if (!ws) {
+    buildAutomationRuns(ss);
+    ws = ss.getSheetByName('Automation Runs');
+  }
+  const hdrs = getAutomationRunHeaders_();
+  ensureSheetColumns_(ws, hdrs.length);
+  const current = ws.getRange(2,1,1,hdrs.length).getValues()[0];
+  if (current.join('|') !== hdrs.join('|')) {
+    ws.getRange(1,1,2,hdrs.length).breakApart().clearContent();
+    ws.getRange(1,1,1,hdrs.length).merge()
+        .setValue('AUTOMATION RUNS  —  Raw Jenkins automation execution results')
+        .setBackground('#00695C').setFontColor('#FFFFFF').setFontWeight('bold')
+        .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
+    ws.getRange(2,1,1,hdrs.length).setValues([hdrs]).setFontWeight('bold')
+        .setBackground('#00897B').setFontColor('#FFFFFF');
+    ws.setFrozenRows(2);
+  }
+  return ws;
+}
+
 function ensureSheetColumns_(ws, requiredColumns) {
   const currentColumns = ws.getMaxColumns();
   if (currentColumns < requiredColumns) {
@@ -2183,7 +2323,13 @@ function getHistoryHeaders_() {
     'blkOpen','blkInProgress','blkFixed','blkReopen','blkVerified',
     'prodBlocker','prodCritical','prodHigh','prodMedium','prodLow','prodLowest',
     'prodOpen','prodInProgress','prodFixed','prodReopen','prodVerified',
-    'healthScore'];
+    'healthScore',
+    'webInProgress','webTodo','webExecuted','webNotRun',
+    'apiInProgress','apiTodo','apiExecuted','apiNotRun',
+    'totalExecuted','totalNotRun','totalTodo','totalExecutable','totalExecutionRate',
+    'smokeWebInProgress','smokeWebTodo','smokeApiInProgress','smokeApiTodo',
+    'webAutomationPassed','webAutomationFailed','webAutomationPassRate','webAutomationStatus',
+    'apiAutomationPassed','apiAutomationFailed','apiAutomationPassRate','apiAutomationStatus'];
 }
 
 function ensureHistoryHeaders_(ws) {
@@ -2206,14 +2352,18 @@ function ensureHistoryHeaders_(ws) {
 function appendHistory(ss, allData) {
   const ws=ss.getSheetByName('History'); if(!ws)return;
   ensureHistoryHeaders_(ws);
-  const HISTORY_COLS = 62;
+  const hdrs = getHistoryHeaders_();
+  const HISTORY_COLS = hdrs.length;
   const now = new Date();
   const ts=Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm');
   const today=Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd');
+  const automationRunsByKey = getLatestAutomationRunsByDashboardKey_(ss);
 
   // Build all rows at once (batch operation)
   const rows = allData.map(d => {
     const bs=d.bugStats||{};
+    const webRun = getAutomationRunForModule_(automationRunsByKey, d, 'web');
+    const apiRun = getAutomationRunForModule_(automationRunsByKey, d, 'api');
     const prodBlocker = bs.prodBlockerBugs || 0;
     const prodCritical = bs.prodCriticalBugs || 0;
     const prodHigh = bs.prodHighBugs || 0;
@@ -2232,7 +2382,15 @@ function appendHistory(ss, allData) {
       bs.blockerOpenBugs||0,bs.blockerInProgressBugs||0,bs.blockerFixedBugs||0,bs.blockerReopenBugs||0,bs.blockerVerifiedBugs||0,
       prodBlocker,prodCritical,prodHigh,prodMedium,bs.prodLowBugs||0,bs.prodLowestBugs||0,
       bs.prodOpenBugs||0,bs.prodInProgressBugs||0,bs.prodFixedBugs||0,bs.prodReopenBugs||0,bs.prodVerifiedBugs||0,
-      healthScore];
+      healthScore,
+      d.wInProg||0,d.wTodo||0,(d.wPassed||0)+(d.wFailed||0)+(d.wBlocked||0),Math.max(0,(d.wTotal||0)-((d.wPassed||0)+(d.wFailed||0)+(d.wBlocked||0))),
+      d.aInProg||0,d.aTodo||0,(d.aPassed||0)+(d.aFailed||0)+(d.aBlocked||0),Math.max(0,(d.aTotal||0)-((d.aPassed||0)+(d.aFailed||0)+(d.aBlocked||0))),
+      ((d.wPassed||0)+(d.wFailed||0)+(d.wBlocked||0)+(d.aPassed||0)+(d.aFailed||0)+(d.aBlocked||0)),
+      Math.max(0,((d.wTotal||0)+(d.aTotal||0))-((d.wPassed||0)+(d.wFailed||0)+(d.wBlocked||0)+(d.aPassed||0)+(d.aFailed||0)+(d.aBlocked||0))),
+      (d.wTodo||0)+(d.aTodo||0),(d.wTotal||0)+(d.aTotal||0),((d.wTotal||0)+(d.aTotal||0))>0?(((d.wPassed||0)+(d.wFailed||0)+(d.wBlocked||0)+(d.aPassed||0)+(d.aFailed||0)+(d.aBlocked||0))/((d.wTotal||0)+(d.aTotal||0))):0,
+      d.wSmokeInProg||0,d.wSmokeTodo||0,d.aSmokeInProg||0,d.aSmokeTodo||0,
+      webRun ? webRun.passed : '',webRun ? webRun.failed : '',webRun ? webRun.passRate : '',webRun ? webRun.status : 'Coming Soon',
+      apiRun ? apiRun.passed : '',apiRun ? apiRun.failed : '',apiRun ? apiRun.passRate : '',apiRun ? apiRun.status : 'Coming Soon'];
   });
 
   // SMART APPEND: Check if today's data already exists
@@ -2276,10 +2434,128 @@ function appendHistory(ss, allData) {
   // Apply number formatting to percentage columns
   const newLastRow = ws.getLastRow();
   if(newLastRow>=3){
-    for(const col of [10,11,12,17,18,19,24,25,28,29])ws.getRange(3,col,newLastRow-2,1).setNumberFormat('0%');
+    for(const col of [10,11,12,17,18,19,24,25,28,29,75,82,86])ws.getRange(3,col,newLastRow-2,1).setNumberFormat('0%');
   }
 
   // Charts removed - will use Web App dashboard for visualization
+}
+
+function getLatestAutomationRunsByDashboardKey_(ss) {
+  const ws = ss.getSheetByName('Automation Runs');
+  const byKey = {};
+  if (!ws || ws.getLastRow() < 3) return byKey;
+
+  const values = ws.getRange(3,1,ws.getLastRow()-2,Math.min(ws.getLastColumn(), getAutomationRunHeaders_().length)).getValues();
+  values.forEach(row => {
+    const timestamp = parseAutomationTimestamp_(row[0]);
+    if (!timestamp) return;
+
+    const channel = normalizeAutomationValue_(row[4]);
+    if (channel !== 'web' && channel !== 'api') return;
+
+    const run = {
+      timestamp,
+      project: String(row[1] || ''),
+      module: String(row[2] || ''),
+      submodule: String(row[3] || ''),
+      channel,
+      contractKey: String(row[7] || ''),
+      tag: String(row[8] || ''),
+      jobName: String(row[9] || ''),
+      status: String(row[13] || ''),
+      total: Number(row[14]) || 0,
+      passed: Number(row[15]) || 0,
+      failed: Number(row[16]) || 0,
+      skipped: Number(row[17]) || 0,
+      broken: Number(row[18]) || 0,
+      flaky: Number(row[19]) || 0,
+      passRate: parseRate_(row[20])
+    };
+
+    const aliases = getAutomationRunAliases_(run);
+    aliases.forEach(alias => {
+      const key = channel + '|' + alias;
+      if (!byKey[key] || byKey[key].timestamp < timestamp) byKey[key] = run;
+    });
+  });
+
+  return byKey;
+}
+
+function getAutomationRunForModule_(runsByKey, moduleData, channel) {
+  const aliases = getDashboardAutomationAliases_(moduleData, channel);
+  for (let i = 0; i < aliases.length; i++) {
+    const run = runsByKey[channel + '|' + aliases[i]];
+    if (run) return run;
+  }
+  return null;
+}
+
+function getDashboardAutomationAliases_(moduleData, channel) {
+  const aliases = [];
+  const add = value => {
+    const normalized = normalizeAutomationValue_(value);
+    if (normalized && aliases.indexOf(normalized) === -1) aliases.push(normalized);
+  };
+
+  add([moduleData.project, moduleData.module, moduleData.submodule || moduleData.name].join('|'));
+  add([moduleData.project, moduleData.module].join('|'));
+  add([moduleData.module, moduleData.submodule || moduleData.name].join('|'));
+  add(moduleData.submodule || moduleData.name);
+  add(moduleData.module);
+
+  const contracts = moduleData.automationContracts || {};
+  add(contracts[channel]);
+  add(contracts.all);
+
+  return aliases;
+}
+
+function getAutomationRunAliases_(run) {
+  const aliases = [];
+  const add = value => {
+    const normalized = normalizeAutomationValue_(value);
+    if (normalized && aliases.indexOf(normalized) === -1) aliases.push(normalized);
+  };
+
+  add([run.project, run.module, run.submodule].join('|'));
+  add([run.project, run.module].join('|'));
+  add([run.module, run.submodule].join('|'));
+  add(run.submodule);
+  add(run.module);
+  add(run.contractKey);
+  add(run.tag);
+  add(run.jobName);
+
+  return aliases;
+}
+
+function normalizeAutomationValue_(value) {
+  return String(value || '')
+    .trim()
+    .replace(/^@+/, '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function parseAutomationTimestamp_(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function parseRate_(value) {
+  if (value === '' || value === null || value === undefined) return 0;
+  if (typeof value === 'number') return value > 1 ? value / 100 : value;
+  const text = String(value).trim();
+  if (text.endsWith('%')) {
+    const parsed = parseFloat(text.slice(0, -1));
+    return isNaN(parsed) ? 0 : parsed / 100;
+  }
+  const parsed = parseFloat(text);
+  return isNaN(parsed) ? 0 : (parsed > 1 ? parsed / 100 : parsed);
 }
 
 /**
