@@ -46,6 +46,13 @@ function doPost(e) {
     switch (action) {
       case 'ingestAutomationResult':
         return jsonResponse_(ingestAutomationResult_(body.payload || body));
+
+      case 'sendClosureEmail':
+        return jsonResponse_(sendClosureEmail_(body));
+
+      case 'createClosureEmailDraft':
+        return jsonResponse_(createClosureEmailDraft_(body));
+
       default:
         throw new Error('Unknown action: ' + action);
     }
@@ -186,6 +193,10 @@ function handleApiRequest_(action, e) {
 
       case 'getDashboardSummary':
         data = getApiDashboardSummary_();
+        break;
+
+      case 'getExternalTestReports':
+        data = getApiExternalTestReports_(e.parameter);
         break;
 
       default:
@@ -1101,4 +1112,403 @@ function testGetDashboardData() {
   Logger.log('History rows: ' + data.history.length);
   Logger.log('Modules: ' + data.modules.join(', '));
   Logger.log('Bugs table rows: ' + (data.bugsTable ? data.bugsTable.length : 0));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// EXTERNAL TEST REPORT & CLOSURE EMAIL APIs
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * API: Get External Test Reports with optional filter
+ * Query params:
+ *   - project: Filter by project name
+ *   - module: Filter by module name
+ *   - status: Filter by overall status
+ *
+ * Returns array of External Test Report objects
+ */
+function getApiExternalTestReports_(params) {
+  const ss = getDashboardSpreadsheet_();
+  const config = ss.getSheetByName('Config');
+
+  if (!config) {
+    throw new Error('Config sheet not found');
+  }
+
+  const modules = getModuleList_(ss);
+  const reports = [];
+
+  modules.forEach(mod => {
+    try {
+      if (!mod.id || !mod.active) return;
+
+      // Apply filters if provided
+      if (params && params.project && mod.project !== params.project) return;
+      if (params && params.module && mod.module !== params.module) return;
+
+      const qatmSs = SpreadsheetApp.openById(mod.id);
+      const extReportSheet = qatmSs.getSheetByName('External Test Report');
+
+      if (!extReportSheet) {
+        Logger.log('No External Test Report tab for: ' + mod.name);
+        return;
+      }
+
+      const report = readExternalTestReport_(extReportSheet);
+
+      // Apply status filter if provided
+      if (params && params.status && report.overallStatus !== params.status) return;
+
+      // Add module metadata
+      report.moduleId = mod.id;
+      report.project = mod.project;
+      report.module = mod.module;
+      report.submodule = mod.submodule;
+      report.picQA = mod.team;
+      report.isExternalQA = mod.externalQA ? mod.externalQA.isExternal : false;
+
+      reports.push(report);
+    } catch (error) {
+      Logger.log('Error reading External Test Report for ' + mod.name + ': ' + error.message);
+    }
+  });
+
+  return reports;
+}
+
+/**
+ * POST API: Send closure email with PDF attachment
+ *
+ * Request body:
+ * {
+ *   moduleId: "spreadsheet-id",
+ *   emailTo: "recipient@example.com",
+ *   emailCc: "cc@example.com",  // optional
+ *   emailSubject: "Test Closure Report - Project X",
+ *   emailBody: "Please find attached...",
+ *   attachPDF: true  // default true
+ * }
+ */
+function sendClosureEmail_(body) {
+  try {
+    // Validate required fields
+    if (!body.moduleId) throw new Error('moduleId is required');
+    if (!body.emailTo) throw new Error('emailTo is required');
+    if (!body.emailSubject) throw new Error('emailSubject is required');
+
+    const qatmSs = SpreadsheetApp.openById(body.moduleId);
+    const extReportSheet = qatmSs.getSheetByName('External Test Report');
+
+    if (!extReportSheet) {
+      throw new Error('External Test Report tab not found in QATM');
+    }
+
+    // Get report data
+    const report = readExternalTestReport_(extReportSheet);
+
+    // Get email sender config (departemen.qa)
+    const senderEmail = getEmailSenderConfig_();
+
+    // Generate email body if not provided
+    let emailBody = body.emailBody || '';
+    if (!emailBody) {
+      emailBody = generateClosureEmailTemplate_(report, qatmSs);
+    }
+
+    // Prepare email options
+    const emailOptions = {
+      from: senderEmail,
+      name: 'QA Team - INA Digital',
+      cc: body.emailCc || '',
+      htmlBody: emailBody
+    };
+
+    // Attach PDF if requested
+    if (body.attachPDF !== false) {
+      const pdfBlob = generateClosurePDFBlob_(qatmSs, report);
+      if (pdfBlob) {
+        emailOptions.attachments = [pdfBlob];
+      }
+    }
+
+    // Send email
+    GmailApp.sendEmail(
+      body.emailTo,
+      body.emailSubject,
+      stripHtmlTags_(emailBody),  // Plain text fallback
+      emailOptions
+    );
+
+    return {
+      success: true,
+      message: 'Email sent successfully',
+      sentTo: body.emailTo,
+      sentCc: body.emailCc || '',
+      timestamp: new Date().toISOString()
+    };
+
+  } catch (error) {
+    Logger.log('sendClosureEmail error: ' + error.stack);
+    throw new Error('Failed to send email: ' + error.message);
+  }
+}
+
+/**
+ * POST API: Create Gmail draft (not send)
+ * Same params as sendClosureEmail_ but creates draft instead
+ */
+function createClosureEmailDraft_(body) {
+  try {
+    // Validate required fields
+    if (!body.moduleId) throw new Error('moduleId is required');
+    if (!body.emailTo) throw new Error('emailTo is required');
+    if (!body.emailSubject) throw new Error('emailSubject is required');
+
+    const qatmSs = SpreadsheetApp.openById(body.moduleId);
+    const extReportSheet = qatmSs.getSheetByName('External Test Report');
+
+    if (!extReportSheet) {
+      throw new Error('External Test Report tab not found in QATM');
+    }
+
+    // Get report data
+    const report = readExternalTestReport_(extReportSheet);
+
+    // Generate email body if not provided
+    let emailBody = body.emailBody || '';
+    if (!emailBody) {
+      emailBody = generateClosureEmailTemplate_(report, qatmSs);
+    }
+
+    // Prepare email options
+    const emailOptions = {
+      cc: body.emailCc || '',
+      htmlBody: emailBody
+    };
+
+    // Attach PDF if requested
+    if (body.attachPDF !== false) {
+      const pdfBlob = generateClosurePDFBlob_(qatmSs, report);
+      if (pdfBlob) {
+        emailOptions.attachments = [pdfBlob];
+      }
+    }
+
+    // Create draft
+    const draft = GmailApp.createDraft(
+      body.emailTo,
+      body.emailSubject,
+      stripHtmlTags_(emailBody),  // Plain text fallback
+      emailOptions
+    );
+
+    return {
+      success: true,
+      message: 'Email draft created successfully',
+      draftId: draft.getId(),
+      recipient: body.emailTo,
+      subject: body.emailSubject,
+      timestamp: new Date().toISOString()
+    };
+
+  } catch (error) {
+    Logger.log('createClosureEmailDraft error: ' + error.stack);
+    throw new Error('Failed to create draft: ' + error.message);
+  }
+}
+
+/**
+ * Generate HTML email template for test closure
+ */
+function generateClosureEmailTemplate_(report, qatmSs) {
+  const summary = qatmSs.getSheetByName('Summary');
+  let projectName = '';
+  let moduleName = '';
+  let testPeriod = '';
+
+  if (summary) {
+    try {
+      projectName = String(summary.getRange('B2').getValue() || '');
+      moduleName = String(summary.getRange('B3').getValue() || '');
+      // Try to get test period from Summary if available
+      testPeriod = String(summary.getRange('B10').getValue() || '');
+    } catch(e) {
+      Logger.log('Error reading summary: ' + e.message);
+    }
+  }
+
+  const html = `
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 14px; color: #333; }
+    .header { background-color: #1976D2; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; }
+    .section { margin-bottom: 20px; }
+    .section-title { font-weight: bold; font-size: 16px; color: #1976D2; margin-bottom: 10px; border-bottom: 2px solid #1976D2; padding-bottom: 5px; }
+    .field { margin-bottom: 8px; }
+    .field-label { font-weight: bold; display: inline-block; width: 200px; }
+    .field-value { display: inline-block; }
+    .status-approved { color: #2E7D32; font-weight: bold; }
+    .status-review { color: #1565C0; font-weight: bold; }
+    .status-rejected { color: #C62828; font-weight: bold; }
+    .footer { background-color: #F5F5F5; padding: 15px; text-align: center; font-size: 12px; color: #666; margin-top: 30px; }
+    table { border-collapse: collapse; width: 100%; }
+    td { padding: 8px; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>Test Closure Report</h2>
+    <p>${projectName}${moduleName ? ' - ' + moduleName : ''}</p>
+  </div>
+
+  <div class="content">
+    <div class="section">
+      <div class="section-title">External Test Information</div>
+      <div class="field">
+        <span class="field-label">External Team / Vendor:</span>
+        <span class="field-value">${report.externalTeam || '-'}</span>
+      </div>
+      <div class="field">
+        <span class="field-label">Overall Status:</span>
+        <span class="field-value ${getStatusClass_(report.overallStatus)}">${report.overallStatus || 'Not Started'}</span>
+      </div>
+      <div class="field">
+        <span class="field-label">Reviewer:</span>
+        <span class="field-value">${report.reviewer || '-'}</span>
+      </div>
+      <div class="field">
+        <span class="field-label">Review Date:</span>
+        <span class="field-value">${report.reviewDate || '-'}</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Testing Evidence & Status</div>
+      <table>
+        <tr>
+          <td><strong>Test Type</strong></td>
+          <td><strong>Evidence URL</strong></td>
+          <td><strong>Review Status</strong></td>
+        </tr>
+        <tr>
+          <td>Functional Testing</td>
+          <td><a href="${report.functionalEvidenceUrl || '#'}">${report.functionalEvidenceUrl ? 'View Evidence' : 'N/A'}</a></td>
+          <td class="${getStatusClass_(report.functionalReviewStatus)}">${report.functionalReviewStatus || 'Not Started'}</td>
+        </tr>
+        <tr>
+          <td>Performance Testing</td>
+          <td><a href="${report.performanceEvidenceUrl || '#'}">${report.performanceEvidenceUrl ? 'View Evidence' : 'N/A'}</a></td>
+          <td class="${getStatusClass_(report.performanceReviewStatus)}">${report.performanceReviewStatus || 'Not Started'}</td>
+        </tr>
+        <tr>
+          <td>VAPT (Security)</td>
+          <td><a href="${report.vaptEvidenceUrl || '#'}">${report.vaptEvidenceUrl ? 'View Evidence' : 'N/A'}</a></td>
+          <td class="${getStatusClass_(report.vaptReviewStatus)}">${report.vaptReviewStatus || 'Not Started'}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Notes</div>
+      <p>${report.notes || 'No additional notes.'}</p>
+    </div>
+
+    <div class="section">
+      <p>Please find the detailed test closure report attached as PDF.</p>
+      <p>For any questions or clarifications, please contact the QA team.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>This is an automated email from QA Dashboard - INA Digital</p>
+    <p>Generated on ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB</p>
+  </div>
+</body>
+</html>
+`;
+
+  return html;
+}
+
+/**
+ * Get status CSS class for email styling
+ */
+function getStatusClass_(status) {
+  const s = String(status || '').toLowerCase();
+  if (s.includes('approved') || s.includes('ready')) return 'status-approved';
+  if (s.includes('review')) return 'status-review';
+  if (s.includes('rejected')) return 'status-rejected';
+  return '';
+}
+
+/**
+ * Generate PDF blob from QATM spreadsheet (simplified version)
+ * In production, you might want more sophisticated PDF generation
+ */
+function generateClosurePDFBlob_(qatmSs, report) {
+  try {
+    // Convert spreadsheet to PDF
+    // Using Summary sheet as the main PDF content
+    const summarySheet = qatmSs.getSheetByName('Summary');
+    if (!summarySheet) {
+      Logger.log('Summary sheet not found, skipping PDF attachment');
+      return null;
+    }
+
+    const url = 'https://docs.google.com/spreadsheets/d/' + qatmSs.getId() + '/export?format=pdf&gid=' + summarySheet.getSheetId();
+
+    const token = ScriptApp.getOAuthToken();
+    const response = UrlFetchApp.fetch(url, {
+      headers: {
+        'Authorization': 'Bearer ' + token
+      }
+    });
+
+    const blob = response.getBlob();
+    const fileName = 'Test_Closure_Report_' + Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyyMMdd') + '.pdf';
+    blob.setName(fileName);
+
+    return blob;
+  } catch (error) {
+    Logger.log('PDF generation error: ' + error.message);
+    return null;
+  }
+}
+
+/**
+ * Get email sender config from Config sheet or Script Properties
+ */
+function getEmailSenderConfig_() {
+  try {
+    const ss = getDashboardSpreadsheet_();
+    const config = ss.getSheetByName('Config');
+
+    if (config) {
+      // Try to read from Config sheet (you might need to add this column)
+      // For now, using Script Properties or default
+    }
+
+    // Check Script Properties
+    const props = PropertiesService.getScriptProperties();
+    const senderEmail = props.getProperty('EMAIL_SENDER_ADDRESS');
+
+    if (senderEmail) {
+      return senderEmail;
+    }
+
+    // Default to departemen.qa@inadigital.co.id
+    return 'departemen.qa@inadigital.co.id';
+  } catch (error) {
+    Logger.log('getEmailSenderConfig error: ' + error.message);
+    return 'departemen.qa@inadigital.co.id';
+  }
+}
+
+/**
+ * Strip HTML tags for plain text email fallback
+ */
+function stripHtmlTags_(html) {
+  return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 }

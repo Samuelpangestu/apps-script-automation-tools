@@ -71,6 +71,7 @@ function onOpen() {
       .addItem('Create Dashboard (First Time)', 'createDashboard')
       .addSeparator()
       .addItem('▶️ Manual Sync + Refresh', 'manualSyncAndRefresh')
+      .addItem('⚙️ Setup External QA Config', 'menuSetupExternalQAConfig')
       .addItem('🚀 Setup Auto-Refresh Trigger', 'setupAutoRefreshTrigger')
       .addSeparator()
       .addItem('⚙️ Refresh Bug Only (No Jira Sync)', 'refreshBugOnly')
@@ -109,6 +110,8 @@ function onOpen() {
       .addItem('🔒 VAPT - Evidence', 'menuCreateVAPTEvidence'))
     .addSubMenu(ui.createMenu('🔧 Broadcast Fixes')
       .addItem('Fix BUG BLOCKER (Rename + Formula)', 'broadcastBugBlockerFix')
+      .addSeparator()
+      .addItem('External QA: Create Report Tab', 'broadcastExternalTestReportTab')
       .addSeparator()
       .addItem('V3: NEW VAPT Structure (3 Tabs)', 'broadcastV3NewVAPTStructure'))
     .addSubMenu(ui.createMenu('🧹 Data Cleanup')
@@ -228,6 +231,19 @@ function menuSetAutomationIngestToken() {
   } else {
     PropertiesService.getScriptProperties().deleteProperty('AUTOMATION_INGEST_TOKEN');
     ui.alert('Automation ingestion token cleared.');
+  }
+}
+
+function menuSetupExternalQAConfig() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ws = ss.getSheetByName('Config');
+    if (!ws) throw new Error('Config tab not found. Please run Create Dashboard first.');
+    setupExternalQAConfigSection_(ws);
+    safeAlert_('External QA Config ready at Config!AL:AN.\nExisting values were preserved.');
+  } catch (error) {
+    safeAlert_('Setup External QA Config failed:\n' + error.message);
+    Logger.log('Setup External QA Config error: ' + error.stack);
   }
 }
 
@@ -730,6 +746,19 @@ function getModuleList_(ss) {
     }
     return '';
   };
+  const readBoolOptional = (row, names) => {
+    for (let i = 0; i < names.length; i++) {
+      const idx = headerIndex[normalizeAutomationValue_(names[i])];
+      if (idx !== undefined) {
+        const value = row[idx];
+        if (value === true || value === false) return value;
+        const text = String(value || '').trim().toUpperCase();
+        if (text === 'TRUE' || text === 'YES' || text === 'YA') return true;
+        if (text === 'FALSE' || text === 'NO' || text === 'TIDAK') return false;
+      }
+    }
+    return false;
+  };
   const modules = [];
   for (let i = 3; i < data.length; i++) {
     const active    = data[i][0] === true;  // col A = Active (TRUE/FALSE)
@@ -756,6 +785,11 @@ function getModuleList_(ss) {
       jiraSync,
       jiraInst,
       jiraProj,
+      externalQA: {
+        isExternal: readBoolOptional(data[i], ['External QA', 'External Team']),
+        retestByPeruri: readBoolOptional(data[i], ['Retest QA Peruri', 'Need Retest QA Peruri', 'Retest by QA Peruri']),
+        notes: readOptional(data[i], ['External QA Notes', 'External Notes'])
+      },
       automationContracts: {
         all: readOptional(data[i], ['Automation Contract', 'Automation Key', 'Automation Alias', 'Jenkins Job', 'Jenkins Job Pattern']),
         web: readOptional(data[i], ['Web Automation Contract', 'Web Automation Key', 'Web Jenkins Job', 'Web Jenkins Job Pattern']),
@@ -779,6 +813,7 @@ function pullModuleData_(mod) {
   const apie = src.getSheetByName('API_Execution');
   const perf = src.getSheetByName('PerfTest');
   const summ = src.getSheetByName('Summary');
+  const externalReportSheet = src.getSheetByName('External Test Report');
   const bugr = src.getSheetByName('BugReport');
 
   const SUMM_KPI_ROW = 13;  // Summary row 13: main Web+API KPI values
@@ -790,6 +825,8 @@ function pullModuleData_(mod) {
   let wSmokePassRate=0,wSmokeAutoRate=0,wSmokeExecRate=0;
   let aSmokeTotal=0,aSmokePassed=0,aSmokePassRate=0,aSmokeAutoRate=0,aSmokeExecRate=0;
   let perfResult = '--';
+  let scopeNotes = '';
+  let externalTestReport = emptyExternalTestReport_();
 
   try {
     if (summ) {
@@ -804,6 +841,7 @@ function pullModuleData_(mod) {
       if (submod && String(submod).trim()) submoduleName = String(submod).trim();
       if (ql  && String(ql).trim())        qaLead        = String(ql).trim(); // Summary overrides Config
       if (pic && String(pic).trim())       picQA         = String(pic).trim();
+      scopeNotes = readSummaryFieldByLabel_(summ, 'Scope / Notes:');
 
       const perfVal = summ.getRange(8,13).getValue(); // M8 = Perf result
       if (perfVal && String(perfVal).trim()) perfResult = String(perfVal).trim();
@@ -930,11 +968,15 @@ function pullModuleData_(mod) {
       aTotal=aS.total; aPassed=aS.passed; aFailed=aS.failed; aBlocked=aS.blocked; aPassRate=aS.passRate;
     } catch(e2) {}
   }
+  externalTestReport = readExternalTestReport_(externalReportSheet);
 
   return {
     name:mod.name, team:picQA, lead:qaLead, id:mod.id,
     project:projectName, module:moduleName, submodule:submoduleName,
     automationContracts: mod.automationContracts || {},
+    externalQA: mod.externalQA || {isExternal:false,retestByPeruri:false,notes:''},
+    scopeNotes,
+    externalTestReport,
     refreshed:new Date(),
     wTotal,wPassed,wFailed,wBlocked,wInProg,wTodo,wPassRate,wAutoRate,wExecRate,
     aTotal,aPassed,aFailed,aBlocked,aInProg,aTodo,aPassRate,aAutoRate,aExecRate,
@@ -954,6 +996,9 @@ function emptyModuleData_(mod, errorMsg) {
     name:mod.name,team:mod.team||'',lead:mod.lead||'',id:mod.id,
     sprint:'',project:mod.project||'',module:mod.module||'',submodule:mod.submodule||'',
     automationContracts: mod.automationContracts || {},
+    externalQA: mod.externalQA || {isExternal:false,retestByPeruri:false,notes:''},
+    scopeNotes:'',
+    externalTestReport: emptyExternalTestReport_(),
     refreshed:new Date(),error:errorMsg,
     wTotal:0,wPassed:0,wFailed:0,wBlocked:0,wInProg:0,wTodo:0,wPassRate:0,wAutoRate:0,wExecRate:0,
     aTotal:0,aPassed:0,aFailed:0,aBlocked:0,aInProg:0,aTodo:0,aPassRate:0,aAutoRate:0,aExecRate:0,
@@ -963,6 +1008,62 @@ function emptyModuleData_(mod, errorMsg) {
     perfResult:'--',blockers:[],coverage:[],
     bugStats:{total:0,open:0,inprog:0,fixed:0,verified:0,critical:0,high:0,medium:0,low:0,blocker:0},
   };
+}
+
+function readSummaryFieldByLabel_(summarySheet, label) {
+  if (!summarySheet) return '';
+  try {
+    const cell = summarySheet.createTextFinder(label).matchEntireCell(true).findNext();
+    if (!cell) return '';
+    const value = summarySheet.getRange(cell.getRow(), cell.getColumn() + 1).getDisplayValue();
+    return String(value || '').trim();
+  } catch(e) {
+    return '';
+  }
+}
+
+function emptyExternalTestReport_() {
+  return {
+    externalTeam: '',
+    statusReview: '',
+    functionalEvidenceUrl: '',
+    functionalReviewStatus: '',
+    performanceEvidenceUrl: '',
+    performanceReviewStatus: '',
+    vaptEvidenceUrl: '',
+    vaptReviewStatus: '',
+    overallStatus: '',
+    reviewer: '',
+    reviewDate: '',
+    notes: ''
+  };
+}
+
+function readExternalTestReport_(sheet) {
+  const report = emptyExternalTestReport_();
+  if (!sheet) return report;
+  const mapping = {
+    'External Team / Vendor:': 'externalTeam',
+    'Status Review:': 'statusReview',
+    'Functional Evidence URL:': 'functionalEvidenceUrl',
+    'Functional Review Status:': 'functionalReviewStatus',
+    'Performance Evidence URL:': 'performanceEvidenceUrl',
+    'Performance Review Status:': 'performanceReviewStatus',
+    'VAPT Evidence URL:': 'vaptEvidenceUrl',
+    'VAPT Review Status:': 'vaptReviewStatus',
+    'Overall Status:': 'overallStatus',
+    'Reviewer:': 'reviewer',
+    'Review Date:': 'reviewDate',
+    'Notes:': 'notes'
+  };
+  Object.keys(mapping).forEach(label => {
+    try {
+      const cell = sheet.createTextFinder(label).matchEntireCell(true).findNext();
+      if (!cell) return;
+      report[mapping[label]] = String(sheet.getRange(cell.getRow(), cell.getColumn() + 1).getDisplayValue() || '').trim();
+    } catch(e) {}
+  });
+  return report;
 }
 
 
@@ -1670,6 +1771,51 @@ function buildConfig(ss) {
     ws.setColumnWidth(col, w);
     if (note) headerCell.setNote(note);
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // EXTERNAL QA SECTION (Kolom AL-AN)
+  // ─────────────────────────────────────────────────────────────────────
+
+  const externalQACol = 38; // Start at column AL (after Y:AK automation contract block)
+  ensureSheetColumns_(ws, externalQACol + 2);
+
+  ws.getRange(1, externalQACol, 1, 3).merge()
+    .setValue('EXTERNAL QA')
+    .setBackground('#455A64').setFontColor('#FFFFFF').setFontWeight('bold')
+    .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+
+  ws.getRange(2, externalQACol, 1, 3).merge()
+    .setValue('Flag untuk scope yang dites external team dan apakah perlu retest QA Peruri. Detail evidence ada di QATM tab External Test Report.')
+    .setBackground('#ECEFF1').setFontColor('#455A64').setFontStyle('italic')
+    .setFontSize(8).setHorizontalAlignment('center');
+
+  const externalQAHeaders = [
+    ['External QA', 90, 'TRUE = testing utama dilakukan external team.\nFALSE = testing internal QA Peruri seperti biasa.'],
+    ['Retest QA Peruri', 120, 'TRUE = tetap perlu retest internal QA Peruri.\nFALSE = tidak perlu retest internal; hasil test QATM boleh kosong jika External QA TRUE.'],
+    ['External QA Notes', 220, 'Catatan tambahan di level dashboard config. Scope / Notes utama tetap di QATM Summary.']
+  ];
+
+  externalQAHeaders.forEach(([h, w, note], i) => {
+    const col = externalQACol + i;
+    const headerCell = ws.getRange(3, col);
+    headerCell
+      .setValue(h)
+      .setBackground('#607D8B').setFontColor('#FFFFFF')
+      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setWrap(true)
+      .setBorder(true, true, true, true, false, false, '#B0BEC5', SpreadsheetApp.BorderStyle.SOLID);
+    ws.setColumnWidth(col, w);
+    if (note) headerCell.setNote(note);
+  });
+
+  ws.getRange(4, externalQACol, 3, 3)
+    .setValues([[false, true, ''], [false, true, ''], [false, true, '']])
+    .setBackground('#ECEFF1')
+    .setFontFamily('Arial').setFontSize(9).setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, false, false, '#B0BEC5', SpreadsheetApp.BorderStyle.SOLID);
+  ws.getRange(4, externalQACol, 997, 2).setDataValidation(dvBool);
+  ws.getRange(4, externalQACol, 997, 2).setHorizontalAlignment('center').setFontWeight('bold');
 }
 
 
@@ -1747,7 +1893,7 @@ function getWebAppUrl_() {
 }
 
 function initOverviewHeaders_(ws) {
-  const lastCol = Math.max(ws.getLastColumn()||1, 26);
+  const lastCol = Math.max(ws.getLastColumn()||1, 34);
   try { ws.getRange(1,1,5,lastCol).breakApart(); } catch(e) {}
   ws.getRange(1,1,5,lastCol).clearContent().clearFormat();
 
@@ -1759,20 +1905,20 @@ function initOverviewHeaders_(ws) {
         .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
   }
 
-  // Col widths — 26 cols (COMPACT VERSION)
-  // NEW LAYOUT: Project, Modul, Submodul, PIC QA | BUGS (4) | WEB (5) | SMOKE WEB (3) | API (5) | SMOKE API (3) | PERF | NOTES
-  [80,80,90,80, 48,52,56,52, 48,52,48,48,60, 56,60,52, 48,52,48,48,60, 56,60,52, 60, 140]
+  // Col widths — legacy 26 cols + external QA metadata.
+  [80,80,90,80, 48,52,56,52, 48,52,48,48,60, 56,60,52, 48,52,48,48,60, 56,60,52, 60, 140,
+    70,80,150,180,120,120,120,160]
       .forEach((w,i)=>ws.setColumnWidth(i+1,w));
 
   // Row 1 — Web App Dashboard Link
   const webAppUrl = getWebAppUrl_();
   if (webAppUrl) {
-    ws.getRange(1,1,1,26).merge()
+    ws.getRange(1,1,1,34).merge()
         .setFormula('=HYPERLINK("' + webAppUrl + '","📊 Open Interactive Dashboard (Charts & Trends)")')
         .setBackground('#4CAF50').setFontColor('#FFFFFF').setFontWeight('bold')
         .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
   } else {
-    ws.getRange(1,1,1,26).merge()
+    ws.getRange(1,1,1,34).merge()
         .setValue('📊 Interactive Dashboard Available (Deploy web app to get link)')
         .setBackground('#FF9800').setFontColor('#FFFFFF').setFontWeight('bold')
         .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
@@ -1780,13 +1926,13 @@ function initOverviewHeaders_(ws) {
   ws.setRowHeight(1,28);
 
   // Row 2 — last refresh
-  ws.getRange(2,1,1,26).merge().setValue('Last refreshed: —')
+  ws.getRange(2,1,1,34).merge().setValue('Last refreshed: —')
       .setBackground('#E3F2FD').setFontColor('#1565C0').setFontStyle('italic')
       .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('left');
   ws.setRowHeight(2,16);
 
   // Row 3 — title
-  h_(3,1,1,26,'QA DASHBOARD  |  PORTFOLIO OVERVIEW','#0D47A1','#FFFFFF',13);
+  h_(3,1,1,34,'QA DASHBOARD  |  PORTFOLIO OVERVIEW','#0D47A1','#FFFFFF',13);
   ws.setRowHeight(3,30);
 
   // Row 4 — group headers
@@ -1799,6 +1945,7 @@ function initOverviewHeaders_(ws) {
   h_(4,22,1,3, '🔥 SMOKE API',   '#4A148C');
   h_(4,25,1,1, 'PERF',            '#004D40');
   h_(4,26,1,1, 'NOTES',           '#37474F');
+  h_(4,27,1,8, 'EXTERNAL QA',      '#455A64');
   ws.setRowHeight(4,22);
 
   // Row 5 — column headers
@@ -1809,7 +1956,8 @@ function initOverviewHeaders_(ws) {
     'Total','Pass%','Exec%',
     'Total','Pass','Fail','Block','Pass%',
     'Total','Pass%','Exec%',
-    'Perf','Notes'
+    'Perf','Notes',
+    'External','Retest','Scope Notes','External Notes','Func Review','Perf Review','VAPT Review','Overall'
   ].forEach((lbl,i)=>h_(5,i+1,1,1,lbl,'#1565C0'));
   ws.getRange(5,5).setNote('Total bugs (all status kecuali Closed)');
   ws.getRange(5,6).setNote('Bug Blocker (Priority Critical/High/Medium, Status Open/In Progress/Reopen)');
@@ -1821,6 +1969,10 @@ function initOverviewHeaders_(ws) {
   ws.getRange(5,22).setNote('Smoke API: TC Priority Critical+High+Medium');
   ws.getRange(5,23).setNote('Smoke API Pass Rate (target ≥80%)');
   ws.getRange(5,24).setNote('Smoke API Exec Rate');
+  ws.getRange(5,27).setNote('TRUE jika testing dilakukan external team.');
+  ws.getRange(5,28).setNote('TRUE jika tetap perlu retest oleh QA Peruri.');
+  ws.getRange(5,29).setNote('Manual Scope / Notes dari QATM Summary.');
+  ws.getRange(5,30).setNote('Notes dari Config External QA Notes dan tab External Test Report.');
   ws.setRowHeight(5,26);
   ws.setFrozenRows(5);
 }
@@ -1833,7 +1985,7 @@ function writeOverview(ss, allData) {
 
   // Clear ALL data rows (not just lastRow which may have old inactive module data)
   const lastRow = ws.getMaxRows();
-  if (lastRow>=6) ws.getRange(6,1,lastRow-5,26).clearContent().clearFormat();
+  if (lastRow>=6) ws.getRange(6,1,lastRow-5,34).clearContent().clearFormat();
 
   const rules = [];
 
@@ -1909,6 +2061,20 @@ function writeOverview(ss, allData) {
     ws.getRange(r,26).setValue(d.error||'').setBackground(bg).setFontFamily('Arial').setFontSize(8)
         .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true)
         .setBorder(true,true,true,true,false,false,'#E0E0E0',SpreadsheetApp.BorderStyle.SOLID);
+    const externalQA = d.externalQA || {};
+    const externalReport = d.externalTestReport || {};
+    cell(27, externalQA.isExternal === true);
+    cell(28, externalQA.retestByPeruri === true);
+    ws.getRange(r,29).setValue(d.scopeNotes || '').setBackground(bg).setFontFamily('Arial').setFontSize(8)
+        .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true)
+        .setBorder(true,true,true,true,false,false,'#E0E0E0',SpreadsheetApp.BorderStyle.SOLID);
+    ws.getRange(r,30).setValue([externalQA.notes, externalReport.notes].filter(Boolean).join('\n')).setBackground(bg).setFontFamily('Arial').setFontSize(8)
+        .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true)
+        .setBorder(true,true,true,true,false,false,'#E0E0E0',SpreadsheetApp.BorderStyle.SOLID);
+    cell(31, externalReport.functionalReviewStatus || '');
+    cell(32, externalReport.performanceReviewStatus || '');
+    cell(33, externalReport.vaptReviewStatus || '');
+    cell(34, externalReport.overallStatus || '');
     ws.setRowHeight(r,22);
 
     // RAG Pass%
@@ -2310,6 +2476,44 @@ function ensureSheetColumns_(ws, requiredColumns) {
   }
 }
 
+function setupExternalQAConfigSection_(ws) {
+  const externalQACol = 38; // AL
+  ensureSheetColumns_(ws, externalQACol + 2);
+
+  try { ws.getRange(1, externalQACol, 2, 3).breakApart(); } catch(e) {}
+  ws.getRange(1, externalQACol, 1, 3).merge()
+    .setValue('EXTERNAL QA')
+    .setBackground('#455A64').setFontColor('#FFFFFF').setFontWeight('bold')
+    .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+  ws.getRange(2, externalQACol, 1, 3).merge()
+    .setValue('Flag untuk scope yang dites external team dan apakah perlu retest QA Peruri. Detail evidence ada di QATM tab External Test Report.')
+    .setBackground('#ECEFF1').setFontColor('#455A64').setFontStyle('italic')
+    .setFontSize(8).setHorizontalAlignment('center');
+
+  const headers = [
+    ['External QA', 90, 'TRUE = testing utama dilakukan external team.\nFALSE = testing internal QA Peruri seperti biasa.'],
+    ['Retest QA Peruri', 120, 'TRUE = tetap perlu retest internal QA Peruri.\nFALSE = tidak perlu retest internal; hasil test QATM boleh kosong jika External QA TRUE.'],
+    ['External QA Notes', 220, 'Catatan tambahan di level dashboard config. Scope / Notes utama tetap di QATM Summary.']
+  ];
+  headers.forEach(([h, w, note], i) => {
+    const col = externalQACol + i;
+    const headerCell = ws.getRange(3, col);
+    headerCell
+      .setValue(h)
+      .setBackground('#607D8B').setFontColor('#FFFFFF')
+      .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setWrap(true)
+      .setBorder(true, true, true, true, false, false, '#B0BEC5', SpreadsheetApp.BorderStyle.SOLID);
+    ws.setColumnWidth(col, w);
+    if (note) headerCell.setNote(note);
+  });
+
+  const dvBool = SpreadsheetApp.newDataValidation().requireCheckbox().build();
+  ws.getRange(4, externalQACol, 997, 2).setDataValidation(dvBool);
+  ws.getRange(4, externalQACol, 997, 2).setHorizontalAlignment('center').setFontWeight('bold');
+}
+
 function getHistoryHeaders_() {
   return ['Timestamp','Project','Modul','Submodul','PIC QA',
     'webTestCases','webPassed','webFailed','webBlocked','webPassRate','webExecRate','webAutomationRate',
@@ -2335,7 +2539,11 @@ function getHistoryHeaders_() {
     'webStgPassed','webStgFailed','webStgPassRate','webStgStatus',
     'apiStgPassed','apiStgFailed','apiStgPassRate','apiStgStatus',
     'webProdPassed','webProdFailed','webProdPassRate','webProdStatus',
-    'apiProdPassed','apiProdFailed','apiProdPassRate','apiProdStatus'];
+    'apiProdPassed','apiProdFailed','apiProdPassRate','apiProdStatus',
+    'externalQA','retestQAPeruri','scopeNotes','externalQANotes',
+    'externalTeam','externalStatusReview','functionalEvidenceUrl','functionalReviewStatus',
+    'performanceEvidenceUrl','performanceReviewStatus','vaptEvidenceUrl','vaptReviewStatus',
+    'externalOverallStatus','externalReviewer','externalReviewDate','externalReportNotes'];
 }
 
 function ensureHistoryHeaders_(ws) {
@@ -2408,7 +2616,14 @@ function appendHistory(ss, allData) {
       webStgRun ? webStgRun.passed : '',webStgRun ? webStgRun.failed : '',webStgRun ? webStgRun.passRate : '',webStgRun ? webStgRun.status : 'Coming Soon',
       apiStgRun ? apiStgRun.passed : '',apiStgRun ? apiStgRun.failed : '',apiStgRun ? apiStgRun.passRate : '',apiStgRun ? apiStgRun.status : 'Coming Soon',
       webProdRun ? webProdRun.passed : '',webProdRun ? webProdRun.failed : '',webProdRun ? webProdRun.passRate : '',webProdRun ? webProdRun.status : 'Coming Soon',
-      apiProdRun ? apiProdRun.passed : '',apiProdRun ? apiProdRun.failed : '',apiProdRun ? apiProdRun.passRate : '',apiProdRun ? apiProdRun.status : 'Coming Soon'];
+      apiProdRun ? apiProdRun.passed : '',apiProdRun ? apiProdRun.failed : '',apiProdRun ? apiProdRun.passRate : '',apiProdRun ? apiProdRun.status : 'Coming Soon',
+      (d.externalQA||{}).isExternal === true,(d.externalQA||{}).retestByPeruri === true,d.scopeNotes || '',(d.externalQA||{}).notes || '',
+      (d.externalTestReport||{}).externalTeam || '',(d.externalTestReport||{}).statusReview || '',
+      (d.externalTestReport||{}).functionalEvidenceUrl || '',(d.externalTestReport||{}).functionalReviewStatus || '',
+      (d.externalTestReport||{}).performanceEvidenceUrl || '',(d.externalTestReport||{}).performanceReviewStatus || '',
+      (d.externalTestReport||{}).vaptEvidenceUrl || '',(d.externalTestReport||{}).vaptReviewStatus || '',
+      (d.externalTestReport||{}).overallStatus || '',(d.externalTestReport||{}).reviewer || '',
+      (d.externalTestReport||{}).reviewDate || '',(d.externalTestReport||{}).notes || ''];
   });
 
   // SMART APPEND: Check if today's data already exists
@@ -2493,7 +2708,23 @@ function mergeHistoryAutomationColumns_(existingRow, latestRow, hdrs) {
     'apiProdPassed',
     'apiProdFailed',
     'apiProdPassRate',
-    'apiProdStatus'
+    'apiProdStatus',
+    'externalQA',
+    'retestQAPeruri',
+    'scopeNotes',
+    'externalQANotes',
+    'externalTeam',
+    'externalStatusReview',
+    'functionalEvidenceUrl',
+    'functionalReviewStatus',
+    'performanceEvidenceUrl',
+    'performanceReviewStatus',
+    'vaptEvidenceUrl',
+    'vaptReviewStatus',
+    'externalOverallStatus',
+    'externalReviewer',
+    'externalReviewDate',
+    'externalReportNotes'
   ].forEach(header => {
     const index = hdrs.indexOf(header);
     if (index >= 0) merged[index] = latestRow[index];

@@ -6,6 +6,144 @@
  */
 
 // ═══════════════════════════════════════════════════════════════════════
+// EXTERNAL QA REPORT TAB
+// ═══════════════════════════════════════════════════════════════════════
+
+function broadcastExternalTestReportTab() {
+  const dashboardSs = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const modules = getModuleList_(dashboardSs);
+  const targets = [];
+  const seen = {};
+
+  modules.forEach(mod => {
+    if (!mod || !mod.id || seen[mod.id]) return;
+    seen[mod.id] = true;
+    targets.push(mod);
+  });
+
+  if (targets.length === 0) {
+    ui.alert('No active QATM targets found in Config.');
+    return;
+  }
+
+  const response = ui.alert(
+    'Broadcast External Test Report Tab',
+    'Akan membuat tab "External Test Report" di ' + targets.length + ' QATM aktif.\n\n' +
+    'Aman untuk existing data:\n' +
+    '- Jika tab sudah ada, akan di-skip.\n' +
+    '- Tidak rebuild QATM.\n' +
+    '- Tidak mengubah TC/API/Summary/BugReport.\n\n' +
+    'Lanjutkan?',
+    ui.ButtonSet.YES_NO
+  );
+  if (response !== ui.Button.YES) return;
+
+  let created = 0;
+  let skipped = 0;
+  let failed = 0;
+  const errors = [];
+
+  targets.forEach(mod => {
+    try {
+      const qatmSs = SpreadsheetApp.openById(mod.id);
+      if (qatmSs.getSheetByName('External Test Report')) {
+        skipped++;
+        return;
+      }
+      createExternalTestReportTab_(qatmSs);
+      created++;
+    } catch (error) {
+      failed++;
+      errors.push((mod.project || '') + ' / ' + (mod.module || '') + ' / ' + (mod.submodule || mod.name || '') + ': ' + error.message);
+      Logger.log('External Test Report broadcast failed [' + (mod.id || '-') + ']: ' + error.stack);
+    }
+  });
+
+  ui.alert(
+    'External Test Report Broadcast Complete',
+    'Created: ' + created + '\n' +
+    'Skipped existing: ' + skipped + '\n' +
+    'Failed: ' + failed +
+    (errors.length ? '\n\nErrors:\n' + errors.slice(0, 8).join('\n') : ''),
+    ui.ButtonSet.OK
+  );
+}
+
+function createExternalTestReportTab_(ss) {
+  const ws = ss.insertSheet('External Test Report');
+  ws.clear();
+  ws.setTabColor('#455A64');
+
+  [190,360,160,160,240,180].forEach((width, index) => ws.setColumnWidth(index + 1, width));
+  ws.getRange(1,1,1,6).merge()
+      .setValue('EXTERNAL TEST REPORT')
+      .setBackground('#263238').setFontColor('#FFFFFF').setFontWeight('bold')
+      .setFontSize(13).setFontFamily('Arial').setHorizontalAlignment('center');
+  ws.setRowHeight(1,30);
+
+  ws.getRange(2,1,1,6).merge()
+      .setValue('Manual evidence untuk scope yang dites oleh external team. Dashboard/PDF membaca field ini jika External QA aktif.')
+      .setBackground('#ECEFF1').setFontColor('#455A64').setFontStyle('italic')
+      .setFontSize(8).setFontFamily('Arial').setHorizontalAlignment('center');
+  ws.setRowHeight(2,18);
+
+  const statusList = ['Not Started','In Review','Approved','Rejected','Not Applicable'];
+  const overallList = ['Not Started','In Review','Ready for Closure','Approved','Rejected','Not Applicable'];
+  const fields = [
+    ['External Team / Vendor:', '', null],
+    ['Status Review:', 'Not Started', statusList],
+    ['Functional Evidence URL:', '', null],
+    ['Functional Review Status:', 'Not Started', statusList],
+    ['Performance Evidence URL:', '', null],
+    ['Performance Review Status:', 'Not Started', statusList],
+    ['VAPT Evidence URL:', '', null],
+    ['VAPT Review Status:', 'Not Started', statusList],
+    ['Overall Status:', 'Not Started', overallList],
+    ['Reviewer:', '', null],
+    ['Review Date:', '', null],
+    ['Notes:', '', null],
+  ];
+
+  fields.forEach(([label, value, list], index) => {
+    const row = 4 + index;
+    ws.getRange(row,1)
+      .setValue(label)
+      .setBackground('#CFD8DC').setFontColor('#263238').setFontWeight('bold')
+      .setFontSize(9).setFontFamily('Arial').setHorizontalAlignment('right')
+      .setVerticalAlignment('middle')
+      .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
+    ws.getRange(row,2,1,5).merge();
+    ws.getRange(row,2)
+      .setValue(value)
+      .setBackground('#FFFFFF').setFontSize(9).setFontFamily('Arial')
+      .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true)
+      .setBorder(true,true,true,true,false,false,'#CFD8DC',SpreadsheetApp.BorderStyle.SOLID);
+    if (list) {
+      ws.getRange(row,2).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(list, true).setAllowInvalid(false).build());
+      ws.getRange(row,2,1,5).setBorder(true,true,true,true,false,false,'#1976D2',SpreadsheetApp.BorderStyle.SOLID);
+    }
+    ws.setRowHeight(row, row === 15 ? 58 : 24);
+  });
+
+  const rules = [];
+  [
+    ['Approved','#C8E6C9','#1B5E20'],
+    ['Ready for Closure','#C8E6C9','#1B5E20'],
+    ['In Review','#E3F2FD','#1565C0'],
+    ['Rejected','#FFCDD2','#B71C1C'],
+    ['Not Started','#F5F5F5','#616161'],
+    ['Not Applicable','#ECEFF1','#455A64'],
+  ].forEach(([value, bg, fg]) => {
+    rules.push(SpreadsheetApp.newConditionalFormatRule()
+        .whenTextEqualTo(value).setBackground(bg).setFontColor(fg).setBold(true)
+        .setRanges([ws.getRange('B4:B15')]).build());
+  });
+  ws.setConditionalFormatRules(rules);
+  ws.setFrozenRows(2);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // V1: ACTIVE FILTER FIX & DASHBOARD IMPROVEMENTS
 // ═══════════════════════════════════════════════════════════════════════
 
