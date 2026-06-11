@@ -72,6 +72,7 @@ function onOpen() {
       .addSeparator()
       .addItem('▶️ Manual Sync + Refresh', 'manualSyncAndRefresh')
       .addItem('⚙️ Setup External QA Config', 'menuSetupExternalQAConfig')
+      .addItem('🤖 Generate Automation Config', 'menuGenerateAutomationConfig')
       .addItem('🚀 Setup Auto-Refresh Trigger', 'setupAutoRefreshTrigger')
       .addSeparator()
       .addItem('⚙️ Refresh Bug Only (No Jira Sync)', 'refreshBugOnly')
@@ -119,9 +120,7 @@ function onOpen() {
       .addItem('Cleanup VAPT History Data (90 days)', 'cleanupVAPTHistoryData'))
     .addSubMenu(ui.createMenu('⚙️ Settings')
       .addItem('Set Web App Dashboard URL', 'menuSetWebAppUrl')
-      .addItem('Set Automation Ingest Token', 'menuSetAutomationIngestToken')
-      .addSeparator()
-      .addItem('🤖 Generate Automation Config', 'menuGenerateAutomationConfig'))
+      .addItem('Set Automation Ingest Token', 'menuSetAutomationIngestToken'))
     .addToUi();
 }
 

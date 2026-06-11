@@ -69,10 +69,22 @@ function generateAutomationConfig() {
     ws.getRange(update.row, 25, 1, 13).setValues([update.config]); // Y-AK (cols 25-37)
   });
 
+  // Apply data validation for Test Env dropdown (column AB = 28)
+  const testEnvValidation = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Dev', 'Staging', 'Prod', 'Dev & Staging', 'Staging & Prod', 'Dev & Prod', 'All Env'], true)
+    .setAllowInvalid(false)
+    .build();
+
+  // Apply to all generated rows
+  updates.forEach(update => {
+    ws.getRange(update.row, 28).setDataValidation(testEnvValidation); // AB (col 28)
+  });
+
   SpreadsheetApp.getUi().alert(
     'Automation Config Generated! ✅',
     'Generated automation config for ' + generatedCount + ' modules.\n\n' +
-    'Existing configs were preserved (not overwritten).',
+    'Existing configs were preserved (not overwritten).\n\n' +
+    'Test Env dropdown applied (Dev, Staging, Prod, etc.).',
     SpreadsheetApp.getUi().ButtonSet.OK
   );
 
