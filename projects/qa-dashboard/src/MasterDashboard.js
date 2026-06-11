@@ -119,7 +119,9 @@ function onOpen() {
       .addItem('Cleanup VAPT History Data (90 days)', 'cleanupVAPTHistoryData'))
     .addSubMenu(ui.createMenu('⚙️ Settings')
       .addItem('Set Web App Dashboard URL', 'menuSetWebAppUrl')
-      .addItem('Set Automation Ingest Token', 'menuSetAutomationIngestToken'))
+      .addItem('Set Automation Ingest Token', 'menuSetAutomationIngestToken')
+      .addSeparator()
+      .addItem('🤖 Generate Automation Config', 'menuGenerateAutomationConfig'))
     .addToUi();
 }
 
