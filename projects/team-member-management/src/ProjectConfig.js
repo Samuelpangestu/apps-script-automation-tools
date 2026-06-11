@@ -50,7 +50,23 @@ function createConfigTab() {
     .setHorizontalAlignment('center')
     .setVerticalAlignment('middle');
   sheet.setRowHeight(currentRow, 40);
-  currentRow += 2;
+  currentRow++;
+
+  // QA Dashboard Sync Config (Row 2, Column P)
+  sheet.getRange(2, 16).setValue('QA Dashboard ID:')
+    .setFontWeight('bold')
+    .setFontSize(9)
+    .setBackground('#f3f3f3');
+  sheet.getRange(2, 17, 1, 3).merge()
+    .setValue('Paste QA Dashboard Spreadsheet ID or URL here (e.g., 1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY)')
+    .setBackground('#fff3cd')
+    .setFontStyle('italic')
+    .setFontSize(8)
+    .setNote('Paste QA Dashboard Spreadsheet ID here to enable sync.\n\nExample:\n1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY\n\nOr full URL:\nhttps://docs.google.com/spreadsheets/d/1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY/edit');
+  sheet.setColumnWidth(16, 120); // Column P
+  sheet.setColumnWidth(17, 300); // Column Q (merged with R, S)
+
+  currentRow++;
 
   // Main table header
   const headers = [

@@ -18,11 +18,14 @@ function onOpen() {
     .addItem('👤 Create Team Members Tab', 'menuSetupTeam')
     .addItem('📊 Create Dashboard Tab', 'menuCreateDashboard')
     .addSeparator()
+    .addItem('🔄 Sync from QA Dashboard', 'menuSyncFromDashboard')
+    .addItem('🧪 Test Dashboard Connection', 'menuTestDashboardConnection')
+    .addSeparator()
     .addItem('📥 Inject Team Member Data', 'menuInjectData')
     .addItem('🎨 Apply Dropdown Project', 'menuApplyDropdown')
     .addSeparator()
     .addItem('🔄 Refresh Dashboard', 'menuRefreshDashboard')
-    .addItem('⏰ Setup Auto-Refresh', 'menuSetupAutoRefresh')
+    .addItem('⏰ Setup Auto-Sync & Refresh', 'menuSetupAutoSyncRefresh')
     .addSeparator()
     .addItem('📖 Parameter Guide', 'menuShowParameterGuide')
     .addItem('ℹ️ About', 'menuShowAbout')
@@ -266,7 +269,199 @@ function menuShowAbout() {
   ui.alert('About', message, ui.ButtonSet.OK);
 }
 
-// Production sync and auto-generate functions removed - using manual input only
+/**
+ * Sync from QA Dashboard Config Sheet (SSOT)
+ */
+function menuSyncFromDashboard() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Check if Dashboard ID is configured
+  const settings = getSyncSettings();
+
+  if (!settings.enabled || !settings.spreadsheetId) {
+    ui.alert(
+      'QA Dashboard Not Configured',
+      'Please paste your QA Dashboard Spreadsheet ID in the Project tab first.\n\n' +
+      'Location: Project tab → Cell P2 (QA Dashboard ID)\n\n' +
+      'You can paste either:\n' +
+      '• Just the ID: 1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY\n' +
+      '• Or full URL: https://docs.google.com/spreadsheets/d/ID/edit',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  const response = ui.alert(
+    'Sync from QA Dashboard?',
+    'This will sync Config data from:\n' +
+    settings.spreadsheetName + '\n\n' +
+    '⚠️ This will OVERWRITE local Project config data.\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    ss.toast('Syncing from QA Dashboard...', 'In Progress', -1);
+
+    const result = syncFromDashboard();
+
+    if (result.success) {
+      ss.toast(
+        'Synced ' + result.synced.projects + ' projects, ' +
+        result.synced.moduls + ' moduls, ' +
+        result.synced.submoduls + ' submoduls from QA Dashboard!',
+        'Success',
+        5
+      );
+
+      // Ask if user wants to refresh dashboard
+      const refreshResponse = ui.alert(
+        'Sync Complete!',
+        'Data synced successfully.\n\n' +
+        'Refresh Dashboard now?',
+        ui.ButtonSet.YES_NO
+      );
+
+      if (refreshResponse === ui.Button.YES) {
+        menuRefreshDashboard();
+      }
+
+    } else {
+      ui.alert('Sync Failed', result.message + '\n\nPlease check:\n1. QA Dashboard ID is correct in Project tab (cell P2)\n2. You have access to the QA Dashboard spreadsheet', ui.ButtonSet.OK);
+    }
+
+  } catch (error) {
+    ui.alert('Error', 'Sync failed: ' + error.message, ui.ButtonSet.OK);
+    Logger.log('Sync error: ' + error.stack);
+  }
+}
+
+/**
+ * Test Dashboard Connection
+ */
+function menuTestDashboardConnection() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const settings = getSyncSettings();
+
+  if (!settings.enabled || !settings.spreadsheetId) {
+    ui.alert(
+      'QA Dashboard Not Configured',
+      'Please paste your QA Dashboard Spreadsheet ID in Project tab → Cell P2\n\n' +
+      'Example:\n' +
+      '1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY',
+      ui.ButtonSet.OK
+    );
+    return;
+  }
+
+  ss.toast('Testing connection to QA Dashboard...', 'Testing', -1);
+
+  const result = testSyncConnection();
+
+  if (result.success) {
+    ui.alert(
+      'Connection Successful! ✅',
+      result.message + '\n\n' +
+      'Active modules found: ' + (result.activeModules || 0) + '\n\n' +
+      'You can now use "Sync from QA Dashboard" to pull data.',
+      ui.ButtonSet.OK
+    );
+  } else {
+    ui.alert(
+      'Connection Failed ❌',
+      result.message + '\n\n' +
+      'Please check:\n' +
+      '1. Spreadsheet ID is correct (cell P2)\n' +
+      '2. You have access to the QA Dashboard\n' +
+      '3. Dashboard has a "Config" tab',
+      ui.ButtonSet.OK
+    );
+  }
+}
+
+/**
+ * Setup Auto-Sync & Refresh
+ */
+function menuSetupAutoSyncRefresh() {
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert(
+    'Setup Auto-Sync & Refresh',
+    'Configure automatic sync from QA Dashboard and refresh local dashboard.\n\n' +
+    'Choose interval:\n' +
+    '• Every 1 hour - Very frequent\n' +
+    '• Every 3 hours - Moderate\n' +
+    '• Every 6 hours - Less frequent\n' +
+    '• Every 12 hours - Twice daily\n' +
+    '• Every 24 hours - Once daily\n\n' +
+    'Enable auto-sync & refresh?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    // Check if there's existing trigger to disable
+    const triggers = ScriptApp.getProjectTriggers();
+    let removed = false;
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'autoSyncAndRefresh') {
+        ScriptApp.deleteTrigger(trigger);
+        removed = true;
+      }
+    });
+
+    if (removed) {
+      ui.alert('Auto-Sync Disabled', 'Auto-sync & refresh has been turned off.', ui.ButtonSet.OK);
+    }
+    return;
+  }
+
+  const intervalResponse = ui.prompt(
+    'Enter Interval',
+    'Enter hours (1, 3, 6, 12, or 24):',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (intervalResponse.getSelectedButton() !== ui.Button.OK) return;
+
+  const hours = parseInt(intervalResponse.getResponseText().trim());
+
+  if (![1, 3, 6, 12, 24].includes(hours)) {
+    ui.alert('Invalid Input', 'Please enter: 1, 3, 6, 12, or 24', ui.ButtonSet.OK);
+    return;
+  }
+
+  try {
+    // Remove existing triggers
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'autoSyncAndRefresh') {
+        ScriptApp.deleteTrigger(trigger);
+      }
+    });
+
+    // Create new trigger
+    ScriptApp.newTrigger('autoSyncAndRefresh')
+      .timeBased()
+      .everyHours(hours)
+      .create();
+
+    ui.alert(
+      'Auto-Sync Enabled! ✅',
+      'Will auto-sync from QA Dashboard and refresh every ' + hours + ' hour(s).\n\n' +
+      'Next sync in ' + hours + ' hour(s).',
+      ui.ButtonSet.OK
+    );
+  } catch (error) {
+    ui.alert('Error', 'Failed to setup auto-sync: ' + error.message, ui.ButtonSet.OK);
+  }
+}
 
 /**
  * Apply dropdown validation to Team Members
