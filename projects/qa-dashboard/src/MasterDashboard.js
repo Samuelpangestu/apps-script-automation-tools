@@ -437,8 +437,18 @@ function refreshDashboard() {
 }
 
 /**
- * Refresh Bug Only (No VAPT refresh)
- * Use this when you only need to update bug data from QATM modules
+ * Refresh Bug Only (No VAPT refresh, No Jira Sync)
+ * Updates all tabs except VAPT, same as refreshDashboard but skips VAPT data
+ *
+ * What gets updated:
+ * - Overview, Bugs, Smoke, Failure Scenario, Coverage tabs
+ * - History (append new snapshot)
+ * - Config (Project/Module/Submodule/PIC QA from QATM Summary)
+ * - _Raw cache
+ *
+ * What gets skipped:
+ * - VAPT data refresh
+ * - Jira sync
  */
 function refreshBugOnly() {
   const startTime = new Date();
@@ -467,19 +477,44 @@ function refreshBugOnly() {
   });
   Logger.log('⏱️  Pull module data: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
 
-  // ═══ STEP 2: Write Bugs Tab Only ═══
-  t1 = new Date();
-  writeBugs(ss, allData);
-  Logger.log('⏱️  writeBugs: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
-
-  // Update Overview for bug columns
+  // ═══ STEP 2: Write Tabs (Same as refreshDashboard, except VAPT) ═══
   t1 = new Date();
   writeOverview(ss, allData);
   Logger.log('⏱️  writeOverview: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
 
+  t1 = new Date();
+  writeBugs(ss, allData);
+  Logger.log('⏱️  writeBugs: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  // Skip refreshVAPTData() - this is Bug Only refresh
+
+  t1 = new Date();
+  writeSmoke(ss, allData);
+  Logger.log('⏱️  writeSmoke: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  writeFailureScenario(ss, allData);
+  Logger.log('⏱️  writeFailureScenario: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  writeCoverage(ss, allData);
+  Logger.log('⏱️  writeCoverage: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  appendHistory(ss, allData);
+  Logger.log('⏱️  appendHistory: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  updateRaw(ss, allData);
+  Logger.log('⏱️  updateRaw: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  updateConfig(ss, allData);
+  Logger.log('⏱️  updateConfig: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
   // ═══ STEP 3: Update Timestamp ═══
   const ts = 'Last refreshed: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss');
-  ['Overview', 'Bugs'].forEach(name => {
+  ['Overview', 'Bugs', 'Smoke'].forEach(name => {
     const sh = ss.getSheetByName(name);
     // Overview has web app link in row 1, "Last refreshed" is in row 2
     if (sh) sh.getRange(name === 'Overview' ? 2 : 1, 1).setValue(ts);
@@ -2646,8 +2681,9 @@ function appendHistory(ss, allData) {
     rows.forEach(row=>{
       const key=`${row[1]||''}-${row[2]||''}-${row[3]||''}`;
       if(todayRows[key]){
-        const existingRow = ws.getRange(todayRows[key],1,1,HISTORY_COLS).getValues()[0];
-        ws.getRange(todayRows[key],1,1,HISTORY_COLS).setValues([mergeHistoryAutomationColumns_(existingRow, row, hdrs)]);
+        // FULL UPDATE - Replace entire row with latest data
+        // This ensures ALL columns (test execution, bugs, automation) are updated
+        ws.getRange(todayRows[key],1,1,HISTORY_COLS).setValues([row]);
       }else{
         // Collect for batch append
         newRows.push(row);
@@ -2673,6 +2709,10 @@ function appendHistory(ss, allData) {
   // Charts removed - will use Web App dashboard for visualization
 }
 
+/**
+ * DEPRECATED: No longer used - keeping for reference
+ * Previously used to merge only automation columns, but now we do full row update
+ */
 function mergeHistoryAutomationColumns_(existingRow, latestRow, hdrs) {
   const merged = existingRow.slice();
   merged[0] = latestRow[0];
