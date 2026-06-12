@@ -13,11 +13,9 @@ function onOpen() {
 
   ui.createMenu('👥 QA Team Management')
     .addItem('🔨 Create All Tabs', 'menuSetupAll')
-    .addSeparator()
     .addItem('🔄 Sync from QA Dashboard', 'menuSyncFromDashboard')
-    .addItem('🧪 Test Dashboard Connection', 'menuTestDashboardConnection')
-    .addSeparator()
     .addItem('👥 Generate Team Members from PIC', 'menuGenerateTeamMembers')
+    .addSeparator()
     .addItem('📊 Refresh Dashboard', 'menuRefreshDashboard')
     .addItem('⏰ Setup Auto-Sync & Refresh', 'menuSetupAutoSyncRefresh')
     .addSeparator()
