@@ -29,7 +29,7 @@ function createDashboard() {
   let currentRow = 1;
 
   // Title
-  sheet.getRange(currentRow, 1, 1, 8).merge()
+  sheet.getRange(currentRow, 1, 1, 9).merge()
     .setValue('📊 QA TEAM PROJECT & SUBMODUL DISTRIBUTION')
     .setBackground('#1a73e8')
     .setFontColor('#ffffff')
@@ -41,7 +41,7 @@ function createDashboard() {
   currentRow++;
 
   // Filter note
-  sheet.getRange(currentRow, 1, 1, 8).merge()
+  sheet.getRange(currentRow, 1, 1, 9).merge()
     .setValue('ℹ️ Only showing projects/moduls/submoduls with Status = Active | Inactive & On Hold are excluded')
     .setBackground('#fff3cd')
     .setFontColor('#856404')
@@ -104,7 +104,7 @@ function createDashboard() {
   currentRow += 2;
 
   // Submodul distribution section
-  sheet.getRange(currentRow, 1, 1, 8).merge()
+  sheet.getRange(currentRow, 1, 1, 9).merge()
     .setValue('🎯 SUBMODUL TEAM ASSIGNMENTS')
     .setBackground('#34a853')
     .setFontColor('#ffffff')
@@ -116,8 +116,8 @@ function createDashboard() {
   currentRow++;
 
   // Table header
-  const tableHeaders = ['Project', 'Modul', 'Submodul', 'Category', 'QA Team Lead', 'QA Lead', 'PIC Project', 'QE'];
-  sheet.getRange(currentRow, 1, 1, 8)
+  const tableHeaders = ['Project', 'Modul', 'Submodul', 'PIC QA', 'Category', 'QA Team Lead', 'QA Lead', 'PIC Project', 'QE'];
+  sheet.getRange(currentRow, 1, 1, 9)
     .setValues([tableHeaders])
     .setBackground('#666666')
     .setFontColor('#ffffff')
@@ -169,6 +169,7 @@ function createDashboard() {
       projectName,
       submodul.modul,
       submodul.name,
+      submodul.picQA || '-', // PIC QA from Config
       categoryDisplay,
       qaTeamLeads.join(', ') || '-',
       qaLeads.join(', ') || '-',
@@ -176,18 +177,18 @@ function createDashboard() {
       qes.join(', ') || '-'
     ];
 
-    sheet.getRange(currentRow, 1, 1, 8).setValues([rowData]);
+    sheet.getRange(currentRow, 1, 1, 9).setValues([rowData]);
 
     // Row styling
     const bg = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
-    sheet.getRange(currentRow, 1, 1, 8)
+    sheet.getRange(currentRow, 1, 1, 9)
       .setBackground(bg)
       .setWrap(true)
       .setVerticalAlignment('top');
 
-    // Category column color coding
+    // Category column color coding (now at column 5 instead of 4)
     const ratingBg = getCategoryColor(category);
-    sheet.getRange(currentRow, 4).setBackground(ratingBg).setFontWeight('bold');
+    sheet.getRange(currentRow, 5).setBackground(ratingBg).setFontWeight('bold');
 
     currentRow++;
   });
@@ -196,11 +197,12 @@ function createDashboard() {
   sheet.setColumnWidth(1, 150); // Project
   sheet.setColumnWidth(2, 150); // Modul
   sheet.setColumnWidth(3, 200); // Submodul
-  sheet.setColumnWidth(4, 150); // Category
-  sheet.setColumnWidth(5, 160); // QA Team Lead
-  sheet.setColumnWidth(6, 160); // QA Lead
-  sheet.setColumnWidth(7, 160); // PIC Project
-  sheet.setColumnWidth(8, 160); // Quality Engineer
+  sheet.setColumnWidth(4, 140); // PIC QA
+  sheet.setColumnWidth(5, 150); // Category
+  sheet.setColumnWidth(6, 160); // QA Team Lead
+  sheet.setColumnWidth(7, 160); // QA Lead
+  sheet.setColumnWidth(8, 160); // PIC Project
+  sheet.setColumnWidth(9, 160); // Quality Engineer
 
   // Auto-resize rows for wrapped text
   for (let i = tableStartRow; i < currentRow; i++) {
@@ -210,7 +212,7 @@ function createDashboard() {
   currentRow += 2;
 
   // Person Matrix Section
-  sheet.getRange(currentRow, 1, 1, 8).merge()
+  sheet.getRange(currentRow, 1, 1, 9).merge()
     .setValue('👥 PERSON ASSIGNMENT MATRIX')
     .setBackground('#ff6d00')
     .setFontColor('#ffffff')
@@ -312,7 +314,7 @@ function createDashboard() {
   currentRow += 2;
 
   // Footer
-  sheet.getRange(currentRow, 1, 1, 8).merge()
+  sheet.getRange(currentRow, 1, 1, 9).merge()
     .setValue('Last updated: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'))
     .setFontStyle('italic')
     .setFontSize(9)

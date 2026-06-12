@@ -372,14 +372,13 @@ function generateTeamMembersFromConfig() {
   const picMap = new Map(); // Map<picName, {projects: Set, moduls: Set, submoduls: Set}>
 
   configData.forEach(row => {
-    const active = row[0];
-    const projectName = row[1] ? row[1].toString().trim() : '';
-    const modulName = row[2] ? row[2].toString().trim() : '';
-    const submodulName = row[3] ? row[3].toString().trim() : '';
-    const picQA = row[4] ? row[4].toString().trim() : '';
-    const status = row[11] ? row[11].toString().trim() : ''; // Column L (index 11)
+    const projectName = row[0] ? row[0].toString().trim() : ''; // Column A
+    const modulName = row[1] ? row[1].toString().trim() : ''; // Column B
+    const submodulName = row[2] ? row[2].toString().trim() : ''; // Column C
+    const picQA = row[3] ? row[3].toString().trim() : ''; // Column D (PIC QA)
+    const status = row[9] ? row[9].toString().trim() : ''; // Column J (Status)
 
-    if (active && projectName && modulName && submodulName && picQA && status === 'Active') {
+    if (projectName && modulName && submodulName && picQA && status === 'Active') {
       // Parse multiple PICs (comma-separated)
       const picNames = picQA.split(',').map(name => name.trim()).filter(name => name);
 

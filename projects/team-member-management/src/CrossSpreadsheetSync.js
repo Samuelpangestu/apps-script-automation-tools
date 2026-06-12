@@ -170,12 +170,35 @@ function syncFromDashboard() {
     const dataRowCount = Math.max(60, dashboardLastRow - 3); // Dashboard starts from row 4
 
     // Sync from Dashboard row 4 onwards (skip header rows 1-3)
-    const dashboardDataRange = 'A4:I' + (4 + dataRowCount - 1);
+    const dashboardDataRange = 'A4:F' + (4 + dataRowCount - 1);
     const dashboardData = dashboardConfig.getRange(dashboardDataRange).getValues();
 
+    // Read existing local data to preserve ratings
+    const localLastRow = localConfig.getLastRow();
+    const existingData = localLastRow >= CONFIG_DATA_START_ROW ?
+      localConfig.getRange(CONFIG_DATA_START_ROW, 1, localLastRow - CONFIG_DATA_START_ROW + 1, CONFIG_TOTAL_COLUMNS).getValues() : [];
+
+    // Build map of existing ratings by project|modul|submodul key
+    const existingRatingsMap = new Map();
+    existingData.forEach(row => {
+      const project = row[0] ? row[0].toString().trim() : '';
+      const modul = row[1] ? row[1].toString().trim() : '';
+      const submodul = row[2] ? row[2].toString().trim() : '';
+      if (project && modul && submodul) {
+        const key = [project, modul, submodul].join('|');
+        existingRatingsMap.set(key, {
+          difficulty: row[4] || 0,    // Column E
+          risk: row[5] || 0,           // Column F
+          complexity: row[6] || 0,     // Column G
+          automation: row[7] || 0,     // Column H
+          testComplexity: row[8] || 0  // Column I
+        });
+      }
+    });
+
     // Map Dashboard Config to local Project Config structure
-    // Dashboard: A=Active(checkbox), B=JiraSync, C=Project, D=Modul, E=Submodul, F=PIC QA, G=SpreadsheetID, H=Link, I=JiraInst, J=JiraProj
-    // Local Project: A=Project, B=Modul, C=Submodul, D=Diff, E=Risk, F=Comp, G=Auto, H=Test, I=Status
+    // Dashboard: A=Active, C=Project, D=Modul, E=Submodul, F=PIC QA
+    // Local Project: A=Project, B=Modul, C=Submodul, D=PIC QA, E=Diff, F=Risk, G=Comp, H=Auto, I=Test, J=Status
 
     const mappedData = [];
     const projectSet = new Set();
@@ -190,17 +213,21 @@ function syncFromDashboard() {
       const picQA = row[5] ? row[5].toString().trim() : '';      // Dashboard col F
 
       if (active && project && modul && submodul) {
-        // Map to local structure: Project, Modul, Submodul, 5 params (default to 5), Status
+        const key = [project, modul, submodul].join('|');
+        const existingRatings = existingRatingsMap.get(key);
+
+        // Map to local structure: Project, Modul, Submodul, PIC QA, 5 params (preserve if exist), Status
         mappedData.push([
           project,   // A: Project
           modul,     // B: Modul
           submodul,  // C: Submodul
-          5,         // D: Difficulty (default 5 - Medium)
-          5,         // E: Risk (default 5 - Medium)
-          5,         // F: Complexity (default 5 - Medium)
-          5,         // G: Automation (default 5 - Medium)
-          5,         // H: Test Complexity (default 5 - Medium)
-          'Active'   // I: Status
+          picQA,     // D: PIC QA
+          existingRatings ? existingRatings.difficulty : 0,    // E: Difficulty (preserve or 0)
+          existingRatings ? existingRatings.risk : 0,          // F: Risk (preserve or 0)
+          existingRatings ? existingRatings.complexity : 0,    // G: Complexity (preserve or 0)
+          existingRatings ? existingRatings.automation : 0,    // H: Automation (preserve or 0)
+          existingRatings ? existingRatings.testComplexity : 0,// I: Test Complexity (preserve or 0)
+          'Active'   // J: Status
         ]);
 
         projectSet.add(project);
@@ -218,19 +245,38 @@ function syncFromDashboard() {
       };
     }
 
+    // Smart sorting: rated items first (by total score desc), unrated items last
+    mappedData.sort((a, b) => {
+      const aTotalScore = a[4] + a[5] + a[6] + a[7] + a[8]; // Sum of ratings
+      const bTotalScore = b[4] + b[5] + b[6] + b[7] + b[8];
+
+      const aHasRatings = aTotalScore > 0;
+      const bHasRatings = bTotalScore > 0;
+
+      // If one has ratings and the other doesn't, prioritize the one with ratings
+      if (aHasRatings && !bHasRatings) return -1;
+      if (!aHasRatings && bHasRatings) return 1;
+
+      // If both have ratings, sort by total score (highest first)
+      if (aHasRatings && bHasRatings) return bTotalScore - aTotalScore;
+
+      // If neither has ratings, maintain original order
+      return 0;
+    });
+
     // Clear local data area first (from row 4 onwards, keep header)
-    const localDataRange = 'A' + CONFIG_DATA_START_ROW + ':I' + (CONFIG_DATA_START_ROW + Math.max(60, mappedData.length) - 1);
+    const localDataRange = 'A' + CONFIG_DATA_START_ROW + ':J' + (CONFIG_DATA_START_ROW + Math.max(60, mappedData.length) - 1);
     localConfig.getRange(localDataRange).clearContent();
 
-    // Write synced data
-    const writeRange = 'A' + CONFIG_DATA_START_ROW + ':I' + (CONFIG_DATA_START_ROW + mappedData.length - 1);
+    // Write synced data (now 10 columns: Project, Modul, Submodul, PIC QA, 5 ratings, Status)
+    const writeRange = 'A' + CONFIG_DATA_START_ROW + ':J' + (CONFIG_DATA_START_ROW + mappedData.length - 1);
     localConfig.getRange(writeRange).setValues(mappedData);
 
     // Apply formatting to synced rows
     for (let i = 0; i < mappedData.length; i++) {
       const rowNum = CONFIG_DATA_START_ROW + i;
       const bg = i % 2 === 0 ? '#ffffff' : '#f8f9fa';
-      localConfig.getRange(rowNum, 1, 1, 9).setBackground(bg);
+      localConfig.getRange(rowNum, 1, 1, CONFIG_TOTAL_COLUMNS).setBackground(bg);
     }
 
     // Update helper columns
