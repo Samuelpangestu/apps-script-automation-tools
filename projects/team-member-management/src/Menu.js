@@ -17,6 +17,7 @@ function onOpen() {
     .addItem('🔄 Sync from QA Dashboard', 'menuSyncFromDashboard')
     .addItem('🧪 Test Dashboard Connection', 'menuTestDashboardConnection')
     .addSeparator()
+    .addItem('👥 Generate Team Members from PIC', 'menuGenerateTeamMembers')
     .addItem('📊 Refresh Dashboard', 'menuRefreshDashboard')
     .addItem('⏰ Setup Auto-Sync & Refresh', 'menuSetupAutoSyncRefresh')
     .addSeparator()
@@ -107,6 +108,54 @@ function menuCreateDashboard() {
     ss.toast('Dashboard created!', 'Success', 2);
   } catch (error) {
     SpreadsheetApp.getUi().alert('Error', 'Failed: ' + error.message, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
+ * Generate Team Members from Project Config (PIC QA)
+ */
+function menuGenerateTeamMembers() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const response = ui.alert(
+    'Generate Team Members from PIC?',
+    'This will auto-generate Team Members based on PIC QA from Project Config.\n\n' +
+    '⚠️ This will CLEAR existing Team Members data.\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    ss.toast('Generating Team Members from PIC QA...', 'In Progress', -1);
+
+    const result = generateTeamMembersFromConfig();
+
+    if (result.success) {
+      ss.toast('Generated ' + result.generated + ' team members from PIC QA!', 'Success', 5);
+
+      ui.alert(
+        'Team Members Generated! ✅',
+        'Successfully generated ' + result.generated + ' team members.\n\n' +
+        'Please fill in additional details:\n' +
+        '• NP (Employee Number)\n' +
+        '• Email\n' +
+        '• Phone\n' +
+        '• Join Date\n' +
+        '• Title & Role',
+        ui.ButtonSet.OK
+      );
+    } else {
+      ui.alert('Generation Failed', result.message, ui.ButtonSet.OK);
+    }
+
+  } catch (error) {
+    ui.alert('Error', 'Failed to generate: ' + error.message, ui.ButtonSet.OK);
+    Logger.log('Generate error: ' + error.stack);
   }
 }
 
