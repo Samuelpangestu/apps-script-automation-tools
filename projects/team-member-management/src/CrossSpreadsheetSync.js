@@ -7,12 +7,12 @@
  */
 
 const SYNC_SETTINGS_KEY = 'QA_DASHBOARD_SYNC_SETTINGS';
-const DASHBOARD_ID_ROW = 2;  // Row 2 in Project tab (Dashboard Spreadsheet ID field at P2)
-const DASHBOARD_ID_COL = 16; // Column P in Project tab
+const DASHBOARD_ID_ROW = 2;  // Row 2 in Project tab (Dashboard Spreadsheet ID field at Q2)
+const DASHBOARD_ID_COL = 17; // Column Q in Project tab (merged Q2:S2)
 
 /**
  * Read QA Dashboard Spreadsheet ID from Project tab
- * Returns the ID from cell P2 in Project tab
+ * Returns the ID from cell Q2 in Project tab (merged Q2:S2)
  */
 function getDashboardIdFromConfig() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -139,7 +139,7 @@ function syncFromDashboard() {
     Logger.log('⚠️ QA Dashboard sync not configured');
     return {
       success: false,
-      message: 'QA Dashboard sync not configured. Please configure in Project tab (P2).',
+      message: 'QA Dashboard sync not configured. Please configure in Project tab (Q2).',
       synced: { projects: 0, moduls: 0, submoduls: 0 }
     };
   }
