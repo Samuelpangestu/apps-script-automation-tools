@@ -2612,14 +2612,16 @@ function appendHistory(ss, allData) {
   // Build all rows at once (batch operation)
   const rows = allData.map(d => {
     const bs=d.bugStats||{};
-    const webDevRun = getAutomationRunForModule_(automationRunsByKey, d, 'web', 'dev');
-    const apiDevRun = getAutomationRunForModule_(automationRunsByKey, d, 'api', 'dev');
-    const webStgRun = getAutomationRunForModule_(automationRunsByKey, d, 'web', 'stg');
-    const apiStgRun = getAutomationRunForModule_(automationRunsByKey, d, 'api', 'stg');
-    const webProdRun = getAutomationRunForModule_(automationRunsByKey, d, 'web', 'prod');
-    const apiProdRun = getAutomationRunForModule_(automationRunsByKey, d, 'api', 'prod');
-    const webRun = firstAutomationRun_(webProdRun, webStgRun, webDevRun);
-    const apiRun = firstAutomationRun_(apiProdRun, apiStgRun, apiDevRun);
+    // Skip automation results for External QA modules (no internal testing)
+    const isExternalQA = (d.externalQA||{}).isExternal === true;
+    const webDevRun = !isExternalQA ? getAutomationRunForModule_(automationRunsByKey, d, 'web', 'dev') : null;
+    const apiDevRun = !isExternalQA ? getAutomationRunForModule_(automationRunsByKey, d, 'api', 'dev') : null;
+    const webStgRun = !isExternalQA ? getAutomationRunForModule_(automationRunsByKey, d, 'web', 'stg') : null;
+    const apiStgRun = !isExternalQA ? getAutomationRunForModule_(automationRunsByKey, d, 'api', 'stg') : null;
+    const webProdRun = !isExternalQA ? getAutomationRunForModule_(automationRunsByKey, d, 'web', 'prod') : null;
+    const apiProdRun = !isExternalQA ? getAutomationRunForModule_(automationRunsByKey, d, 'api', 'prod') : null;
+    const webRun = !isExternalQA ? firstAutomationRun_(webProdRun, webStgRun, webDevRun) : null;
+    const apiRun = !isExternalQA ? firstAutomationRun_(apiProdRun, apiStgRun, apiDevRun) : null;
     const prodBlocker = bs.prodBlockerBugs || 0;
     const prodCritical = bs.prodCriticalBugs || 0;
     const prodHigh = bs.prodHighBugs || 0;
@@ -2846,15 +2848,23 @@ function getDashboardAutomationAliases_(moduleData, channel) {
     if (normalized && aliases.indexOf(normalized) === -1) aliases.push(normalized);
   };
 
+  // Priority 1: Automation Contracts (most specific - from Config columns X-Z or Y-AK)
+  const contracts = moduleData.automationContracts || {};
+  add(contracts[channel]);     // Web/API specific contract
+  add(contracts.all);           // General contract
+
+  // Priority 2: Full path matches (project|module|submodule)
   add([moduleData.project, moduleData.module, moduleData.submodule || moduleData.name].join('|'));
+
+  // Priority 3: Partial matches (require at least 2 components)
   add([moduleData.project, moduleData.module].join('|'));
   add([moduleData.module, moduleData.submodule || moduleData.name].join('|'));
-  add(moduleData.submodule || moduleData.name);
-  add(moduleData.module);
 
-  const contracts = moduleData.automationContracts || {};
-  add(contracts[channel]);
-  add(contracts.all);
+  // REMOVED: Generic fallback by module/submodule name alone
+  // Reason: Too broad - causes false matches when multiple submodules share same module name
+  // Example: "emeterai" matches to POS, SCM, Desktop, Settlement - all different submodules
+  // add(moduleData.submodule || moduleData.name);  // ❌ REMOVED
+  // add(moduleData.module);                         // ❌ REMOVED
 
   return aliases;
 }
