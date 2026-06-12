@@ -9,21 +9,25 @@ const TEAM_TAB_NAME = 'Team Members';
 const TEAM_HEADER_ROW = 1;
 const TEAM_DATA_START_ROW = 2;
 
+// Auto-generated columns (left) + Manual fill columns (right)
 const TEAM_COLUMNS = {
+  // Auto-generated from Project Config (columns A-F)
   NO: { index: 1, letter: 'A', width: 50, header: 'No' },
-  NP: { index: 2, letter: 'B', width: 120, header: 'NP' },
-  NAME: { index: 3, letter: 'C', width: 180, header: 'Name' },
-  EMAIL: { index: 4, letter: 'D', width: 220, header: 'Email' },
-  EMAIL_2: { index: 5, letter: 'E', width: 220, header: 'Email 2' },
-  HP: { index: 6, letter: 'F', width: 140, header: 'HP' },
-  JOIN_DATE: { index: 7, letter: 'G', width: 110, header: 'Join Date' },
-  TITLE: { index: 8, letter: 'H', width: 150, header: 'Title' },
-  ROLE: { index: 9, letter: 'I', width: 150, header: 'Role' },
-  LEAD_PIC: { index: 10, letter: 'J', width: 150, header: 'Lead/PIC' },
-  PROJECTS: { index: 11, letter: 'K', width: 200, header: 'Project' },
-  MODUL: { index: 12, letter: 'L', width: 180, header: 'Modul' },
-  SUBMODUL: { index: 13, letter: 'M', width: 250, header: 'Submodul' },
-  STATUS: { index: 14, letter: 'N', width: 120, header: 'Status' },
+  NAME: { index: 2, letter: 'B', width: 180, header: 'Name' },
+  PROJECTS: { index: 3, letter: 'C', width: 200, header: 'Project' },
+  MODUL: { index: 4, letter: 'D', width: 180, header: 'Modul' },
+  SUBMODUL: { index: 5, letter: 'E', width: 250, header: 'Submodul' },
+  STATUS: { index: 6, letter: 'F', width: 120, header: 'Status' },
+
+  // Manual fill columns (columns G-S)
+  NP: { index: 7, letter: 'G', width: 120, header: 'NP' },
+  EMAIL: { index: 8, letter: 'H', width: 220, header: 'Email' },
+  EMAIL_2: { index: 9, letter: 'I', width: 220, header: 'Email 2' },
+  HP: { index: 10, letter: 'J', width: 140, header: 'HP' },
+  JOIN_DATE: { index: 11, letter: 'K', width: 110, header: 'Join Date' },
+  TITLE: { index: 12, letter: 'L', width: 150, header: 'Title' },
+  ROLE: { index: 13, letter: 'M', width: 150, header: 'Role' },
+  LEAD_PIC: { index: 14, letter: 'N', width: 150, header: 'Lead/PIC' },
   STATUS_HIRING: { index: 15, letter: 'O', width: 130, header: 'Status Hiring' },
   AUTOMATION: { index: 16, letter: 'P', width: 140, header: 'Automation' },
   GITHUB: { index: 17, letter: 'Q', width: 180, header: 'Github Personal' },
@@ -32,6 +36,7 @@ const TEAM_COLUMNS = {
 };
 
 const TEAM_TOTAL_COLUMNS = 19;
+const TEAM_AUTO_GENERATED_COLS = 6; // Columns A-F are auto-generated
 
 /**
  * Create Team Members tab
@@ -51,11 +56,17 @@ function createTeamMemberTab() {
   sheet.setRowHeight(TEAM_HEADER_ROW, 40);
   sheet.setFrozenRows(TEAM_HEADER_ROW);
 
-  // Create header
+  // Create header (Auto-generated left, Manual fill right)
   const headers = [
+    // Auto-generated columns
     TEAM_COLUMNS.NO.header,
-    TEAM_COLUMNS.NP.header,
     TEAM_COLUMNS.NAME.header,
+    TEAM_COLUMNS.PROJECTS.header,
+    TEAM_COLUMNS.MODUL.header,
+    TEAM_COLUMNS.SUBMODUL.header,
+    TEAM_COLUMNS.STATUS.header,
+    // Manual fill columns
+    TEAM_COLUMNS.NP.header,
     TEAM_COLUMNS.EMAIL.header,
     TEAM_COLUMNS.EMAIL_2.header,
     TEAM_COLUMNS.HP.header,
@@ -63,10 +74,6 @@ function createTeamMemberTab() {
     TEAM_COLUMNS.TITLE.header,
     TEAM_COLUMNS.ROLE.header,
     TEAM_COLUMNS.LEAD_PIC.header,
-    TEAM_COLUMNS.PROJECTS.header,
-    TEAM_COLUMNS.MODUL.header,
-    TEAM_COLUMNS.SUBMODUL.header,
-    TEAM_COLUMNS.STATUS.header,
     TEAM_COLUMNS.STATUS_HIRING.header,
     TEAM_COLUMNS.AUTOMATION.header,
     TEAM_COLUMNS.GITHUB.header,
@@ -87,12 +94,13 @@ function createTeamMemberTab() {
     sheet.setColumnWidth(col.index, col.width);
   });
 
-  // Add sample data with new structure
+  // Add sample data with new structure (Auto-generated left, Manual fill right)
   const sampleData = [
-    [1, 'NP001', 'Samuel Pangestu', 'samuel.gonggom@inadigital.co.id', '', '081234567890', '2023-01-15', 'Senior QA Engineer', 'QA Team Lead', 'Samuel', 'Government Systems', 'SIPGN', 'Core System, Integration Module', 'Active', 'Permanent', 'Selenium, Playwright', 'github.com/samuel', 'Active', 'Active'],
-    [2, 'NP002', 'Muhammad Lutfi', 'muhamad.ramdani@inadigital.co.id', '', '081234567891', '2023-02-01', 'Senior QA Engineer', 'QA Team Lead', 'Lutfi', 'Digital Peruri', 'INADigital', 'INAgov, Emeterai', 'Active', 'Permanent', 'Cypress, JMeter', 'github.com/lutfi', 'Active', 'Active'],
-    [3, 'NP003', 'Irvan Muhandis', 'irvan.muhandis@inadigital.co.id', '', '081234567892', '2023-03-10', 'QA Engineer', 'PIC Project', 'Irvan', 'Digital Peruri', 'INADigital', 'INAgov, Wahana', 'Active', 'Permanent', 'Postman, K6', 'github.com/irvan', 'Active', 'Active'],
-    [4, 'NP004', 'Muhammad Rizky', 'muhammad.ferdiansyah@inadigital.co.id', '', '081234567893', '2023-04-20', 'QA Engineer', 'Quality Engineer', 'Rizky', 'Digital Peruri', 'INADigital', 'Wahana, COTS', 'Active', 'Contract', 'Manual Testing', 'github.com/rizky', 'Active', 'Pending']
+    // [No, Name, Project, Modul, Submodul, Status, NP, Email, Email2, HP, JoinDate, Title, Role, Lead, StatusHiring, Automation, Github, VPN_ABC, VPN_Huwawei]
+    [1, 'Samuel Pangestu', 'Government Systems', 'SIPGN', 'Core System, Integration Module', 'Active', 'NP001', 'samuel.gonggom@inadigital.co.id', '', '081234567890', '2023-01-15', 'Senior QA Engineer', 'QA Team Lead', 'Samuel', 'Permanent', 'Selenium, Playwright', 'github.com/samuel', 'Active', 'Active'],
+    [2, 'Muhammad Lutfi', 'Digital Peruri', 'INADigital', 'INAgov, Emeterai', 'Active', 'NP002', 'muhamad.ramdani@inadigital.co.id', '', '081234567891', '2023-02-01', 'Senior QA Engineer', 'QA Team Lead', 'Lutfi', 'Permanent', 'Cypress, JMeter', 'github.com/lutfi', 'Active', 'Active'],
+    [3, 'Irvan Muhandis', 'Digital Peruri', 'INADigital', 'INAgov, Wahana', 'Active', 'NP003', 'irvan.muhandis@inadigital.co.id', '', '081234567892', '2023-03-10', 'QA Engineer', 'PIC Project', 'Irvan', 'Permanent', 'Postman, K6', 'github.com/irvan', 'Active', 'Active'],
+    [4, 'Muhammad Rizky', 'Digital Peruri', 'INADigital', 'Wahana, COTS', 'Active', 'NP004', 'muhammad.ferdiansyah@inadigital.co.id', '', '081234567893', '2023-04-20', 'QA Engineer', 'Quality Engineer', 'Rizky', 'Contract', 'Manual Testing', 'github.com/rizky', 'Active', 'Pending']
   ];
 
   sheet.getRange(TEAM_DATA_START_ROW, 1, sampleData.length, TEAM_TOTAL_COLUMNS)
@@ -284,12 +292,13 @@ function getTeamMembersByRole(role) {
 
   const members = [];
   data.forEach(row => {
-    const name = row[2] ? row[2].toString().trim() : ''; // Column C (Name)
-    const memberRole = row[8] ? row[8].toString().trim() : ''; // Column I (Role)
-    const projects = row[10] ? row[10].toString().trim() : ''; // Column K (Projects)
-    const modul = row[11] ? row[11].toString().trim() : ''; // Column L (Modul)
-    const submodul = row[12] ? row[12].toString().trim() : ''; // Column M (Submodul)
-    const status = row[13] ? row[13].toString().trim() : ''; // Column N (Status)
+    const name = row[1] ? row[1].toString().trim() : ''; // Column B (Name)
+    const projects = row[2] ? row[2].toString().trim() : ''; // Column C (Projects)
+    const modul = row[3] ? row[3].toString().trim() : ''; // Column D (Modul)
+    const submodul = row[4] ? row[4].toString().trim() : ''; // Column E (Submodul)
+    const status = row[5] ? row[5].toString().trim() : ''; // Column F (Status)
+    const email = row[7] ? row[7].toString().trim() : ''; // Column H (Email)
+    const memberRole = row[12] ? row[12].toString().trim() : ''; // Column M (Role)
 
     if (name && status === 'Active' && memberRole === role) {
       members.push({
@@ -298,7 +307,7 @@ function getTeamMembersByRole(role) {
         projects: projects.split(',').map(p => p.trim()).filter(p => p),
         modul: modul.split(',').map(m => m.trim()).filter(m => m),
         submodul: submodul.split(',').map(s => s.trim()).filter(s => s),
-        email: row[3] ? row[3].toString().trim() : '' // Column D (Email)
+        email: email
       });
     }
   });
@@ -322,17 +331,17 @@ function getAllActiveTeamMembers() {
 
   const members = [];
   data.forEach(row => {
-    const name = row[2] ? row[2].toString().trim() : ''; // Column C (Name)
-    const status = row[13] ? row[13].toString().trim() : ''; // Column N (Status)
+    const name = row[1] ? row[1].toString().trim() : ''; // Column B (Name)
+    const status = row[5] ? row[5].toString().trim() : ''; // Column F (Status)
 
     if (name && status === 'Active') {
       members.push({
         name: name,
-        role: row[8] ? row[8].toString().trim() : '', // Column I (Role)
-        projects: row[10] ? row[10].toString().split(',').map(p => p.trim()).filter(p => p) : [], // Column K (Projects)
-        modul: row[11] ? row[11].toString().split(',').map(m => m.trim()).filter(m => m) : [], // Column L (Modul)
-        submodul: row[12] ? row[12].toString().split(',').map(s => s.trim()).filter(s => s) : [], // Column M (Submodul)
-        email: row[3] ? row[3].toString().trim() : '' // Column D (Email)
+        role: row[12] ? row[12].toString().trim() : '', // Column M (Role)
+        projects: row[2] ? row[2].toString().split(',').map(p => p.trim()).filter(p => p) : [], // Column C (Projects)
+        modul: row[3] ? row[3].toString().split(',').map(m => m.trim()).filter(m => m) : [], // Column D (Modul)
+        submodul: row[4] ? row[4].toString().split(',').map(s => s.trim()).filter(s => s) : [], // Column E (Submodul)
+        email: row[7] ? row[7].toString().trim() : '' // Column H (Email)
       });
     }
   });
@@ -404,13 +413,22 @@ function generateTeamMembersFromConfig() {
     return { success: false, message: 'No PICs found in Config' };
   }
 
-  // Clear existing Team Members data (keep header)
+  // Read existing Team Members data to preserve manual fills (columns G-S)
   const teamLastRow = teamSheet.getLastRow();
-  if (teamLastRow > TEAM_HEADER_ROW) {
-    teamSheet.getRange(TEAM_DATA_START_ROW, 1, teamLastRow - TEAM_HEADER_ROW, TEAM_TOTAL_COLUMNS).clearContent();
-  }
+  const existingData = teamLastRow >= TEAM_DATA_START_ROW ?
+    teamSheet.getRange(TEAM_DATA_START_ROW, 1, teamLastRow - TEAM_DATA_START_ROW + 1, TEAM_TOTAL_COLUMNS).getValues() : [];
 
-  // Generate Team Members data
+  // Build map of existing manual data by name
+  const existingManualDataMap = new Map();
+  existingData.forEach(row => {
+    const name = row[1] ? row[1].toString().trim() : ''; // Column B (Name)
+    if (name) {
+      // Preserve manual fill columns (G-S: indices 6-18)
+      existingManualDataMap.set(name, row.slice(6, 19)); // Columns G-S
+    }
+  });
+
+  // Generate Team Members data (preserve manual data if exists)
   const teamData = [];
   let rowNum = 1;
 
@@ -419,30 +437,49 @@ function generateTeamMembersFromConfig() {
     const moduls = Array.from(data.moduls).join(', ');
     const submoduls = Array.from(data.submoduls).join(', ');
 
-    teamData.push([
-      rowNum,           // No
-      '',               // NP - to be filled manually
-      picName,          // Name
-      '',               // Email - to be filled manually
-      '',               // Email 2
-      '',               // HP
-      '',               // Join Date
-      '',               // Title
-      'Quality Engineer', // Role - default
-      '',               // Lead/PIC
-      projects,         // Projects
-      moduls,           // Modul
-      submoduls,        // Submodul
-      'Active',         // Status
-      '',               // Status Hiring
-      '',               // Automation
-      '',               // Github Personal
-      '',               // VPN ABC
-      ''                // VPN Huwawei
-    ]);
+    // Get existing manual data or use defaults
+    const existingManual = existingManualDataMap.get(picName);
 
+    // Build row: Auto-generated (A-F) + Manual (G-S)
+    const row = [
+      // Auto-generated columns (A-F)
+      rowNum,           // A: No
+      picName,          // B: Name
+      projects,         // C: Projects
+      moduls,           // D: Modul
+      submoduls,        // E: Submodul
+      'Active'          // F: Status
+    ];
+
+    // Manual fill columns (G-S) - preserve if exists, otherwise default
+    if (existingManual) {
+      row.push(...existingManual); // Preserve existing manual data
+    } else {
+      row.push(
+        '',               // G: NP
+        '',               // H: Email
+        '',               // I: Email 2
+        '',               // J: HP
+        '',               // K: Join Date
+        '',               // L: Title
+        'Quality Engineer', // M: Role - default
+        '',               // N: Lead/PIC
+        '',               // O: Status Hiring
+        '',               // P: Automation
+        '',               // Q: Github Personal
+        '',               // R: VPN ABC
+        ''                // S: VPN Huwawei
+      );
+    }
+
+    teamData.push(row);
     rowNum++;
   });
+
+  // Clear existing data area first
+  if (teamLastRow > TEAM_HEADER_ROW) {
+    teamSheet.getRange(TEAM_DATA_START_ROW, 1, teamLastRow - TEAM_HEADER_ROW, TEAM_TOTAL_COLUMNS).clearContent();
+  }
 
   // Write to Team Members tab
   if (teamData.length > 0) {
@@ -451,7 +488,7 @@ function generateTeamMembersFromConfig() {
     // Apply formatting
     applyTeamMemberFormatting();
 
-    Logger.log('✅ Generated ' + teamData.length + ' team members from Config');
+    Logger.log('✅ Generated ' + teamData.length + ' team members from Config (manual data preserved)');
 
     return {
       success: true,

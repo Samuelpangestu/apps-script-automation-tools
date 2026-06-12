@@ -258,7 +258,8 @@ function createDashboard() {
     });
   });
 
-  let matrixIndex = 0;
+  // Convert to array for sorting
+  const personArray = [];
   personMap.forEach((data, name) => {
     const totalProjects = data.projects.size;
     const totalSubmoduls = data.submoduls.length;
@@ -277,10 +278,25 @@ function createDashboard() {
 
     const avgScore = totalSubmoduls > 0 ? Math.round(totalScore / totalSubmoduls) : 0;
     const avgCategory = getDifficultyCategory(avgScore);
-    const avgCategoryEmoji = getCategoryEmoji(avgCategory);
-    const avgCategoryDisplay = avgCategoryEmoji + ' ' + avgCategory;
 
-    const matrixRow = [name, totalProjects, totalSubmoduls, avgScore, avgCategoryDisplay];
+    personArray.push({
+      name: name,
+      totalProjects: totalProjects,
+      totalSubmoduls: totalSubmoduls,
+      avgScore: avgScore,
+      avgCategory: avgCategory
+    });
+  });
+
+  // Sort by avgScore descending (Very Hard first)
+  personArray.sort((a, b) => b.avgScore - a.avgScore);
+
+  // Render sorted matrix
+  personArray.forEach((person, matrixIndex) => {
+    const avgCategoryEmoji = getCategoryEmoji(person.avgCategory);
+    const avgCategoryDisplay = avgCategoryEmoji + ' ' + person.avgCategory;
+
+    const matrixRow = [person.name, person.totalProjects, person.totalSubmoduls, person.avgScore, avgCategoryDisplay];
     sheet.getRange(currentRow, 1, 1, 5).setValues([matrixRow]);
 
     // Row styling
@@ -288,11 +304,10 @@ function createDashboard() {
     sheet.getRange(currentRow, 1, 1, 5).setBackground(bg);
 
     // Category color
-    const catBg = getCategoryColor(avgCategory);
+    const catBg = getCategoryColor(person.avgCategory);
     sheet.getRange(currentRow, 5).setBackground(catBg).setFontWeight('bold');
 
     currentRow++;
-    matrixIndex++;
   });
 
   // Set matrix column widths

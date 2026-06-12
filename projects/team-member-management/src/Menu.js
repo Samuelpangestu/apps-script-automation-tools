@@ -13,10 +13,12 @@ function onOpen() {
 
   ui.createMenu('👥 QA Team Management')
     .addItem('🔨 Create All Tabs', 'menuSetupAll')
+    .addSeparator()
+    .addItem('⚡ Run All (Sync + Generate + Refresh)', 'menuRunAll')
     .addItem('🔄 Sync from QA Dashboard', 'menuSyncFromDashboard')
     .addItem('👥 Generate Team Members from PIC', 'menuGenerateTeamMembers')
-    .addSeparator()
     .addItem('📊 Refresh Dashboard', 'menuRefreshDashboard')
+    .addSeparator()
     .addItem('⏰ Setup Auto-Sync & Refresh', 'menuSetupAutoSyncRefresh')
     .addSeparator()
     .addItem('📖 Parameter Guide', 'menuShowParameterGuide')
@@ -110,6 +112,88 @@ function menuCreateDashboard() {
 }
 
 /**
+ * Run All: Sync + Generate + Refresh (End-to-End)
+ */
+function menuRunAll() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const response = ui.alert(
+    'Run All Tasks?',
+    'This will execute all tasks in sequence:\n\n' +
+    '1️⃣ Sync from QA Dashboard\n' +
+    '2️⃣ Generate Team Members from PIC\n' +
+    '3️⃣ Refresh Dashboard\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) {
+    return;
+  }
+
+  try {
+    ss.toast('Running all tasks...', 'In Progress', -1);
+
+    // Step 1: Sync from QA Dashboard
+    ss.toast('Step 1/3: Syncing from QA Dashboard...', 'In Progress', -1);
+    const syncResult = syncFromDashboard();
+
+    if (!syncResult.success) {
+      ui.alert(
+        'Sync Failed',
+        'Step 1 failed: ' + syncResult.message + '\n\nProcess stopped.',
+        ui.ButtonSet.OK
+      );
+      return;
+    }
+
+    ss.toast('Step 1/3: ✅ Synced ' + syncResult.synced.submoduls + ' modules', 'Success', 2);
+    Utilities.sleep(1000);
+
+    // Step 2: Generate Team Members
+    ss.toast('Step 2/3: Generating Team Members from PIC...', 'In Progress', -1);
+    const generateResult = generateTeamMembersFromConfig();
+
+    if (!generateResult.success) {
+      ui.alert(
+        'Generate Failed',
+        'Step 2 failed: ' + generateResult.message + '\n\nProcess stopped.',
+        ui.ButtonSet.OK
+      );
+      return;
+    }
+
+    ss.toast('Step 2/3: ✅ Generated ' + generateResult.generated + ' team members', 'Success', 2);
+    Utilities.sleep(1000);
+
+    // Step 3: Refresh Dashboard
+    ss.toast('Step 3/3: Refreshing Dashboard...', 'In Progress', -1);
+    const dashSheet = ss.getSheetByName(DASHBOARD_TAB_NAME);
+    if (dashSheet) ss.deleteSheet(dashSheet);
+    SpreadsheetApp.flush();
+
+    createDashboard();
+    ss.toast('Step 3/3: ✅ Dashboard refreshed', 'Success', 2);
+    Utilities.sleep(1000);
+
+    // Success summary
+    ui.alert(
+      'All Tasks Completed! ✅',
+      '1️⃣ Synced: ' + syncResult.synced.submoduls + ' modules\n' +
+      '2️⃣ Generated: ' + generateResult.generated + ' team members\n' +
+      '3️⃣ Dashboard refreshed\n\n' +
+      'All tasks completed successfully!',
+      ui.ButtonSet.OK
+    );
+
+  } catch (error) {
+    ui.alert('Error', 'Run All failed: ' + error.message, ui.ButtonSet.OK);
+    Logger.log('Run All error: ' + error.stack);
+  }
+}
+
+/**
  * Generate Team Members from Project Config (PIC QA)
  */
 function menuGenerateTeamMembers() {
@@ -119,7 +203,8 @@ function menuGenerateTeamMembers() {
   const response = ui.alert(
     'Generate Team Members from PIC?',
     'This will auto-generate Team Members based on PIC QA from Project Config.\n\n' +
-    '⚠️ This will CLEAR existing Team Members data.\n\n' +
+    '✅ Manual data (NP, Email, etc.) will be preserved.\n' +
+    '✅ Only auto-generated fields (Name, Projects, Modules) will be updated.\n\n' +
     'Continue?',
     ui.ButtonSet.YES_NO
   );
