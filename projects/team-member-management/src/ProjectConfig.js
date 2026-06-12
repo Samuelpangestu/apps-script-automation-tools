@@ -14,14 +14,15 @@ const CONFIG_COLUMNS = {
   PROJECT: { index: 1, letter: 'A', width: 200, header: 'Project' },
   MODUL: { index: 2, letter: 'B', width: 180, header: 'Modul' },
   SUBMODUL: { index: 3, letter: 'C', width: 220, header: 'Submodul' },
-  DIFFICULTY: { index: 4, letter: 'D', width: 80, header: 'Diff (1-10)' },
-  RISK: { index: 5, letter: 'E', width: 80, header: 'Risk (1-10)' },
-  COMPLEXITY: { index: 6, letter: 'F', width: 80, header: 'Comp (1-10)' },
-  AUTOMATION: { index: 7, letter: 'G', width: 80, header: 'Auto (1-10)' },
-  TEST_COMPLEXITY: { index: 8, letter: 'H', width: 80, header: 'Test (1-10)' },
-  STATUS: { index: 9, letter: 'I', width: 100, header: 'Status' }
+  PIC_QA: { index: 4, letter: 'D', width: 150, header: 'PIC QA' },
+  DIFFICULTY: { index: 5, letter: 'E', width: 80, header: 'Diff (1-10)' },
+  RISK: { index: 6, letter: 'F', width: 80, header: 'Risk (1-10)' },
+  COMPLEXITY: { index: 7, letter: 'G', width: 80, header: 'Comp (1-10)' },
+  AUTOMATION: { index: 8, letter: 'H', width: 80, header: 'Auto (1-10)' },
+  TEST_COMPLEXITY: { index: 9, letter: 'I', width: 80, header: 'Test (1-10)' },
+  STATUS: { index: 10, letter: 'J', width: 100, header: 'Status' }
 };
-const CONFIG_TOTAL_COLUMNS = 9;
+const CONFIG_TOTAL_COLUMNS = 10;
 
 /**
  * Create Config tab (flat table format - Portfolio style)
@@ -73,6 +74,7 @@ function createConfigTab() {
     CONFIG_COLUMNS.PROJECT.header,
     CONFIG_COLUMNS.MODUL.header,
     CONFIG_COLUMNS.SUBMODUL.header,
+    CONFIG_COLUMNS.PIC_QA.header,
     CONFIG_COLUMNS.DIFFICULTY.header,
     CONFIG_COLUMNS.RISK.header,
     CONFIG_COLUMNS.COMPLEXITY.header,
@@ -92,23 +94,23 @@ function createConfigTab() {
   sheet.setRowHeight(CONFIG_HEADER_ROW, 40);
   sheet.setFrozenRows(CONFIG_HEADER_ROW);
 
-  // Sample data (9 columns: Project, Modul, Submodul, 5 Parameters, Status)
+  // Sample data (10 columns: Project, Modul, Submodul, PIC QA, 5 Parameters, Status)
   const sampleData = [
-    ['SIPGN', 'E2E DAPUR', 'E2E DAPUR', 7, 6, 7, 8, 7, 'Active'],
-    ['SIPGN', 'AtomAPI', 'AtomAPI PM', 6, 5, 6, 5, 6, 'Active'],
-    ['SIPGN', '1', '1.1', 8, 7, 8, 9, 8, 'Active'],
-    ['SIPGN', '1', '1.2', 7, 6, 7, 7, 7, 'Active'],
-    ['SIPGN', '1', '1.3', 6, 5, 6, 5, 6, 'Active'],
-    ['SIPGN', '2', '2.1', 7, 6, 7, 6, 7, 'Active'],
-    ['SIPGN', '2', '2.2', 6, 5, 6, 4, 5, 'Active'],
-    ['SIPGN', '4', '4.1', 7, 7, 7, 7, 7, 'Active'],
-    ['SIPGN', '4', '4.2', 6, 5, 6, 5, 6, 'Active'],
-    ['INADigital', 'INAgov', 'INAgov', 8, 7, 8, 9, 8, 'Active'],
-    ['INADigital', 'POS', 'POS', 5, 4, 5, 3, 4, 'Active'],
-    ['INADigital', 'SCM', 'SCM', 6, 5, 6, 5, 6, 'Active'],
-    ['INADigital', 'PERURIID', 'PERURIID', 7, 6, 7, 6, 7, 'Active'],
-    ['COTS', 'COTS', 'CODEBASE', 3, 2, 3, 2, 2, 'Inactive'],
-    ['COTS', 'COTS', 'GEODIPA', 3, 2, 3, 2, 2, 'Inactive']
+    ['SIPGN', 'E2E DAPUR', 'E2E DAPUR', 'Adinda', 7, 6, 7, 8, 7, 'Active'],
+    ['SIPGN', 'AtomAPI', 'AtomAPI PM', 'Denta', 6, 5, 6, 5, 6, 'Active'],
+    ['SIPGN', '1', '1.1', 'Lutfi', 8, 7, 8, 9, 8, 'Active'],
+    ['SIPGN', '1', '1.2', 'Samuel', 7, 6, 7, 7, 7, 'Active'],
+    ['SIPGN', '1', '1.3', 'Irvan', 6, 5, 6, 5, 6, 'Active'],
+    ['SIPGN', '2', '2.1', 'Rizky', 7, 6, 7, 6, 7, 'Active'],
+    ['SIPGN', '2', '2.2', 'Adinda', 6, 5, 6, 4, 5, 'Active'],
+    ['SIPGN', '4', '4.1', 'Lutfi', 7, 7, 7, 7, 7, 'Active'],
+    ['SIPGN', '4', '4.2', 'Irvan', 6, 5, 6, 5, 6, 'Active'],
+    ['INADigital', 'INAgov', 'INAgov', 'Irvan', 8, 7, 8, 9, 8, 'Active'],
+    ['INADigital', 'POS', 'POS', 'Rizky', 5, 4, 5, 3, 4, 'Active'],
+    ['INADigital', 'SCM', 'SCM', 'Samuel', 6, 5, 6, 5, 6, 'Active'],
+    ['INADigital', 'PERURIID', 'PERURIID', 'Adinda', 7, 6, 7, 6, 7, 'Active'],
+    ['COTS', 'COTS', 'CODEBASE', '', 3, 2, 3, 2, 2, 'Inactive'],
+    ['COTS', 'COTS', 'GEODIPA', '', 3, 2, 3, 2, 2, 'Inactive']
   ];
 
   sheet.getRange(CONFIG_DATA_START_ROW, 1, sampleData.length, CONFIG_TOTAL_COLUMNS)
@@ -267,6 +269,14 @@ function addProjectHeaderNotes(sheet) {
     'Contoh: E2E DAPUR, INAgov, 1.1, 1.2, 2.1'
   );
 
+  // PIC QA note
+  sheet.getRange(CONFIG_HEADER_ROW, CONFIG_COLUMNS.PIC_QA.index).setNote(
+    '👤 PIC QA\n' +
+    'Person in charge untuk testing modul ini.\n\n' +
+    'Bisa satu atau lebih nama (pisahkan dengan koma).\n' +
+    'Contoh: Adinda, Denta, Irvan'
+  );
+
   Logger.log('✅ Header notes added');
 }
 
@@ -289,9 +299,9 @@ function updateProjectHelperColumns() {
   const data = sheet.getRange(CONFIG_DATA_START_ROW, 1, lastRow - CONFIG_DATA_START_ROW + 1, CONFIG_TOTAL_COLUMNS).getValues();
 
   // Get unique values from Active rows only
-  const uniqueProjects = [...new Set(data.filter(r => r[8] === 'Active' && r[0]).map(r => r[0].toString().trim()))];
-  const uniqueModuls = [...new Set(data.filter(r => r[8] === 'Active' && r[1]).map(r => r[1].toString().trim()))];
-  const uniqueSubmoduls = [...new Set(data.filter(r => r[8] === 'Active' && r[2]).map(r => r[2].toString().trim()))];
+  const uniqueProjects = [...new Set(data.filter(r => r[9] === 'Active' && r[0]).map(r => r[0].toString().trim()))];
+  const uniqueModuls = [...new Set(data.filter(r => r[9] === 'Active' && r[1]).map(r => r[1].toString().trim()))];
+  const uniqueSubmoduls = [...new Set(data.filter(r => r[9] === 'Active' && r[2]).map(r => r[2].toString().trim()))];
 
   // Clear existing helper data (keep header)
   const helperLastRow = sheet.getLastRow();
@@ -338,7 +348,7 @@ function getActiveProjects() {
   const projectsMap = new Map();
   data.forEach(row => {
     const projectName = row[0] ? row[0].toString().trim() : '';
-    const status = row[8] ? row[8].toString().trim() : ''; // Column I (index 8)
+    const status = row[9] ? row[9].toString().trim() : ''; // Column J (index 9)
 
     if (projectName && status === 'Active') {
       if (!projectsMap.has(projectName)) {
@@ -371,7 +381,7 @@ function getActiveModul() {
   data.forEach(row => {
     const projectName = row[0] ? row[0].toString().trim() : '';
     const modulName = row[1] ? row[1].toString().trim() : '';
-    const status = row[8] ? row[8].toString().trim() : ''; // Column I (index 8)
+    const status = row[9] ? row[9].toString().trim() : ''; // Column J (index 9)
 
     if (projectName && modulName && status === 'Active') {
       const key = projectName + '|' + modulName;
@@ -407,18 +417,20 @@ function getActiveSubmodul() {
     const projectName = row[0] ? row[0].toString().trim() : '';
     const modulName = row[1] ? row[1].toString().trim() : '';
     const submodulName = row[2] ? row[2].toString().trim() : '';
-    const difficulty = row[3] || 0;
-    const risk = row[4] || 0;
-    const complexity = row[5] || 0;
-    const automation = row[6] || 0;
-    const testComplexity = row[7] || 0;
-    const status = row[8] ? row[8].toString().trim() : ''; // Column I (index 8)
+    const picQA = row[3] ? row[3].toString().trim() : '';
+    const difficulty = row[4] || 0;
+    const risk = row[5] || 0;
+    const complexity = row[6] || 0;
+    const automation = row[7] || 0;
+    const testComplexity = row[8] || 0;
+    const status = row[9] ? row[9].toString().trim() : ''; // Column J (index 9)
 
     if (projectName && modulName && submodulName && status === 'Active') {
       submoduls.push({
         name: submodulName,
         modul: modulName,
         project: projectName,
+        picQA: picQA,
         difficulty: difficulty,
         risk: risk,
         complexity: complexity,
