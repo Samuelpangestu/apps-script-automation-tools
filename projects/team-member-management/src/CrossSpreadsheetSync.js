@@ -310,50 +310,57 @@ function syncFromDashboard() {
 
 /**
  * Auto sync + refresh (called by trigger)
- * This combines sync from QA Dashboard and local dashboard refresh
+ * End-to-End: Sync → Generate Team Members → Refresh Dashboard
  */
 function autoSyncAndRefresh() {
   try {
-    Logger.log('🔄 Auto sync & refresh started...');
+    Logger.log('🔄 Auto sync & refresh started (End-to-End)...');
 
     const settings = getSyncSettings();
 
-    // Sync from QA Dashboard if enabled
+    // Step 1: Sync from QA Dashboard if enabled
     if (settings.enabled && settings.spreadsheetId) {
+      Logger.log('📥 Step 1/3: Syncing from QA Dashboard...');
       const syncResult = syncFromDashboard();
 
       if (syncResult.success) {
-        Logger.log('✅ Synced: ' + syncResult.synced.projects + ' projects, ' +
+        Logger.log('✅ Step 1/3: Synced ' + syncResult.synced.projects + ' projects, ' +
                    syncResult.synced.moduls + ' moduls, ' +
                    syncResult.synced.submoduls + ' submoduls');
 
         // Update helper columns after sync
         updateProjectHelperColumns();
 
-        // Refresh Team Members dropdown validation
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        const teamSheet = ss.getSheetByName(TEAM_TAB_NAME);
-        if (teamSheet) {
-          addTeamDataValidation(teamSheet);
-        }
-
       } else {
-        Logger.log('⚠️ Sync skipped: ' + syncResult.message);
+        Logger.log('⚠️ Step 1/3: Sync failed - ' + syncResult.message);
+        return; // Stop if sync fails
       }
     } else {
       Logger.log('ℹ️ QA Dashboard sync disabled, skipping sync step');
     }
 
-    // Refresh local dashboard
+    // Step 2: Generate Team Members from PIC QA
+    Logger.log('👥 Step 2/3: Generating Team Members from PIC QA...');
+    const generateResult = generateTeamMembersFromConfig();
+
+    if (generateResult.success) {
+      Logger.log('✅ Step 2/3: Generated ' + generateResult.generated + ' team members (manual data preserved)');
+    } else {
+      Logger.log('⚠️ Step 2/3: Generate failed - ' + generateResult.message);
+      // Continue to dashboard refresh even if generate fails
+    }
+
+    // Step 3: Refresh local dashboard
+    Logger.log('📊 Step 3/3: Refreshing Dashboard...');
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let dashSheet = ss.getSheetByName(DASHBOARD_TAB_NAME);
     if (dashSheet) ss.deleteSheet(dashSheet);
     SpreadsheetApp.flush();
 
     createDashboard();
-    Logger.log('✅ Dashboard refreshed');
+    Logger.log('✅ Step 3/3: Dashboard refreshed');
 
-    Logger.log('✅ Auto sync & refresh complete');
+    Logger.log('✅ Auto sync & refresh complete (End-to-End)');
 
   } catch (error) {
     Logger.log('❌ Auto sync & refresh error: ' + error.message);
