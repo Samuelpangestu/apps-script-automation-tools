@@ -87,7 +87,47 @@ This repository contains a suite of automation tools built with **Google Apps Sc
 
 ---
 
-### 3. **MOM Rolling & PIC Reminder**
+### 3. **QA Team Management**
+> End-to-end team management system with auto-sync from central dashboard (SSOT architecture)
+
+**📁 Location:** [`projects/team-member-management/`](projects/team-member-management/)
+
+**Features:**
+- 🔄 **Auto-Sync from QA Dashboard** - SSOT architecture, sync project/module/submodule/PIC QA automatically
+- 👥 **Smart Team Generation** - Auto-generate team members from PIC QA (preserves manual data)
+- 📊 **Person Assignment Matrix** - Sort by difficulty (Very Hard first), show complex assignments
+- ⚡ **One-Click End-to-End** - Run All: Sync → Generate → Refresh in one click
+- 📋 **Smart Column Layout** - Auto-generated left (Name, Projects), manual right (Email, NP, etc.)
+- 🔒 **Data Preservation** - Manual fills (Email, Phone, etc.) never lost on regeneration
+- ⏰ **Scheduled Automation** - Auto-sync every X hours with complete workflow
+- 📈 **Difficulty-Based Sorting** - Dashboard shows hardest assignments first
+
+**Tech Stack:**
+- Google Apps Script
+- SpreadsheetApp (Cross-spreadsheet data sync)
+- Time-based Triggers (Scheduled automation)
+- Data preservation algorithms
+- Smart sorting & aggregation
+
+**Use Cases:**
+- QA team capacity planning
+- Automatic team member assignment tracking
+- Workload distribution by complexity
+- Single source of truth (SSOT) data architecture
+
+**Workflow:**
+```
+QA Dashboard (Config Sheet) ← SSOT: Add submodule + PIC QA
+         ↓ Auto-Sync (manual or scheduled)
+QA Team Management
+  ├─ Project Config (synced from Dashboard)
+  ├─ Team Members (auto-generated, manual data preserved)
+  └─ Dashboard (Person Matrix sorted by difficulty)
+```
+
+---
+
+### 4. **MOM Rolling & PIC Reminder**
 > Automated rotation system for meeting note-takers with integrated reminders
 
 **📁 Location:** [`projects/mom-rolling-pic/`](projects/mom-rolling-pic/)
@@ -111,6 +151,29 @@ This repository contains a suite of automation tools built with **Google Apps Sc
 - Daily standup meeting management
 - Fair PIC rotation across team members
 - Automatic meeting documentation
+
+---
+
+### 5. **KPI Tracker**
+> Team performance tracking and KPI monitoring dashboard
+
+**📁 Location:** [`projects/kpi-tracker/`](projects/kpi-tracker/)
+
+**Features:**
+- 📊 **KPI Dashboard** - Real-time team performance metrics
+- 👤 **Individual Tracking** - Per-person KPI monitoring
+- 📈 **Trend Analysis** - Performance over time
+- 🎯 **Goal Setting** - Define and track KPI targets
+
+**Tech Stack:**
+- Google Apps Script
+- SpreadsheetApp (Data aggregation)
+- Charts API (Visualizations)
+
+**Use Cases:**
+- Team performance monitoring
+- Individual contributor tracking
+- Sprint/monthly reviews
 
 ---
 
@@ -159,7 +222,7 @@ Local Development (VS Code/WebStorm)
 ## 📦 **Repository Structure**
 
 ```
-google-apps-script-portfolio/
+apps-script-automation-tools/
 ├── projects/
 │   ├── qa-test-management/      # Test case management template
 │   │   ├── src/
@@ -172,14 +235,32 @@ google-apps-script-portfolio/
 │   │   ├── src/
 │   │   │   ├── MasterDashboard.js
 │   │   │   ├── BroadcastFix.js
-│   │   │   ├── BroadcastAllFixes.js
+│   │   │   ├── AutomationConfigGenerator.js
 │   │   │   └── appsscript.json
 │   │   ├── .clasp.json
 │   │   └── README.md
 │   │
-│   └── mom-rolling-pic/         # MOM rotation & reminders
+│   ├── team-member-management/  # Team management (SSOT sync)
+│   │   ├── src/
+│   │   │   ├── ProjectConfig.js
+│   │   │   ├── TeamMember.js
+│   │   │   ├── Dashboard.js
+│   │   │   ├── CrossSpreadsheetSync.js
+│   │   │   ├── Menu.js
+│   │   │   └── appsscript.json
+│   │   ├── .clasp.json
+│   │   └── README.md
+│   │
+│   ├── mom-rolling-pic/         # MOM rotation & reminders
+│   │   ├── src/
+│   │   │   ├── Code.js
+│   │   │   └── appsscript.json
+│   │   ├── .clasp.json
+│   │   └── README.md
+│   │
+│   └── kpi-tracker/             # KPI monitoring
 │       ├── src/
-│       │   ├── Code.js
+│       │   ├── TeamConfig.js
 │       │   └── appsscript.json
 │       ├── .clasp.json
 │       └── README.md
@@ -188,6 +269,16 @@ google-apps-script-portfolio/
 │   └── workflows/
 │       └── deploy-apps-script.yml
 │
+├── .claude/                     # AI Context & Commands
+│   ├── README.md               # Centralized tool documentation
+│   └── commands/               # Custom Claude Code commands
+│       ├── deploy-dashboard.md
+│       ├── deploy-template.md
+│       ├── sync-clasp.md
+│       ├── fix-dashboard.md
+│       ├── update-template.md
+│       └── qa-help.md
+│
 ├── scripts/
 │   ├── setup-clasp.sh
 │   └── sync-from-appscript.sh
@@ -195,7 +286,7 @@ google-apps-script-portfolio/
 ├── ARCHITECTURE.md              # System architecture & data flow
 ├── CLASP_WORKFLOW.md            # Development workflow guide
 ├── ENVIRONMENTS.md              # Testing vs Production setup
-└── README.md                    # This file
+└── README.md                    # This file (centralized docs)
 ```
 
 ---

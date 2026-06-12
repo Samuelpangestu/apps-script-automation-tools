@@ -148,6 +148,7 @@ function addTeamDataValidation(sheet) {
   const configLastRow = configSheet.getLastRow();
 
   // Project validation - from helper column K with multiple selections
+  // Note: setAllowInvalid(true) allows synced data from Dashboard that may not be in the list
   if (configLastRow >= 2) {
     const projectHelperRange = configSheet.getRange('K2:K' + configLastRow);
     const projectRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.PROJECTS.index, 100);
@@ -157,12 +158,13 @@ function addTeamDataValidation(sheet) {
 
     const projectRule = SpreadsheetApp.newDataValidation()
       .requireValueInList(projectValues, true)
-      .setAllowInvalid(false)
+      .setAllowInvalid(true)  // Allow values from Dashboard sync
       .build();
     projectRange.setDataValidation(projectRule);
   }
 
   // Modul validation - from helper column L with multiple selections
+  // Note: setAllowInvalid(true) allows synced data from Dashboard that may not be in the list
   if (configLastRow >= 2) {
     const modulHelperRange = configSheet.getRange('L2:L' + configLastRow);
     const modulRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.MODUL.index, 100);
@@ -172,12 +174,13 @@ function addTeamDataValidation(sheet) {
 
     const modulRule = SpreadsheetApp.newDataValidation()
       .requireValueInList(modulValues, true)
-      .setAllowInvalid(false)
+      .setAllowInvalid(true)  // Allow values from Dashboard sync
       .build();
     modulRange.setDataValidation(modulRule);
   }
 
   // Submodul validation - from helper column M with multiple selections
+  // Note: setAllowInvalid(true) allows synced data from Dashboard that may not be in the list
   if (configLastRow >= 2) {
     const submodulHelperRange = configSheet.getRange('M2:M' + configLastRow);
     const submodulRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.SUBMODUL.index, 100);
@@ -187,7 +190,7 @@ function addTeamDataValidation(sheet) {
 
     const submodulRule = SpreadsheetApp.newDataValidation()
       .requireValueInList(submodulValues, true)
-      .setAllowInvalid(false)
+      .setAllowInvalid(true)  // Allow values from Dashboard sync
       .build();
     submodulRange.setDataValidation(submodulRule);
   }
