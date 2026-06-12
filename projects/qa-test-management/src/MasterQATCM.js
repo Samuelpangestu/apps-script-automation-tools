@@ -2344,6 +2344,15 @@ function onOpen() {
       .addItem('📋 View Config', 'openJiraConfig')
       .addToUi();
   }
+
+  // Dashboard Config Menu - Always available
+  ui.createMenu('📊 Dashboard Config')
+    .addItem('🔗 Setup Dashboard Link', 'setupDashboardLink')
+    .addSeparator()
+    .addItem('📥 Pull Config from Dashboard', 'pullConfigFromDashboard')
+    .addSeparator()
+    .addItem('📋 View Dashboard Link', 'viewDashboardLink')
+    .addToUi();
 }
 
 /**
@@ -2744,5 +2753,191 @@ function convertADF_(adf) {
     return extract(adf).trim();
   } catch (e) {
     return '';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DASHBOARD CONFIG SYNC - Centralized (DRY Principle)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Get Dashboard Spreadsheet ID from Summary sheet
+ * Storage: Summary!K2 (hidden column, separate from main config area)
+ * @returns {string|null} Dashboard Spreadsheet ID or null if not set
+ */
+function getDashboardId_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const summary = ss.getSheetByName('Summary');
+  if (!summary) return null;
+  return String(summary.getRange('K2').getValue() || '').trim();
+}
+
+/**
+ * Set Dashboard Spreadsheet ID
+ * Centralized setter - single source of truth
+ * @param {string} dashboardId - Dashboard Spreadsheet ID
+ */
+function setDashboardId_(dashboardId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const summary = ss.getSheetByName('Summary');
+  if (!summary) throw new Error('Summary sheet not found');
+  summary.getRange('K2').setValue(dashboardId);
+  summary.getRange('K1').setValue('Dashboard ID:').setFontSize(8).setFontColor('#90A4AE');
+}
+
+/**
+ * Setup Dashboard Link - One-time configuration
+ * Menu: 📊 Dashboard Config → 🔗 Setup Dashboard Link
+ */
+function setupDashboardLink() {
+  const ui = SpreadsheetApp.getUi();
+
+  const currentId = getDashboardId_();
+  const promptMsg = currentId
+    ? 'Current Dashboard ID: ' + currentId + '\n\nEnter new Dashboard Spreadsheet ID to update:\n(Leave empty to keep current)'
+    : 'Enter QA Dashboard Spreadsheet ID:\n\n(Find it in Dashboard URL: docs.google.com/spreadsheets/d/[SPREADSHEET_ID]/edit)';
+
+  const result = ui.prompt('Setup Dashboard Link', promptMsg, ui.ButtonSet.OK_CANCEL);
+
+  if (result.getSelectedButton() !== ui.Button.OK) return;
+
+  const dashboardId = result.getResponseText().trim();
+  if (!dashboardId) {
+    if (currentId) {
+      ui.alert('✅ Keeping current Dashboard link.');
+      return;
+    }
+    ui.alert('❌ Dashboard ID cannot be empty!');
+    return;
+  }
+
+  // Validate Dashboard ID
+  try {
+    const dashboard = SpreadsheetApp.openById(dashboardId);
+    const configSheet = dashboard.getSheetByName('Config');
+    if (!configSheet) {
+      ui.alert('❌ Invalid Dashboard!\n\nConfig sheet not found in the provided Dashboard.');
+      return;
+    }
+
+    setDashboardId_(dashboardId);
+    ui.alert('✅ Dashboard link saved!\n\nYou can now pull config from Dashboard using:\n📊 Dashboard Config → 📥 Pull Config from Dashboard');
+  } catch (e) {
+    ui.alert('❌ Cannot access Dashboard!\n\n' + e.message + '\n\nMake sure:\n• Dashboard ID is correct\n• You have access to the Dashboard spreadsheet');
+  }
+}
+
+/**
+ * Pull config data from Dashboard Config tab
+ * Core function - reusable, follows DRY principle
+ * @returns {Object} {project, module, submodule, picQA, qaLead}
+ */
+function pullConfigFromDashboard_() {
+  const dashboardId = getDashboardId_();
+  if (!dashboardId) {
+    throw new Error('Dashboard not linked.\n\nPlease run "Setup Dashboard Link" first.');
+  }
+
+  const currentQatmId = SpreadsheetApp.getActiveSpreadsheet().getId();
+
+  // Open Dashboard and find current QATM in Config
+  const dashboard = SpreadsheetApp.openById(dashboardId);
+  const configSheet = dashboard.getSheetByName('Config');
+  if (!configSheet) {
+    throw new Error('Config sheet not found in Dashboard');
+  }
+
+  const configData = configSheet.getDataRange().getValues();
+
+  // Find row matching current QATM ID (column G = Spreadsheet ID, 0-indexed column 6)
+  let matchedRow = null;
+  for (let i = 3; i < configData.length; i++) { // Start from row 4 (index 3)
+    const spreadsheetId = String(configData[i][6]).trim(); // Column G (index 6)
+    if (spreadsheetId === currentQatmId) {
+      matchedRow = configData[i];
+      break;
+    }
+  }
+
+  if (!matchedRow) {
+    throw new Error('Current QATM not found in Dashboard Config.\n\nPlease add this QATM to Dashboard first.');
+  }
+
+  // Extract data from matched row
+  // Dashboard Config columns: B=QA Lead, C=Project, D=Modul, E=Submodul, F=PIC QA
+  return {
+    project: String(matchedRow[2] || '').trim(),    // Col C (index 2)
+    module: String(matchedRow[3] || '').trim(),     // Col D (index 3)
+    submodule: String(matchedRow[4] || '').trim(),  // Col E (index 4)
+    picQA: String(matchedRow[5] || '').trim(),      // Col F (index 5)
+    qaLead: String(matchedRow[1] || '').trim(),     // Col B (index 1)
+  };
+}
+
+/**
+ * Update Summary sheet with config from Dashboard
+ * Main menu function - single responsibility
+ * Menu: 📊 Dashboard Config → 📥 Pull Config from Dashboard
+ */
+function pullConfigFromDashboard() {
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Pull config from Dashboard (DRY - reuse core function)
+    const config = pullConfigFromDashboard_();
+
+    // Update Summary B2-B6 (single source of truth for QATM config)
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const summary = ss.getSheetByName('Summary');
+    if (!summary) {
+      ui.alert('❌ Summary sheet not found!');
+      return;
+    }
+
+    summary.getRange('B2').setValue(config.project);   // Project
+    summary.getRange('B3').setValue(config.module);    // Modul
+    summary.getRange('B4').setValue(config.submodule); // Submodul
+    summary.getRange('B5').setValue(config.qaLead);    // QA Lead
+    summary.getRange('B6').setValue(config.picQA);     // PIC QA
+
+    ui.alert(
+      '✅ Config updated from Dashboard!\n\n' +
+      'Project: ' + (config.project || '-') + '\n' +
+      'Modul: ' + (config.module || '-') + '\n' +
+      'Submodul: ' + (config.submodule || '-') + '\n' +
+      'QA Lead: ' + (config.qaLead || '-') + '\n' +
+      'PIC QA: ' + (config.picQA || '-')
+    );
+  } catch (e) {
+    ui.alert('❌ Failed to pull config from Dashboard!\n\n' + e.message);
+  }
+}
+
+/**
+ * View current Dashboard link
+ * Menu: 📊 Dashboard Config → 📋 View Dashboard Link
+ */
+function viewDashboardLink() {
+  const ui = SpreadsheetApp.getUi();
+  const dashboardId = getDashboardId_();
+
+  if (!dashboardId) {
+    ui.alert('❌ Dashboard not linked!\n\nPlease run "Setup Dashboard Link" first.');
+    return;
+  }
+
+  try {
+    const dashboard = SpreadsheetApp.openById(dashboardId);
+    const dashboardUrl = dashboard.getUrl();
+    const dashboardName = dashboard.getName();
+
+    ui.alert(
+      '📊 Dashboard Link\n\n' +
+      'Name: ' + dashboardName + '\n' +
+      'ID: ' + dashboardId + '\n\n' +
+      'URL:\n' + dashboardUrl
+    );
+  } catch (e) {
+    ui.alert('❌ Cannot access Dashboard!\n\n' + e.message + '\n\nDashboard ID: ' + dashboardId);
   }
 }
