@@ -276,7 +276,7 @@ function menuSyncFromDashboard() {
     ui.alert(
       'QA Dashboard Not Configured',
       'Please paste your QA Dashboard Spreadsheet ID in the Project tab first.\n\n' +
-      'Location: Project tab → Cell P2 (QA Dashboard ID)\n\n' +
+      'Location: Project tab → Cell Q2 (QA Dashboard ID)\n\n' +
       'You can paste either:\n' +
       '• Just the ID: 1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY\n' +
       '• Or full URL: https://docs.google.com/spreadsheets/d/ID/edit',
@@ -325,7 +325,7 @@ function menuSyncFromDashboard() {
       }
 
     } else {
-      ui.alert('Sync Failed', result.message + '\n\nPlease check:\n1. QA Dashboard ID is correct in Project tab (cell P2)\n2. You have access to the QA Dashboard spreadsheet', ui.ButtonSet.OK);
+      ui.alert('Sync Failed', result.message + '\n\nPlease check:\n1. QA Dashboard ID is correct in Project tab (cell Q2)\n2. You have access to the QA Dashboard spreadsheet', ui.ButtonSet.OK);
     }
 
   } catch (error) {
@@ -346,7 +346,7 @@ function menuTestDashboardConnection() {
   if (!settings.enabled || !settings.spreadsheetId) {
     ui.alert(
       'QA Dashboard Not Configured',
-      'Please paste your QA Dashboard Spreadsheet ID in Project tab → Cell P2\n\n' +
+      'Please paste your QA Dashboard Spreadsheet ID in Project tab → Cell Q2\n\n' +
       'Example:\n' +
       '1b2RBemEgo5B0YfUJHqAw8D0dH9Pg2Avgcngb7iz1PxY',
       ui.ButtonSet.OK
@@ -371,7 +371,7 @@ function menuTestDashboardConnection() {
       'Connection Failed ❌',
       result.message + '\n\n' +
       'Please check:\n' +
-      '1. Spreadsheet ID is correct (cell P2)\n' +
+      '1. Spreadsheet ID is correct (cell Q2)\n' +
       '2. You have access to the QA Dashboard\n' +
       '3. Dashboard has a "Config" tab',
       ui.ButtonSet.OK
