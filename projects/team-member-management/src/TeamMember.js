@@ -121,6 +121,9 @@ function createTeamMemberTab() {
 
 /**
  * Add data validation using helper columns from Project tab
+ * NOTE: Only applies validation to MANUAL columns (Role).
+ * Auto-generated columns (Project, Modul, Submodul, Status) are skipped
+ * because they can contain comma-separated values that don't match the helper lists.
  */
 function addTeamDataValidation(sheet) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -131,72 +134,18 @@ function addTeamDataValidation(sheet) {
     return;
   }
 
-  // Role validation (apply to reasonable range)
+  // Role validation (apply to reasonable range) - MANUAL COLUMN
   const roleRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.ROLE.index, 100);
   const roleRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['QA Team Lead', 'QA Lead', 'PIC Project', 'Quality Engineer', 'Senior Quality Engineer', 'Intern Quality Engineer', 'Security Engineer', 'UX Research'], true)
     .build();
   roleRange.setDataValidation(roleRule);
 
-  // Status validation
-  const statusRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.STATUS.index, 100);
-  const statusRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['Active', 'Inactive', 'On Leave'], true)
-    .build();
-  statusRange.setDataValidation(statusRule);
+  // REMOVED: Status, Project, Modul, Submodul validation
+  // These are auto-generated columns that can contain comma-separated values
+  // and should not have data validation applied to prevent conflicts with sync operations
 
-  // Get helper column last rows
-  const configLastRow = configSheet.getLastRow();
-
-  // Project validation - from helper column K with multiple selections
-  // Note: setAllowInvalid(true) allows synced data from Dashboard that may not be in the list
-  if (configLastRow >= 2) {
-    const projectHelperRange = configSheet.getRange('K2:K' + configLastRow);
-    const projectRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.PROJECTS.index, 100);
-
-    // Get values from helper column
-    const projectValues = projectHelperRange.getValues().filter(row => row[0]).map(row => row[0]);
-
-    const projectRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(projectValues, true)
-      .setAllowInvalid(true)  // Allow values from Dashboard sync
-      .build();
-    projectRange.setDataValidation(projectRule);
-  }
-
-  // Modul validation - from helper column L with multiple selections
-  // Note: setAllowInvalid(true) allows synced data from Dashboard that may not be in the list
-  if (configLastRow >= 2) {
-    const modulHelperRange = configSheet.getRange('L2:L' + configLastRow);
-    const modulRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.MODUL.index, 100);
-
-    // Get values from helper column
-    const modulValues = modulHelperRange.getValues().filter(row => row[0]).map(row => row[0]);
-
-    const modulRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(modulValues, true)
-      .setAllowInvalid(true)  // Allow values from Dashboard sync
-      .build();
-    modulRange.setDataValidation(modulRule);
-  }
-
-  // Submodul validation - from helper column M with multiple selections
-  // Note: setAllowInvalid(true) allows synced data from Dashboard that may not be in the list
-  if (configLastRow >= 2) {
-    const submodulHelperRange = configSheet.getRange('M2:M' + configLastRow);
-    const submodulRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.SUBMODUL.index, 100);
-
-    // Get values from helper column
-    const submodulValues = submodulHelperRange.getValues().filter(row => row[0]).map(row => row[0]);
-
-    const submodulRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(submodulValues, true)
-      .setAllowInvalid(true)  // Allow values from Dashboard sync
-      .build();
-    submodulRange.setDataValidation(submodulRule);
-  }
-
-  Logger.log('✅ Data validation added');
+  Logger.log('✅ Data validation added (manual columns only)');
 }
 
 /**
