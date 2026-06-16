@@ -71,8 +71,7 @@ function onOpen() {
       .addItem('Create Dashboard (First Time)', 'createDashboard')
       .addSeparator()
       .addItem('▶️ Manual Sync + Refresh', 'manualSyncAndRefresh')
-      .addItem('⚙️ Setup External QA Config', 'menuSetupExternalQAConfig')
-      .addItem('🤖 Generate Automation Config', 'menuGenerateAutomationConfig')
+      .addItem('🤖 Generate Automation Contract', 'menuGenerateAutomationContract')
       .addItem('🚀 Setup Auto-Refresh Trigger', 'setupAutoRefreshTrigger')
       .addSeparator()
       .addItem('⚙️ Refresh Bug Only (No Jira Sync)', 'refreshBugOnly')
@@ -235,18 +234,23 @@ function menuSetAutomationIngestToken() {
   }
 }
 
-function menuSetupExternalQAConfig() {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const ws = ss.getSheetByName('Config');
-    if (!ws) throw new Error('Config tab not found. Please run Create Dashboard first.');
-    setupExternalQAConfigSection_(ws);
-    safeAlert_('External QA Config ready at Config!AL:AN.\nExisting values were preserved.');
-  } catch (error) {
-    safeAlert_('Setup External QA Config failed:\n' + error.message);
-    Logger.log('Setup External QA Config error: ' + error.stack);
-  }
-}
+/**
+ * DEPRECATED: Setup External QA Config
+ * Reason: External QA section is now auto-created in buildConfig()
+ * No longer needed as separate menu item
+ */
+// function menuSetupExternalQAConfig() {
+//   try {
+//     const ss = SpreadsheetApp.getActiveSpreadsheet();
+//     const ws = ss.getSheetByName('Config');
+//     if (!ws) throw new Error('Config tab not found. Please run Create Dashboard first.');
+//     setupExternalQAConfigSection_(ws);
+//     safeAlert_('External QA Config ready at Config!AL:AN.\nExisting values were preserved.');
+//   } catch (error) {
+//     safeAlert_('Setup External QA Config failed:\n' + error.message);
+//     Logger.log('Setup External QA Config error: ' + error.stack);
+//   }
+// }
 
 /**
  * Quick Start Guide - REMOVED
@@ -315,6 +319,15 @@ function createDashboard() {
 
   // Build all tabs with latest structure (no flush - avoid timeout)
   buildConfig(ss);
+
+  // Auto-generate Automation Contract for all modules
+  try {
+    generateAutomationConfig();
+    Logger.log('✅ Automation Contract auto-generated');
+  } catch (error) {
+    Logger.log('⚠️ Failed to auto-generate Automation Contract: ' + error.message);
+  }
+
   buildCredentials(ss);
   buildOverview(ss);
   buildBugs(ss);  // NEW: Bugs tab with historical tracking
@@ -716,7 +729,16 @@ function rebuildTab_(ss, tabName, buildFunction, successMessage) {
 
 // Wrapper functions for manual execution from menu
 function rebuildConfig() {
-  rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'Config', buildConfig, 'Config tab rebuilt!');
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  rebuildTab_(ss, 'Config', buildConfig, 'Config tab rebuilt!');
+
+  // Auto-generate Automation Contract after rebuild
+  try {
+    generateAutomationConfig();
+    Logger.log('✅ Automation Contract auto-generated after rebuild');
+  } catch (error) {
+    Logger.log('⚠️ Failed to auto-generate Automation Contract: ' + error.message);
+  }
 }
 function rebuildCredentials() {
   rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'Credentials', buildCredentials, 'Credentials tab rebuilt!');
@@ -1334,12 +1356,13 @@ function buildConfig(ss) {
   hdr(3,8,'Link',55);
   hdr(3,9,'Jira Instance',110,'digitalperuri / bgn-peruri');
   hdr(3,10,'Jira Project',90,'Project key (contoh: TEST)');
+  hdr(3,11,'QA Lead',110,'Auto dari Summary B5 (QATM)');
   ws.setRowHeight(3,22);
 
-  // Sample data dengan TRUE/FALSE
-  [[true,false,'SIMPER','Mobile App','Login, Dashboard','Budi','1evhTCv0gyfsTxkh5SusXvK_GD68HRJkH9QFZB3-jDmg','','digitalperuri','TEST'],
-    [true,true,'E-Meterai','Backend API','User Management','Dedi','PASTE_SPREADSHEET_ID_HERE','','bgn-peruri','SQA'],
-    [false,false,'Portal','Web Portal','Admin Panel','Fandi','PASTE_SPREADSHEET_ID_HERE','','-','-'],
+  // Sample data dengan TRUE/FALSE (11 columns: Active, Jira Sync, Project, Modul, Submodul, PIC QA, Spreadsheet ID, Link, Jira Instance, Jira Project, QA Lead)
+  [[true,false,'SIMPER','Mobile App','Login, Dashboard','Budi','1evhTCv0gyfsTxkh5SusXvK_GD68HRJkH9QFZB3-jDmg','','digitalperuri','TEST','Samuel'],
+    [true,true,'E-Meterai','Backend API','User Management','Dedi','PASTE_SPREADSHEET_ID_HERE','','bgn-peruri','SQA','Lutfi'],
+    [false,false,'Portal','Web Portal','Admin Panel','Fandi','PASTE_SPREADSHEET_ID_HERE','','-','-',''],
   ].forEach((row,i)=>{
     ws.getRange(4+i,1,1,row.length).setValues([row]);
     ws.setRowHeight(4+i,22);
@@ -1773,25 +1796,35 @@ function buildConfig(ss) {
   ws.setConditionalFormatRules([...finalConfigRules, vaptEnableTrueRule, vaptEnableFalseRule]);
 
   // ─────────────────────────────────────────────────────────────────────
-  // AUTOMATION CONTRACT SECTION (Kolom X-Z)
+  // AUTOMATION CONTRACT SECTION (Kolom Y-AK)
   // ─────────────────────────────────────────────────────────────────────
 
-  const autoContractCol = 24; // Start at column X (24)
+  const autoContractCol = 25; // Start at column Y (25)
 
-  ws.getRange(1, autoContractCol, 1, 3).merge()
+  ws.getRange(1, autoContractCol, 1, 13).merge()
     .setValue('AUTOMATION CONTRACT')
     .setBackground('#00695C').setFontColor('#FFFFFF').setFontWeight('bold')
     .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
 
-  ws.getRange(2, autoContractCol, 1, 3).merge()
-    .setValue('Mapping Jenkins automation result ke Project/Modul/Submodul dashboard. Isi jika nama job/tag berbeda dari nama di dashboard.')
+  ws.getRange(2, autoContractCol, 1, 13).merge()
+    .setValue('Auto-generated automation configuration for Jenkins/CI integration. Fill manually if needed.')
     .setBackground('#E0F2F1').setFontColor('#00695C').setFontStyle('italic')
     .setFontSize(8).setHorizontalAlignment('center');
 
   const contractHeaders = [
-    ['Automation Contract', 180, 'Alias umum untuk Web/API jika sama.\nContoh: qa-web-4-menuplanner-regression-prod atau menuplanner'],
-    ['Web Automation Contract', 180, 'Alias khusus Web automation.\nDipakai untuk match payload channel=web dari Jenkins.'],
-    ['API Automation Contract', 180, 'Alias khusus API automation.\nDipakai untuk match payload channel=api dari Jenkins.']
+    ['Tab Sheet Name', 150, 'Tab sheet identifier (MODUL-SUBMODUL)'],
+    ['Webhook Env Key', 150, 'Environment variable key for webhook'],
+    ['Webhook URL', 200, 'Webhook endpoint URL'],
+    ['Test Env', 100, 'Test environment: Dev, Staging, Prod'],
+    ['Web Job Pattern', 200, 'Jenkins job pattern for Web tests'],
+    ['API Job Pattern', 200, 'Jenkins job pattern for API tests'],
+    ['Web Tag Pattern', 180, 'Git tag pattern for Web automation'],
+    ['API Tag Pattern', 180, 'Git tag pattern for API automation'],
+    ['Web Enabled', 90, 'Enable/disable Web automation'],
+    ['API Enabled', 90, 'Enable/disable API automation'],
+    ['Automation Owner', 120, 'Team/person responsible'],
+    ['Automation Notes', 150, 'Additional notes'],
+    ['Report Channel', 130, 'Slack/Discord channel for reports']
   ];
 
   contractHeaders.forEach(([h, w, note], i) => {
@@ -3048,6 +3081,7 @@ function updateConfig(ss, allData) {
         cfg.getRange(i+1,4).setValue(d.module || '');     // col D = Modul
         cfg.getRange(i+1,5).setValue(d.submodule || '');  // col E = Submodul
         cfg.getRange(i+1,6).setValue(d.team || '');       // col F = PIC QA
+        cfg.getRange(i+1,11).setValue(d.lead || '');      // col K = QA Lead
         break;
       }
     }
