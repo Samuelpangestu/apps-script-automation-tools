@@ -196,15 +196,15 @@ function generateConfigForModule_(project, modul, submodul) {
 /**
  * Menu function wrapper for generateAutomationConfig
  */
-function menuGenerateAutomationConfig() {
+function menuGenerateAutomationContract() {
   try {
     generateAutomationConfig();
   } catch (error) {
     SpreadsheetApp.getUi().alert(
       'Error',
-      'Failed to generate automation config:\n\n' + error.message,
+      'Failed to generate automation contract:\n\n' + error.message,
       SpreadsheetApp.getUi().ButtonSet.OK
     );
-    Logger.log('Generate Automation Config error: ' + error.stack);
+    Logger.log('Generate Automation Contract error: ' + error.stack);
   }
 }
