@@ -11,32 +11,57 @@ const TEAM_DATA_START_ROW = 2;
 
 // Auto-generated columns (left) + Manual fill columns (right)
 const TEAM_COLUMNS = {
-  // Auto-generated from Project Config (columns A-F)
+  // Auto-generated from Project Config (columns A-G)
   NO: { index: 1, letter: 'A', width: 50, header: 'No' },
   NAME: { index: 2, letter: 'B', width: 180, header: 'Name' },
   PROJECTS: { index: 3, letter: 'C', width: 200, header: 'Project' },
   MODUL: { index: 4, letter: 'D', width: 180, header: 'Modul' },
   SUBMODUL: { index: 5, letter: 'E', width: 250, header: 'Submodul' },
   STATUS: { index: 6, letter: 'F', width: 120, header: 'Status' },
+  QA_LEAD: { index: 7, letter: 'G', width: 180, header: 'Submodul Lead' },
 
-  // Manual fill columns (columns G-S)
-  NP: { index: 7, letter: 'G', width: 120, header: 'NP' },
-  EMAIL: { index: 8, letter: 'H', width: 220, header: 'Email' },
-  EMAIL_2: { index: 9, letter: 'I', width: 220, header: 'Email 2' },
-  HP: { index: 10, letter: 'J', width: 140, header: 'HP' },
-  JOIN_DATE: { index: 11, letter: 'K', width: 110, header: 'Join Date' },
-  TITLE: { index: 12, letter: 'L', width: 150, header: 'Title' },
-  ROLE: { index: 13, letter: 'M', width: 150, header: 'Role' },
-  LEAD_PIC: { index: 14, letter: 'N', width: 150, header: 'Lead/PIC' },
-  STATUS_HIRING: { index: 15, letter: 'O', width: 130, header: 'Status Hiring' },
-  AUTOMATION: { index: 16, letter: 'P', width: 140, header: 'Automation' },
-  GITHUB: { index: 17, letter: 'Q', width: 180, header: 'Github Personal' },
-  VPN_ABC: { index: 18, letter: 'R', width: 120, header: 'VPN ABC' },
-  VPN_HUWAWEI: { index: 19, letter: 'S', width: 140, header: 'VPN Huwawei' }
+  // Manual fill columns (columns H-T)
+  NP: { index: 8, letter: 'H', width: 120, header: 'NP' },
+  EMAIL: { index: 9, letter: 'I', width: 220, header: 'Email' },
+  EMAIL_2: { index: 10, letter: 'J', width: 220, header: 'Email 2' },
+  HP: { index: 11, letter: 'K', width: 140, header: 'HP' },
+  JOIN_DATE: { index: 12, letter: 'L', width: 110, header: 'Join Date' },
+  TITLE: { index: 13, letter: 'M', width: 150, header: 'Title' },
+  ROLE: { index: 14, letter: 'N', width: 150, header: 'Role' },
+  LEAD_PIC: { index: 15, letter: 'O', width: 150, header: 'Lead/PIC' },
+  STATUS_HIRING: { index: 16, letter: 'P', width: 130, header: 'Status Hiring' },
+  AUTOMATION: { index: 17, letter: 'Q', width: 140, header: 'Automation' },
+  GITHUB: { index: 18, letter: 'R', width: 180, header: 'Github Personal' },
+  VPN_ABC: { index: 19, letter: 'S', width: 120, header: 'VPN ABC' },
+  VPN_HUWAWEI: { index: 20, letter: 'T', width: 140, header: 'VPN Huwawei' }
 };
 
-const TEAM_TOTAL_COLUMNS = 19;
-const TEAM_AUTO_GENERATED_COLS = 6; // Columns A-F are auto-generated
+const TEAM_TOTAL_COLUMNS = 20;
+const TEAM_AUTO_GENERATED_COLS = 7; // Columns A-G are auto-generated
+
+// Column indices for array access (0-based)
+const TEAM_COL = {
+  NO: 0,             // Column A
+  NAME: 1,           // Column B
+  PROJECTS: 2,       // Column C
+  MODUL: 3,          // Column D
+  SUBMODUL: 4,       // Column E
+  STATUS: 5,         // Column F
+  QA_LEAD: 6,        // Column G (Submodul Lead)
+  NP: 7,             // Column H
+  EMAIL: 8,          // Column I
+  EMAIL_2: 9,        // Column J
+  HP: 10,            // Column K
+  JOIN_DATE: 11,     // Column L
+  TITLE: 12,         // Column M
+  ROLE: 13,          // Column N
+  LEAD_PIC: 14,      // Column O
+  STATUS_HIRING: 15, // Column P
+  AUTOMATION: 16,    // Column Q
+  GITHUB: 17,        // Column R
+  VPN_ABC: 18,       // Column S
+  VPN_HUWAWEI: 19    // Column T
+};
 
 /**
  * Create Team Members tab
@@ -65,6 +90,7 @@ function createTeamMemberTab() {
     TEAM_COLUMNS.MODUL.header,
     TEAM_COLUMNS.SUBMODUL.header,
     TEAM_COLUMNS.STATUS.header,
+    TEAM_COLUMNS.QA_LEAD.header,
     // Manual fill columns
     TEAM_COLUMNS.NP.header,
     TEAM_COLUMNS.EMAIL.header,
@@ -96,11 +122,11 @@ function createTeamMemberTab() {
 
   // Add sample data with new structure (Auto-generated left, Manual fill right)
   const sampleData = [
-    // [No, Name, Project, Modul, Submodul, Status, NP, Email, Email2, HP, JoinDate, Title, Role, Lead, StatusHiring, Automation, Github, VPN_ABC, VPN_Huwawei]
-    [1, 'Samuel Pangestu', 'Government Systems', 'SIPGN', 'Core System, Integration Module', 'Active', 'NP001', 'samuel.gonggom@inadigital.co.id', '', '081234567890', '2023-01-15', 'Senior QA Engineer', 'QA Team Lead', 'Samuel', 'Permanent', 'Selenium, Playwright', 'github.com/samuel', 'Active', 'Active'],
-    [2, 'Muhammad Lutfi', 'Digital Peruri', 'INADigital', 'INAgov, Emeterai', 'Active', 'NP002', 'muhamad.ramdani@inadigital.co.id', '', '081234567891', '2023-02-01', 'Senior QA Engineer', 'QA Team Lead', 'Lutfi', 'Permanent', 'Cypress, JMeter', 'github.com/lutfi', 'Active', 'Active'],
-    [3, 'Irvan Muhandis', 'Digital Peruri', 'INADigital', 'INAgov, Wahana', 'Active', 'NP003', 'irvan.muhandis@inadigital.co.id', '', '081234567892', '2023-03-10', 'QA Engineer', 'PIC Project', 'Irvan', 'Permanent', 'Postman, K6', 'github.com/irvan', 'Active', 'Active'],
-    [4, 'Muhammad Rizky', 'Digital Peruri', 'INADigital', 'Wahana, COTS', 'Active', 'NP004', 'muhammad.ferdiansyah@inadigital.co.id', '', '081234567893', '2023-04-20', 'QA Engineer', 'Quality Engineer', 'Rizky', 'Contract', 'Manual Testing', 'github.com/rizky', 'Active', 'Pending']
+    // [No, Name, Project, Modul, Submodul, Status, QA Lead, NP, Email, Email2, HP, JoinDate, Title, Role, Lead, StatusHiring, Automation, Github, VPN_ABC, VPN_Huwawei]
+    [1, 'Samuel Pangestu', 'Government Systems', 'SIPGN', 'Core System, Integration Module', 'Active', 'Samuel', 'NP001', 'samuel.gonggom@inadigital.co.id', '', '081234567890', '2023-01-15', 'Senior QA Engineer', 'QA Team Lead', 'Samuel', 'Permanent', 'Selenium, Playwright', 'github.com/samuel', 'Active', 'Active'],
+    [2, 'Muhammad Lutfi', 'Digital Peruri', 'INADigital', 'INAgov, Emeterai', 'Active', 'Lutfi', 'NP002', 'muhamad.ramdani@inadigital.co.id', '', '081234567891', '2023-02-01', 'Senior QA Engineer', 'QA Team Lead', 'Lutfi', 'Permanent', 'Cypress, JMeter', 'github.com/lutfi', 'Active', 'Active'],
+    [3, 'Irvan Muhandis', 'Digital Peruri', 'INADigital', 'INAgov, Wahana', 'Active', 'Lutfi', 'NP003', 'irvan.muhandis@inadigital.co.id', '', '081234567892', '2023-03-10', 'QA Engineer', 'PIC Project', 'Irvan', 'Permanent', 'Postman, K6', 'github.com/irvan', 'Active', 'Active'],
+    [4, 'Muhammad Rizky', 'Digital Peruri', 'INADigital', 'Wahana, COTS', 'Active', 'Lutfi', 'NP004', 'muhammad.ferdiansyah@inadigital.co.id', '', '081234567893', '2023-04-20', 'QA Engineer', 'Quality Engineer', 'Rizky', 'Contract', 'Manual Testing', 'github.com/rizky', 'Active', 'Pending']
   ];
 
   sheet.getRange(TEAM_DATA_START_ROW, 1, sampleData.length, TEAM_TOTAL_COLUMNS)
@@ -134,16 +160,21 @@ function addTeamDataValidation(sheet) {
     return;
   }
 
-  // Role validation (apply to reasonable range) - MANUAL COLUMN
+  // IMPORTANT: Clear existing validation from auto-generated columns
+  // These columns can contain comma-separated values and should not have validation
+  Logger.log('🧹 Clearing validation from auto-generated columns (entire columns)...');
+  sheet.getRange(1, TEAM_COLUMNS.PROJECTS.index, sheet.getMaxRows(), 1).clearDataValidations(); // Column C: Project (entire column)
+  sheet.getRange(1, TEAM_COLUMNS.MODUL.index, sheet.getMaxRows(), 1).clearDataValidations();    // Column D: Modul (entire column)
+  sheet.getRange(1, TEAM_COLUMNS.SUBMODUL.index, sheet.getMaxRows(), 1).clearDataValidations(); // Column E: Submodul (entire column)
+  sheet.getRange(1, TEAM_COLUMNS.STATUS.index, sheet.getMaxRows(), 1).clearDataValidations();   // Column F: Status (entire column)
+  sheet.getRange(1, TEAM_COLUMNS.QA_LEAD.index, sheet.getMaxRows(), 1).clearDataValidations();  // Column G: QA Lead (entire column)
+
+  // Role validation (apply to reasonable range) - MANUAL COLUMN (now column N)
   const roleRange = sheet.getRange(TEAM_DATA_START_ROW, TEAM_COLUMNS.ROLE.index, 100);
   const roleRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['QA Team Lead', 'QA Lead', 'PIC Project', 'Quality Engineer', 'Senior Quality Engineer', 'Intern Quality Engineer', 'Security Engineer', 'UX Research'], true)
     .build();
   roleRange.setDataValidation(roleRule);
-
-  // REMOVED: Status, Project, Modul, Submodul validation
-  // These are auto-generated columns that can contain comma-separated values
-  // and should not have data validation applied to prevent conflicts with sync operations
 
   Logger.log('✅ Data validation added (manual columns only)');
 }
@@ -244,13 +275,13 @@ function getTeamMembersByRole(role) {
 
   const members = [];
   data.forEach(row => {
-    const name = row[1] ? row[1].toString().trim() : ''; // Column B (Name)
-    const projects = row[2] ? row[2].toString().trim() : ''; // Column C (Projects)
-    const modul = row[3] ? row[3].toString().trim() : ''; // Column D (Modul)
-    const submodul = row[4] ? row[4].toString().trim() : ''; // Column E (Submodul)
-    const status = row[5] ? row[5].toString().trim() : ''; // Column F (Status)
-    const email = row[7] ? row[7].toString().trim() : ''; // Column H (Email)
-    const memberRole = row[12] ? row[12].toString().trim() : ''; // Column M (Role)
+    const name = row[TEAM_COL.NAME] ? row[TEAM_COL.NAME].toString().trim() : '';
+    const projects = row[TEAM_COL.PROJECTS] ? row[TEAM_COL.PROJECTS].toString().trim() : '';
+    const modul = row[TEAM_COL.MODUL] ? row[TEAM_COL.MODUL].toString().trim() : '';
+    const submodul = row[TEAM_COL.SUBMODUL] ? row[TEAM_COL.SUBMODUL].toString().trim() : '';
+    const status = row[TEAM_COL.STATUS] ? row[TEAM_COL.STATUS].toString().trim() : '';
+    const email = row[TEAM_COL.EMAIL] ? row[TEAM_COL.EMAIL].toString().trim() : '';
+    const memberRole = row[TEAM_COL.ROLE] ? row[TEAM_COL.ROLE].toString().trim() : '';
 
     if (name && status === 'Active' && memberRole === role) {
       members.push({
@@ -283,17 +314,18 @@ function getAllActiveTeamMembers() {
 
   const members = [];
   data.forEach(row => {
-    const name = row[1] ? row[1].toString().trim() : ''; // Column B (Name)
-    const status = row[5] ? row[5].toString().trim() : ''; // Column F (Status)
+    const name = row[TEAM_COL.NAME] ? row[TEAM_COL.NAME].toString().trim() : '';
+    const status = row[TEAM_COL.STATUS] ? row[TEAM_COL.STATUS].toString().trim() : '';
 
     if (name && status === 'Active') {
       members.push({
         name: name,
-        role: row[12] ? row[12].toString().trim() : '', // Column M (Role)
-        projects: row[2] ? row[2].toString().split(',').map(p => p.trim()).filter(p => p) : [], // Column C (Projects)
-        modul: row[3] ? row[3].toString().split(',').map(m => m.trim()).filter(m => m) : [], // Column D (Modul)
-        submodul: row[4] ? row[4].toString().split(',').map(s => s.trim()).filter(s => s) : [], // Column E (Submodul)
-        email: row[7] ? row[7].toString().trim() : '' // Column H (Email)
+        role: row[TEAM_COL.ROLE] ? row[TEAM_COL.ROLE].toString().trim() : '',
+        projects: row[TEAM_COL.PROJECTS] ? row[TEAM_COL.PROJECTS].toString().split(',').map(p => p.trim()).filter(p => p) : [],
+        modul: row[TEAM_COL.MODUL] ? row[TEAM_COL.MODUL].toString().split(',').map(m => m.trim()).filter(m => m) : [],
+        submodul: row[TEAM_COL.SUBMODUL] ? row[TEAM_COL.SUBMODUL].toString().split(',').map(s => s.trim()).filter(s => s) : [],
+        qaLead: row[TEAM_COL.QA_LEAD] ? row[TEAM_COL.QA_LEAD].toString().split(',').map(q => q.trim()).filter(q => q) : [],
+        email: row[TEAM_COL.EMAIL] ? row[TEAM_COL.EMAIL].toString().trim() : ''
       });
     }
   });
@@ -330,14 +362,15 @@ function generateTeamMembersFromConfig() {
   const configData = configSheet.getRange(CONFIG_DATA_START_ROW, 1, lastRow - CONFIG_DATA_START_ROW + 1, CONFIG_TOTAL_COLUMNS).getValues();
 
   // Parse and aggregate by PIC name
-  const picMap = new Map(); // Map<picName, {projects: Set, moduls: Set, submoduls: Set}>
+  const picMap = new Map(); // Map<picName, {projects: Set, moduls: Set, submoduls: Set, qaLeads: Set}>
 
   configData.forEach(row => {
-    const projectName = row[0] ? row[0].toString().trim() : ''; // Column A
-    const modulName = row[1] ? row[1].toString().trim() : ''; // Column B
-    const submodulName = row[2] ? row[2].toString().trim() : ''; // Column C
-    const picQA = row[3] ? row[3].toString().trim() : ''; // Column D (PIC QA)
-    const status = row[9] ? row[9].toString().trim() : ''; // Column J (Status)
+    const projectName = row[CONFIG_COL.PROJECT] ? row[CONFIG_COL.PROJECT].toString().trim() : '';
+    const modulName = row[CONFIG_COL.MODUL] ? row[CONFIG_COL.MODUL].toString().trim() : '';
+    const submodulName = row[CONFIG_COL.SUBMODUL] ? row[CONFIG_COL.SUBMODUL].toString().trim() : '';
+    const picQA = row[CONFIG_COL.PIC_QA] ? row[CONFIG_COL.PIC_QA].toString().trim() : '';
+    const status = row[CONFIG_COL.STATUS] ? row[CONFIG_COL.STATUS].toString().trim() : '';
+    const qaLead = row[CONFIG_COL.QA_LEAD] ? row[CONFIG_COL.QA_LEAD].toString().trim() : '';
 
     if (projectName && modulName && submodulName && picQA && status === 'Active') {
       // Parse multiple PICs (comma-separated)
@@ -348,7 +381,8 @@ function generateTeamMembersFromConfig() {
           picMap.set(picName, {
             projects: new Set(),
             moduls: new Set(),
-            submoduls: new Set()
+            submoduls: new Set(),
+            qaLeads: new Set()
           });
         }
 
@@ -356,6 +390,7 @@ function generateTeamMembersFromConfig() {
         picData.projects.add(projectName);
         picData.moduls.add(modulName);
         picData.submoduls.add(submodulName);
+        if (qaLead) picData.qaLeads.add(qaLead); // Add QA Lead if exists
       });
     }
   });
@@ -365,7 +400,7 @@ function generateTeamMembersFromConfig() {
     return { success: false, message: 'No PICs found in Config' };
   }
 
-  // Read existing Team Members data to preserve manual fills (columns G-S)
+  // Read existing Team Members data to preserve manual fills (columns H-T)
   const teamLastRow = teamSheet.getLastRow();
   const existingData = teamLastRow >= TEAM_DATA_START_ROW ?
     teamSheet.getRange(TEAM_DATA_START_ROW, 1, teamLastRow - TEAM_DATA_START_ROW + 1, TEAM_TOTAL_COLUMNS).getValues() : [];
@@ -373,10 +408,10 @@ function generateTeamMembersFromConfig() {
   // Build map of existing manual data by name
   const existingManualDataMap = new Map();
   existingData.forEach(row => {
-    const name = row[1] ? row[1].toString().trim() : ''; // Column B (Name)
+    const name = row[TEAM_COL.NAME] ? row[TEAM_COL.NAME].toString().trim() : '';
     if (name) {
-      // Preserve manual fill columns (G-S: indices 6-18)
-      existingManualDataMap.set(name, row.slice(6, 19)); // Columns G-S
+      // Preserve manual fill columns (H-T: indices 7-19)
+      existingManualDataMap.set(name, row.slice(TEAM_COL.NP, TEAM_COL.VPN_HUWAWEI + 1)); // Columns H-T
     }
   });
 
@@ -388,39 +423,41 @@ function generateTeamMembersFromConfig() {
     const projects = Array.from(data.projects).join(', ');
     const moduls = Array.from(data.moduls).join(', ');
     const submoduls = Array.from(data.submoduls).join(', ');
+    const qaLeads = Array.from(data.qaLeads).join(', '); // Aggregate QA Leads
 
     // Get existing manual data or use defaults
     const existingManual = existingManualDataMap.get(picName);
 
-    // Build row: Auto-generated (A-F) + Manual (G-S)
+    // Build row: Auto-generated (A-G) + Manual (H-T)
     const row = [
-      // Auto-generated columns (A-F)
+      // Auto-generated columns (A-G)
       rowNum,           // A: No
       picName,          // B: Name
       projects,         // C: Projects
       moduls,           // D: Modul
       submoduls,        // E: Submodul
-      'Active'          // F: Status
+      'Active',         // F: Status
+      qaLeads           // G: QA Lead
     ];
 
-    // Manual fill columns (G-S) - preserve if exists, otherwise default
+    // Manual fill columns (H-T) - preserve if exists, otherwise default
     if (existingManual) {
       row.push(...existingManual); // Preserve existing manual data
     } else {
       row.push(
-        '',               // G: NP
-        '',               // H: Email
-        '',               // I: Email 2
-        '',               // J: HP
-        '',               // K: Join Date
-        '',               // L: Title
-        'Quality Engineer', // M: Role - default
-        '',               // N: Lead/PIC
-        '',               // O: Status Hiring
-        '',               // P: Automation
-        '',               // Q: Github Personal
-        '',               // R: VPN ABC
-        ''                // S: VPN Huwawei
+        '',               // H: NP
+        '',               // I: Email
+        '',               // J: Email 2
+        '',               // K: HP
+        '',               // L: Join Date
+        '',               // M: Title
+        'Quality Engineer', // N: Role - default
+        '',               // O: Lead/PIC
+        '',               // P: Status Hiring
+        '',               // Q: Automation
+        '',               // R: Github Personal
+        '',               // S: VPN ABC
+        ''                // T: VPN Huwawei
       );
     }
 
@@ -432,6 +469,16 @@ function generateTeamMembersFromConfig() {
   if (teamLastRow > TEAM_HEADER_ROW) {
     teamSheet.getRange(TEAM_DATA_START_ROW, 1, teamLastRow - TEAM_HEADER_ROW, TEAM_TOTAL_COLUMNS).clearContent();
   }
+
+  // CRITICAL: Clear data validation from auto-generated columns BEFORE writing data
+  // These columns can contain comma-separated values that will violate single-value validation rules
+  Logger.log('🧹 Clearing validation from auto-generated columns (entire columns) before writing...');
+  teamSheet.getRange(1, TEAM_COLUMNS.PROJECTS.index, teamSheet.getMaxRows(), 1).clearDataValidations(); // Column C: Project (entire column)
+  teamSheet.getRange(1, TEAM_COLUMNS.MODUL.index, teamSheet.getMaxRows(), 1).clearDataValidations();    // Column D: Modul (entire column)
+  teamSheet.getRange(1, TEAM_COLUMNS.SUBMODUL.index, teamSheet.getMaxRows(), 1).clearDataValidations(); // Column E: Submodul (entire column)
+  teamSheet.getRange(1, TEAM_COLUMNS.STATUS.index, teamSheet.getMaxRows(), 1).clearDataValidations();   // Column F: Status (entire column)
+  teamSheet.getRange(1, TEAM_COLUMNS.QA_LEAD.index, teamSheet.getMaxRows(), 1).clearDataValidations();  // Column G: QA Lead (entire column)
+  SpreadsheetApp.flush(); // Ensure validation clearing is applied before writing data
 
   // Write to Team Members tab
   if (teamData.length > 0) {
