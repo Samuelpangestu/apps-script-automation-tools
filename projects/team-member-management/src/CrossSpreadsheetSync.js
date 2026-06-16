@@ -164,14 +164,28 @@ function syncFromDashboard() {
     }
 
     // QA Dashboard Config structure (row 4 starts data, row 3 is header)
-    // Col A: Active, B: Jira Sync, C: Project, D: Modul, E: Submodul, F: PIC QA, G: Spreadsheet ID, H: Link, I: Jira Instance, J: Jira Project
+    // Col A: Active, B: Jira Sync, C: Project, D: Modul, E: Submodul, F: PIC QA, G: Spreadsheet ID, H: Link, I: Jira Instance, J: Jira Project, K: QA Lead
+
+    // Check if Dashboard Config has QA Lead column (K)
+    const dashboardHeader = dashboardConfig.getRange(3, 1, 1, 11).getValues()[0];
+    const hasQALead = dashboardHeader[10] && dashboardHeader[10].toString().trim().toLowerCase().includes('lead');
+
+    if (!hasQALead) {
+      Logger.log('⚠️ WARNING: Dashboard Config does not have QA Lead column (K)');
+      Logger.log('⚠️ Please rebuild Config tab in QA Dashboard first: Menu → Config');
+      Logger.log('⚠️ Continuing sync WITHOUT QA Lead data...');
+    }
 
     const dashboardLastRow = dashboardConfig.getLastRow();
     const dataRowCount = Math.max(60, dashboardLastRow - 3); // Dashboard starts from row 4
 
     // Sync from Dashboard row 4 onwards (skip header rows 1-3)
-    const dashboardDataRange = 'A4:F' + (4 + dataRowCount - 1);
+    // Include column K (QA Lead) if exists
+    const dashboardDataRange = 'A4:K' + (4 + dataRowCount - 1);
     const dashboardData = dashboardConfig.getRange(dashboardDataRange).getValues();
+
+    Logger.log('📊 Dashboard Config columns: ' + dashboardHeader.length);
+    Logger.log('📊 QA Lead column exists: ' + hasQALead);
 
     // Read existing local data to preserve ratings
     const localLastRow = localConfig.getLastRow();
@@ -181,42 +195,51 @@ function syncFromDashboard() {
     // Build map of existing ratings by project|modul|submodul key
     const existingRatingsMap = new Map();
     existingData.forEach(row => {
-      const project = row[0] ? row[0].toString().trim() : '';
-      const modul = row[1] ? row[1].toString().trim() : '';
-      const submodul = row[2] ? row[2].toString().trim() : '';
+      const project = row[CONFIG_COL.PROJECT] ? row[CONFIG_COL.PROJECT].toString().trim() : '';
+      const modul = row[CONFIG_COL.MODUL] ? row[CONFIG_COL.MODUL].toString().trim() : '';
+      const submodul = row[CONFIG_COL.SUBMODUL] ? row[CONFIG_COL.SUBMODUL].toString().trim() : '';
       if (project && modul && submodul) {
         const key = [project, modul, submodul].join('|');
         existingRatingsMap.set(key, {
-          difficulty: row[4] || 0,    // Column E
-          risk: row[5] || 0,           // Column F
-          complexity: row[6] || 0,     // Column G
-          automation: row[7] || 0,     // Column H
-          testComplexity: row[8] || 0  // Column I
+          difficulty: row[CONFIG_COL.DIFFICULTY] || 0,
+          risk: row[CONFIG_COL.RISK] || 0,
+          complexity: row[CONFIG_COL.COMPLEXITY] || 0,
+          automation: row[CONFIG_COL.AUTOMATION] || 0,
+          testComplexity: row[CONFIG_COL.TEST_COMPLEXITY] || 0
         });
       }
     });
 
     // Map Dashboard Config to local Project Config structure
-    // Dashboard: A=Active, C=Project, D=Modul, E=Submodul, F=PIC QA
-    // Local Project: A=Project, B=Modul, C=Submodul, D=PIC QA, E=Diff, F=Risk, G=Comp, H=Auto, I=Test, J=Status
+    // Dashboard: A=Active, C=Project, D=Modul, E=Submodul, F=PIC QA, K=QA Lead
+    // Local Project: A=Project, B=Modul, C=Submodul, D=PIC QA, E=Diff, F=Risk, G=Comp, H=Auto, I=Test, J=Status, K=QA Lead
 
     const mappedData = [];
     const projectSet = new Set();
     const modulSet = new Set();
     let submodulCount = 0;
-
+    let activeCount = 0;
+    let inactiveCount = 0;
+    let qaLeadCount = 0;
     dashboardData.forEach(row => {
       const active = row[0] === true;  // Dashboard col A
       const project = row[2] ? row[2].toString().trim() : '';    // Dashboard col C
       const modul = row[3] ? row[3].toString().trim() : '';      // Dashboard col D
       const submodul = row[4] ? row[4].toString().trim() : '';   // Dashboard col E
       const picQA = row[5] ? row[5].toString().trim() : '';      // Dashboard col F
+      const qaLead = row[10] ? row[10].toString().trim() : '';   // Dashboard col K
 
-      if (active && project && modul && submodul) {
+      if (qaLead) qaLeadCount++;
+
+      // Sync ALL modules (Active + Inactive) to preserve historical ratings data
+      if (project && modul && submodul) {
         const key = [project, modul, submodul].join('|');
         const existingRatings = existingRatingsMap.get(key);
 
-        // Map to local structure: Project, Modul, Submodul, PIC QA, 5 params (preserve if exist), Status
+        // Map Active checkbox to Status (TRUE → Active, FALSE → Inactive)
+        const status = active ? 'Active' : 'Inactive';
+
+        // Map to local structure: Project, Modul, Submodul, PIC QA, 5 params (preserve if exist), Status, QA Lead
         mappedData.push([
           project,   // A: Project
           modul,     // B: Modul
@@ -227,12 +250,19 @@ function syncFromDashboard() {
           existingRatings ? existingRatings.complexity : 0,    // G: Complexity (preserve or 0)
           existingRatings ? existingRatings.automation : 0,    // H: Automation (preserve or 0)
           existingRatings ? existingRatings.testComplexity : 0,// I: Test Complexity (preserve or 0)
-          'Active'   // J: Status
+          status,    // J: Status (from Dashboard Active checkbox)
+          qaLead     // K: QA Lead
         ]);
 
         projectSet.add(project);
         modulSet.add(project + '|' + modul);
         submodulCount++;
+
+        if (active) {
+          activeCount++;
+        } else {
+          inactiveCount++;
+        }
       }
     });
 
@@ -265,11 +295,11 @@ function syncFromDashboard() {
     });
 
     // Clear local data area first (from row 4 onwards, keep header)
-    const localDataRange = 'A' + CONFIG_DATA_START_ROW + ':J' + (CONFIG_DATA_START_ROW + Math.max(60, mappedData.length) - 1);
+    const localDataRange = 'A' + CONFIG_DATA_START_ROW + ':K' + (CONFIG_DATA_START_ROW + Math.max(60, mappedData.length) - 1);
     localConfig.getRange(localDataRange).clearContent();
 
-    // Write synced data (now 10 columns: Project, Modul, Submodul, PIC QA, 5 ratings, Status)
-    const writeRange = 'A' + CONFIG_DATA_START_ROW + ':J' + (CONFIG_DATA_START_ROW + mappedData.length - 1);
+    // Write synced data (now 11 columns: Project, Modul, Submodul, PIC QA, 5 ratings, Status, QA Lead)
+    const writeRange = 'A' + CONFIG_DATA_START_ROW + ':K' + (CONFIG_DATA_START_ROW + mappedData.length - 1);
     localConfig.getRange(writeRange).setValues(mappedData);
 
     // Apply formatting to synced rows
@@ -287,14 +317,21 @@ function syncFromDashboard() {
     saveSyncSettings(settings.spreadsheetId, dashboardName);
 
     Logger.log('✅ Sync complete: ' + projectSet.size + ' projects, ' + modulSet.size + ' moduls, ' + submodulCount + ' submoduls');
+    Logger.log('📊 Status breakdown: ' + activeCount + ' Active, ' + inactiveCount + ' Inactive');
+    Logger.log('📊 QA Leads synced: ' + qaLeadCount + ' entries with QA Lead data');
 
     return {
       success: true,
-      message: 'Synced from ' + dashboardName,
+      message: 'Synced from ' + dashboardName + '\n' +
+               activeCount + ' Active, ' + inactiveCount + ' Inactive\n' +
+               qaLeadCount + ' QA Leads synced',
       synced: {
         projects: projectSet.size,
         moduls: modulSet.size,
-        submoduls: submodulCount
+        submoduls: submodulCount,
+        active: activeCount,
+        inactive: inactiveCount,
+        qaLeads: qaLeadCount
       }
     };
 
