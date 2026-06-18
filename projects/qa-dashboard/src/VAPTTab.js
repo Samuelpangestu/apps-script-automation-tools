@@ -276,12 +276,12 @@ function buildVAPTHistory(ss) {
   ws.clear();
 
   const hdrs = [
-    'Timestamp','Project','Blocker',
-    'Critical','High','Medium','Low','Info',
-    'Total Apps','Apps with Blocker'
+    'Timestamp','Project','Module','Submodule','Total',
+    'Critical','High','Medium','Low','Informational',
+    'Todo','On Progress','Done','Open','Closed'
   ];
 
-  ws.getRange(1,1,1,hdrs.length).merge().setValue('VAPT HISTORY  —  Per-Project Trend Data (auto-appended setiap refresh)')
+  ws.getRange(1,1,1,hdrs.length).merge().setValue('VAPT HISTORY  —  Per-Submodule Trend Data from QATM Summary (auto-appended setiap refresh)')
       .setBackground('#BF360C').setFontColor('#FFFFFF').setFontWeight('bold')
       .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
   ws.getRange(2,1,1,hdrs.length).setValues([hdrs]).setFontWeight('bold')
@@ -289,21 +289,35 @@ function buildVAPTHistory(ss) {
   ws.setFrozenRows(2);
   ws.setColumnWidth(1,140);  // Timestamp
   ws.setColumnWidth(2,120);  // Project
-  ws.setColumnWidth(3,80);   // Blocker
-  for(let c=4;c<=hdrs.length;c++)ws.setColumnWidth(c,80);
+  ws.setColumnWidth(3,120);  // Module
+  ws.setColumnWidth(4,140);  // Submodule
+  for(let c=5;c<=hdrs.length;c++)ws.setColumnWidth(c,80);
 
   // Add notes
-  ws.getRange(2,2).setNote('Project\n\nProject name from Config');
-  ws.getRange(2,3).setNote('Blocker\n\nCritical + High + Medium OPEN findings');
-  ws.getRange(2,4).setNote('Critical\n\nCritical severity OPEN findings');
-  ws.getRange(2,9).setNote('Total Apps\n\nTotal applications in this project');
-  ws.getRange(2,10).setNote('Apps with Blocker\n\nApplications with blocker > 0');
+  ws.getRange(2,1).setNote('Timestamp\n\nAuto-appended saat refreshDashboard()');
+  ws.getRange(2,2).setNote('Project\n\nProject name from Config col C');
+  ws.getRange(2,3).setNote('Module\n\nModule name from Config col D');
+  ws.getRange(2,4).setNote('Submodule\n\nSubmodule name from Config col E\nData source: QATM Summary sheet');
+  ws.getRange(2,5).setNote('Total\n\nTotal VAPT findings from QATM Summary');
+  ws.getRange(2,6).setNote('Critical\n\nCritical severity findings (Risk Level)');
+  ws.getRange(2,7).setNote('High\n\nHigh severity findings (Risk Level)');
+  ws.getRange(2,8).setNote('Medium\n\nMedium severity findings (Risk Level)');
+  ws.getRange(2,9).setNote('Low\n\nLow severity findings (Risk Level)');
+  ws.getRange(2,10).setNote('Informational\n\nInformational severity findings (Risk Level)');
+  ws.getRange(2,11).setNote('Todo\n\nPending fixes (Status Fix)');
+  ws.getRange(2,12).setNote('On Progress\n\nIn progress remediation (Status Fix)');
+  ws.getRange(2,13).setNote('Done\n\nCompleted fixes (Status Fix)');
+  ws.getRange(2,14).setNote('Open\n\nOpen findings (Re-VAPT status by Pentester)');
+  ws.getRange(2,15).setNote('Closed\n\nClosed findings (Re-VAPT status by Pentester)');
 }
 
 /**
- * Append daily snapshot to VAPT History (per-project)
+ * Append daily snapshot to VAPT History (per-submodule from QATM Summary)
+ *
+ * @param {Spreadsheet} ss - Dashboard spreadsheet
+ * @param {Array} allData - Module data from pullModuleData_() containing vapt objects
  */
-function appendVAPTHistory(ss, vaptData) {
+function appendVAPTHistory(ss, allData) {
   let ws = ss.getSheetByName('VAPT History');
   if (!ws) {
     buildVAPTHistory(ss);
@@ -314,66 +328,101 @@ function appendVAPTHistory(ss, vaptData) {
   const ts = Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
   const today = Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
-  // Append one row per project
+  // Create one row per submodule with VAPT data
   const historyRows = [];
 
-  if (vaptData.projectSummaries && vaptData.projectSummaries.length > 0) {
-    Logger.log('📊 Creating history rows for ' + vaptData.projectSummaries.length + ' project(s)...');
-    vaptData.projectSummaries.forEach(projectSum => {
-      const historyRow = createHistoryRow_(ts, projectSum.project, projectSum.summary, vaptData.table);
-      Logger.log('  📝 ' + projectSum.project + ': Blocker=' + historyRow[2] + ' (C=' + historyRow[3] + ' H=' + historyRow[4] + ' M=' + historyRow[5] + ')');
-      historyRows.push(historyRow);
-    });
-  } else {
-    Logger.log('⚠️ No project summaries found in vaptData');
+  if (!allData || allData.length === 0) {
+    Logger.log('⚠️ No module data provided to appendVAPTHistory');
     return;
   }
 
-  // SMART APPEND: Check if today's data already exists for each project
+  Logger.log('📊 Processing VAPT data for ' + allData.length + ' module(s)...');
+
+  allData.forEach(mod => {
+    // Skip modules without VAPT data or with total = 0
+    if (!mod.vapt || mod.vapt.total === 0) {
+      Logger.log('  ⏭️ Skipped ' + (mod.submodule || mod.name) + ': No VAPT data');
+      return;
+    }
+
+    const row = [
+      ts,                           // Timestamp
+      mod.project || '',            // Project (Config col C)
+      mod.module || '',             // Module (Config col D)
+      mod.submodule || mod.name,    // Submodule (Config col E)
+      mod.vapt.total || 0,          // Total findings
+      mod.vapt.critical || 0,       // Critical
+      mod.vapt.high || 0,           // High
+      mod.vapt.medium || 0,         // Medium
+      mod.vapt.low || 0,            // Low
+      mod.vapt.informational || 0,  // Informational
+      mod.vapt.todo || 0,           // Todo (Status Fix)
+      mod.vapt.onProgress || 0,     // On Progress (Status Fix)
+      mod.vapt.done || 0,           // Done (Status Fix)
+      mod.vapt.open || 0,           // Open (Re-VAPT)
+      mod.vapt.closed || 0          // Closed (Re-VAPT)
+    ];
+
+    historyRows.push(row);
+    Logger.log('  ✅ ' + (mod.submodule || mod.name) + ': Total=' + mod.vapt.total +
+               ' (C=' + mod.vapt.critical + ' H=' + mod.vapt.high + ' M=' + mod.vapt.medium + ')');
+  });
+
+  if (historyRows.length === 0) {
+    Logger.log('⚠️ No modules with VAPT data to append');
+    return;
+  }
+
+  // SMART APPEND: Check if today's data already exists for each submodule
   const lastRow = ws.getLastRow();
-  if(lastRow>=3){
-    const numCols = historyRows[0].length;
-    const existingData = ws.getRange(3,1,lastRow-2,numCols).getValues();
-    const todayRows = {};  // Map: "project" => row index
+  if (lastRow >= 3) {
+    const numCols = 15;  // Fixed: 15 columns in new structure
+    const existingData = ws.getRange(3, 1, lastRow - 2, numCols).getValues();
+    const todayRows = {};  // Map: "project_module_submodule" => row index
 
     // Find all rows from today
-    existingData.forEach((row,i)=>{
-      const rowDate = Utilities.formatDate(new Date(row[0]),Session.getScriptTimeZone(),'yyyy-MM-dd');
-      if(rowDate===today){
-        const key=String(row[1]||'').trim();  // project name
-        todayRows[key]=i+3;  // +3 because row 1-2 are headers
+    existingData.forEach((row, i) => {
+      const rowDate = Utilities.formatDate(new Date(row[0]), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      if (rowDate === today) {
+        const key = String(row[1] || '').trim() + '_' +
+                   String(row[2] || '').trim() + '_' +
+                   String(row[3] || '').trim();  // project_module_submodule
+        todayRows[key] = i + 3;  // +3 because row 1-2 are headers
       }
     });
 
     // Update existing rows or collect new rows to append
-    const newRows=[];
-    historyRows.forEach(row=>{
-      const key=String(row[1]||'').trim();  // project name
-      if(todayRows[key]){
+    const newRows = [];
+    historyRows.forEach(row => {
+      const key = String(row[1] || '').trim() + '_' +
+                 String(row[2] || '').trim() + '_' +
+                 String(row[3] || '').trim();  // project_module_submodule
+
+      if (todayRows[key]) {
         // Update existing row (overwrite with latest data)
-        ws.getRange(todayRows[key],1,1,numCols).breakApart().setValues([row]);
-        Logger.log('  🔄 Updated today\'s data for: ' + key);
-      }else{
+        ws.getRange(todayRows[key], 1, 1, numCols).breakApart().setValues([row]);
+        Logger.log('  🔄 Updated today\'s data for: ' + row[3]);
+      } else {
         // Collect for batch append
         newRows.push(row);
       }
     });
 
     // Append only new rows
-    if(newRows.length>0){
-      const startRow=Math.max(lastRow+1,3);
-      const targetRange=ws.getRange(startRow,1,newRows.length,numCols);
+    if (newRows.length > 0) {
+      const startRow = Math.max(lastRow + 1, 3);
+      const targetRange = ws.getRange(startRow, 1, newRows.length, numCols);
       targetRange.breakApart();  // Unmerge any merged cells in target area
       targetRange.setValues(newRows);
       Logger.log('✅ VAPT History appended: ' + newRows.length + ' new rows at row ' + startRow);
-    }else{
-      Logger.log('✅ VAPT History updated: All projects already had today\'s data');
+    } else {
+      Logger.log('✅ VAPT History updated: All submodules already had today\'s data');
     }
-  }else{
+  } else {
     // No data yet, just append
-    const numCols = historyRows[0].length;
-    const startRow=3;
-    const targetRange=ws.getRange(startRow,1,historyRows.length,numCols);
+    const numCols = 15;
+    const startRow = 3;
+    const targetRange = ws.getRange(startRow, 1, historyRows.length, numCols);
     targetRange.breakApart();
     targetRange.setValues(historyRows);
     Logger.log('✅ VAPT History appended: ' + historyRows.length + ' rows at row ' + startRow);

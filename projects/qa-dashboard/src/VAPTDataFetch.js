@@ -73,9 +73,9 @@ function refreshVAPTData() {
     Logger.log('Writing VAPT data to dashboard...');
     writeVAPT(ss, combinedData);
 
-    // Append to history with per-project tracking
-    Logger.log('Appending to VAPT History...');
-    appendVAPTHistory(ss, combinedData);
+    // NOTE: VAPT History is now handled by per-submodule data from QATM Summary
+    // See refreshDashboard() -> appendVAPTHistory(ss, allData)
+    // Old per-project history call removed to avoid conflict
 
     Logger.log('✅ VAPT data refresh complete');
   } catch (error) {

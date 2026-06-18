@@ -976,11 +976,11 @@ function getVAPTHistoryData_(ss) {
 
     Logger.log('📊 VAPT History rows loaded: ' + historyRows.length);
 
-    // Log latest entries for debugging
+    // Log latest entries for debugging (NEW STRUCTURE: Timestamp, Project, Module, Submodule, Total, Critical, High, Medium, Low, Informational, Todo, On Progress, Done, Open, Closed)
     if (historyRows.length > 0) {
-      Logger.log('  Latest entry: ' + historyRows[0][0] + ' | Project=' + historyRows[0][1] + ' | Blocker=' + historyRows[0][2]);
+      Logger.log('  Latest entry: ' + historyRows[0][0] + ' | Project=' + historyRows[0][1] + ' | Module=' + historyRows[0][2] + ' | Submodule=' + historyRows[0][3] + ' | Total=' + historyRows[0][4]);
       if (historyRows.length > 1) {
-        Logger.log('  2nd entry: ' + historyRows[1][0] + ' | Project=' + historyRows[1][1] + ' | Blocker=' + historyRows[1][2]);
+        Logger.log('  2nd entry: ' + historyRows[1][0] + ' | Project=' + historyRows[1][1] + ' | Module=' + historyRows[1][2] + ' | Submodule=' + historyRows[1][3] + ' | Total=' + historyRows[1][4]);
       }
     }
 
@@ -1154,7 +1154,7 @@ function getApiExternalTestReports_(params) {
         return;
       }
 
-      const report = readExternalTestReport_(extReportSheet);
+      const report = readExternalTestReport_(extReportSheet, qatmSs);
 
       // Apply status filter if provided
       if (params && params.status && report.overallStatus !== params.status) return;
@@ -1204,7 +1204,7 @@ function sendClosureEmail_(body) {
     }
 
     // Get report data
-    const report = readExternalTestReport_(extReportSheet);
+    const report = readExternalTestReport_(extReportSheet, qatmSs);
 
     // Get email sender config (departemen.qa)
     const senderEmail = getEmailSenderConfig_();
@@ -1272,7 +1272,7 @@ function createClosureEmailDraft_(body) {
     }
 
     // Get report data
-    const report = readExternalTestReport_(extReportSheet);
+    const report = readExternalTestReport_(extReportSheet, qatmSs);
 
     // Generate email body if not provided
     let emailBody = body.emailBody || '';
@@ -1352,9 +1352,14 @@ function generateClosureEmailTemplate_(report, qatmSs) {
     .status-approved { color: #2E7D32; font-weight: bold; }
     .status-review { color: #1565C0; font-weight: bold; }
     .status-rejected { color: #C62828; font-weight: bold; }
+    .status-warning { color: #F57C00; font-weight: bold; }
+    .vapt-blocker { background-color: #FFEBEE; border-left: 4px solid #C62828; padding: 12px; margin: 10px 0; }
+    .vapt-approved { background-color: #E8F5E9; border-left: 4px solid #2E7D32; padding: 12px; margin: 10px 0; }
+    .vapt-notes { background-color: #FFF3E0; border-left: 4px solid #F57C00; padding: 12px; margin: 10px 0; }
     .footer { background-color: #F5F5F5; padding: 15px; text-align: center; font-size: 12px; color: #666; margin-top: 30px; }
-    table { border-collapse: collapse; width: 100%; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
     td { padding: 8px; border: 1px solid #ddd; }
+    th { padding: 8px; border: 1px solid #ddd; background-color: #f5f5f5; font-weight: bold; text-align: left; }
   </style>
 </head>
 <body>
@@ -1408,6 +1413,110 @@ function generateClosureEmailTemplate_(report, qatmSs) {
           <td class="${getStatusClass_(report.vaptReviewStatus)}">${report.vaptReviewStatus || 'Not Started'}</td>
         </tr>
       </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">🔒 VAPT Security Findings Summary</div>
+      ${report.vaptTotal > 0 ? `
+        ${report.vaptBlockerCount > 0 ? `
+          <div class="vapt-blocker">
+            <strong>⚠️ BLOCKER FINDINGS DETECTED</strong>
+            <p style="margin: 8px 0 0 0; font-size: 13px;">
+              ${report.vaptBlockerCount} security finding(s) require resolution before approval:
+              Critical: ${report.vaptCritical} | High: ${report.vaptHigh} | Medium: ${report.vaptMedium}
+            </p>
+          </div>
+        ` : report.vaptNonBlockerCount > 0 ? `
+          <div class="vapt-notes">
+            <strong>✅ APPROVED WITH NOTES</strong>
+            <p style="margin: 8px 0 0 0; font-size: 13px;">
+              No blocker findings detected. ${report.vaptNonBlockerCount} informational finding(s) noted for future improvement:
+              Low: ${report.vaptLow} | Informational: ${report.vaptInformational}
+            </p>
+          </div>
+        ` : `
+          <div class="vapt-approved">
+            <strong>✅ FULLY APPROVED</strong>
+            <p style="margin: 8px 0 0 0; font-size: 13px;">
+              All ${report.vaptTotal} finding(s) have been resolved. No security blockers remaining.
+            </p>
+          </div>
+        `}
+
+        <table>
+          <tr>
+            <th colspan="2" style="background-color: #FFEBEE; color: #C62828;">BLOCKER FINDINGS (Require Resolution)</th>
+          </tr>
+          <tr>
+            <td width="50%"><strong>Critical Risk:</strong></td>
+            <td width="50%">${report.vaptCritical}</td>
+          </tr>
+          <tr>
+            <td><strong>High Risk:</strong></td>
+            <td>${report.vaptHigh}</td>
+          </tr>
+          <tr>
+            <td><strong>Medium Risk:</strong></td>
+            <td>${report.vaptMedium}</td>
+          </tr>
+          <tr style="background-color: #FFEBEE;">
+            <td><strong>Total Blocker:</strong></td>
+            <td><strong>${report.vaptBlockerCount}</strong></td>
+          </tr>
+          <tr>
+            <th colspan="2" style="background-color: #E8F5E9; color: #2E7D32;">NON-BLOCKER FINDINGS (For Reference)</th>
+          </tr>
+          <tr>
+            <td><strong>Low Risk:</strong></td>
+            <td>${report.vaptLow}</td>
+          </tr>
+          <tr>
+            <td><strong>Informational:</strong></td>
+            <td>${report.vaptInformational}</td>
+          </tr>
+          <tr style="background-color: #E8F5E9;">
+            <td><strong>Total Non-Blocker:</strong></td>
+            <td><strong>${report.vaptNonBlockerCount}</strong></td>
+          </tr>
+          <tr>
+            <th colspan="2" style="background-color: #E3F2FD; color: #1976D2;">STATUS FIX PROGRESS</th>
+          </tr>
+          <tr>
+            <td><strong>Todo:</strong></td>
+            <td>${report.vaptTodo}</td>
+          </tr>
+          <tr>
+            <td><strong>On Progress:</strong></td>
+            <td>${report.vaptOnProgress}</td>
+          </tr>
+          <tr>
+            <td><strong>Done:</strong></td>
+            <td>${report.vaptDone}</td>
+          </tr>
+          <tr>
+            <th colspan="2" style="background-color: #FFF3E0; color: #F57C00;">RE-VAPT STATUS</th>
+          </tr>
+          <tr>
+            <td><strong>Open:</strong></td>
+            <td>${report.vaptOpen}</td>
+          </tr>
+          <tr>
+            <td><strong>Closed:</strong></td>
+            <td>${report.vaptClosed}</td>
+          </tr>
+        </table>
+
+        <div style="margin-top: 15px; padding: 10px; background-color: #F5F5F5; border-radius: 4px;">
+          <strong>📌 Important Notes:</strong>
+          <ul style="margin: 8px 0 0 0; font-size: 13px;">
+            <li><strong>Blocker findings (Critical/High/Medium)</strong> must be resolved before final approval</li>
+            <li><strong>Non-blocker findings (Low/Informational)</strong> can be approved with notes for future improvement</li>
+            <li>Please refer to the attached PDF for detailed findings and remediation recommendations</li>
+          </ul>
+        </div>
+      ` : `
+        <p style="color: #666; font-style: italic;">No VAPT data available for this module.</p>
+      `}
     </div>
 
     <div class="section">
