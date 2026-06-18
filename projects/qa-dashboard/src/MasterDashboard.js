@@ -91,6 +91,9 @@ function onOpen() {
     .addSubMenu(ui.createMenu('🔄 Jira Sync')
       .addItem('Sync All Modules from Jira', 'syncAllJira')
       .addItem('Show Jira JQL for Module', 'showJiraJQL'))
+    .addSubMenu(ui.createMenu('📋 Epic Management')
+      .addItem('⭐ Create/Update Epic for Active Modules', 'createOrUpdateJiraEpics')
+      .addItem('🔍 Show Epic Status', 'showEpicStatus'))
     .addSubMenu(ui.createMenu('🔧 Rebuild Individual Tabs')
       .addItem('Config', 'rebuildConfig')
       .addItem('Credentials', 'rebuildCredentials')
@@ -429,6 +432,10 @@ function refreshDashboard() {
   Logger.log('⏱️  appendHistory: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
 
   t1 = new Date();
+  appendVAPTHistory(ss, allData);
+  Logger.log('⏱️  appendVAPTHistory: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
   updateRaw(ss, allData);
   Logger.log('⏱️  updateRaw: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
 
@@ -451,17 +458,18 @@ function refreshDashboard() {
 }
 
 /**
- * Refresh Bug Only (No VAPT refresh, No Jira Sync)
- * Updates all tabs except VAPT, same as refreshDashboard but skips VAPT data
+ * Refresh Bug Only (No external VAPT refresh, No Jira Sync)
+ * Updates all tabs same as refreshDashboard but skips external VAPT spreadsheet fetch
  *
  * What gets updated:
  * - Overview, Bugs, Smoke, Failure Scenario, Coverage tabs
  * - History (append new snapshot)
+ * - VAPT History (append VAPT data from QATM Summary)
  * - Config (Project/Module/Submodule/PIC QA from QATM Summary)
  * - _Raw cache
  *
  * What gets skipped:
- * - VAPT data refresh
+ * - External VAPT spreadsheet refresh (refreshVAPTData)
  * - Jira sync
  */
 function refreshBugOnly() {
@@ -517,6 +525,10 @@ function refreshBugOnly() {
   t1 = new Date();
   appendHistory(ss, allData);
   Logger.log('⏱️  appendHistory: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  t1 = new Date();
+  appendVAPTHistory(ss, allData);
+  Logger.log('⏱️  appendVAPTHistory: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
 
   t1 = new Date();
   updateRaw(ss, allData);
@@ -885,6 +897,10 @@ function pullModuleData_(mod) {
   let perfResult = '--';
   let scopeNotes = '';
   let externalTestReport = emptyExternalTestReport_();
+  let vaptData = {
+    total: 0, critical: 0, high: 0, medium: 0, low: 0, informational: 0,
+    todo: 0, onProgress: 0, done: 0, open: 0, closed: 0
+  };
 
   try {
     if (summ) {
@@ -1011,6 +1027,55 @@ function pullModuleData_(mod) {
         Logger.log('Smoke KPI skip [' + mod.name + ']: ' + se.message);
       }
 
+      // VAPT Data Extraction from QATM Summary (Fixed Position: row 65-83)
+      // ─────────────────────────────────────────────────────────────────────
+      // VAPT FINDINGS SUMMARY section structure:
+      //   Row 65: "VAPT FINDINGS SUMMARY" header
+      //   Row 67, Col B: Total VAPT Findings
+      //   Row 71-73: By Risk Level (Critical, High, Medium in col B; Low, Info in col D)
+      //   Row 77-79: By Status Fix (Todo, On Progress, Done, etc.)
+      //   Row 82-83: By Status Re-VAPT (Open, Closed)
+
+      try {
+        const VAPT_SECTION_START = 65;
+        const VAPT_SECTION_ROWS = 19;  // Rows 65-83
+        const vaptRange = summ.getRange(VAPT_SECTION_START, 1, VAPT_SECTION_ROWS, 5);  // Cols A-E
+        const vaptGrid = vaptRange.getValues();
+
+        // Extract Total VAPT Findings (Row 67 = index 2, Col B = index 1)
+        vaptData.total = Number(vaptGrid[2][1]) || 0;
+
+        // Extract By Risk Level (Rows 71-73)
+        // Row 71 (index 6): Critical (col B), Low (col D)
+        // Row 72 (index 7): High (col B), Informational (col D)
+        // Row 73 (index 8): Medium (col B)
+        vaptData.critical = Number(vaptGrid[6][1]) || 0;
+        vaptData.high = Number(vaptGrid[7][1]) || 0;
+        vaptData.medium = Number(vaptGrid[8][1]) || 0;
+        vaptData.low = Number(vaptGrid[6][3]) || 0;
+        vaptData.informational = Number(vaptGrid[7][3]) || 0;
+
+        // Extract By Status Fix (Rows 77-79)
+        // Row 77 (index 12): Todo (col B), Done (col D)
+        // Row 78 (index 13): On Progress (col B), Accepted (col D)
+        // Row 79 (index 14): Ready to Retest (col B), False Positive (col D)
+        vaptData.todo = Number(vaptGrid[12][1]) || 0;
+        vaptData.onProgress = Number(vaptGrid[13][1]) || 0;
+        vaptData.done = Number(vaptGrid[12][3]) || 0;
+
+        // Extract By Status Re-VAPT (Rows 82-83)
+        // Row 82 (index 17): Open (col B), Closed (col D)
+        vaptData.open = Number(vaptGrid[17][1]) || 0;
+        vaptData.closed = Number(vaptGrid[17][3]) || 0;
+
+        Logger.log(mod.name + ' | VAPT Total=' + vaptData.total +
+                   ' (C=' + vaptData.critical + ' H=' + vaptData.high + ' M=' + vaptData.medium +
+                   ' | Open=' + vaptData.open + ' Closed=' + vaptData.closed + ')');
+      } catch(ve) {
+        Logger.log('VAPT extraction skip [' + mod.name + ']: ' + ve.message);
+        // Keep vaptData as default (all zeros)
+      }
+
     } else {
       // Fallback: hitung dari raw sheets
       const wS = getSheetStats_(tcm,tce,'TC'), aS = getSheetStats_(apim,apie,'API');
@@ -1026,7 +1091,7 @@ function pullModuleData_(mod) {
       aTotal=aS.total; aPassed=aS.passed; aFailed=aS.failed; aBlocked=aS.blocked; aPassRate=aS.passRate;
     } catch(e2) {}
   }
-  externalTestReport = readExternalTestReport_(externalReportSheet);
+  externalTestReport = readExternalTestReport_(externalReportSheet, src);
 
   return {
     name:mod.name, team:picQA, lead:qaLead, id:mod.id,
@@ -1042,6 +1107,7 @@ function pullModuleData_(mod) {
     wSmokePassRate,wSmokeAutoRate,wSmokeExecRate,
     aSmokeTotal,aSmokePassed,aSmokePassRate,aSmokeAutoRate,aSmokeExecRate,
     perfResult,
+    vapt: vaptData,  // VAPT findings from QATM Summary
     blockers: getBlockers_(tcm,tce,apim,apie,mod.name),
     coverage: getCoverage_(tcm,tce,apim,apie),
     bugStats: getBugStats_(bugr, summ),
@@ -1093,13 +1159,30 @@ function emptyExternalTestReport_() {
     overallStatus: '',
     reviewer: '',
     reviewDate: '',
-    notes: ''
+    notes: '',
+    // VAPT Findings from QATM Summary (row 65-83)
+    vaptTotal: 0,
+    vaptCritical: 0,
+    vaptHigh: 0,
+    vaptMedium: 0,
+    vaptLow: 0,
+    vaptInformational: 0,
+    vaptTodo: 0,
+    vaptOnProgress: 0,
+    vaptDone: 0,
+    vaptOpen: 0,
+    vaptClosed: 0,
+    vaptBlockerCount: 0,       // Critical + High + Medium
+    vaptNonBlockerCount: 0,    // Low + Informational
+    vaptApprovalStatus: ''     // Computed based on blocker logic
   };
 }
 
-function readExternalTestReport_(sheet) {
+function readExternalTestReport_(sheet, qatmSs) {
   const report = emptyExternalTestReport_();
   if (!sheet) return report;
+
+  // Read External Test Report fields
   const mapping = {
     'External Team / Vendor:': 'externalTeam',
     'Status Review:': 'statusReview',
@@ -1121,6 +1204,49 @@ function readExternalTestReport_(sheet) {
       report[mapping[label]] = String(sheet.getRange(cell.getRow(), cell.getColumn() + 1).getDisplayValue() || '').trim();
     } catch(e) {}
   });
+
+  // Extract VAPT findings from Summary sheet (row 65-83)
+  if (qatmSs) {
+    try {
+      const summ = qatmSs.getSheetByName('Summary');
+      if (summ) {
+        const VAPT_SECTION_START = 65;
+        const VAPT_SECTION_ROWS = 19;
+        const vaptRange = summ.getRange(VAPT_SECTION_START, 1, VAPT_SECTION_ROWS, 5);
+        const vaptGrid = vaptRange.getValues();
+
+        report.vaptTotal = Number(vaptGrid[2][1]) || 0;           // Row 67, Col B
+        report.vaptCritical = Number(vaptGrid[6][1]) || 0;        // Row 71, Col B
+        report.vaptHigh = Number(vaptGrid[7][1]) || 0;            // Row 72, Col B
+        report.vaptMedium = Number(vaptGrid[8][1]) || 0;          // Row 73, Col B
+        report.vaptLow = Number(vaptGrid[6][3]) || 0;             // Row 71, Col D
+        report.vaptInformational = Number(vaptGrid[7][3]) || 0;   // Row 72, Col D
+        report.vaptTodo = Number(vaptGrid[12][1]) || 0;           // Row 77, Col B
+        report.vaptOnProgress = Number(vaptGrid[13][1]) || 0;     // Row 78, Col B
+        report.vaptDone = Number(vaptGrid[12][3]) || 0;           // Row 77, Col D
+        report.vaptOpen = Number(vaptGrid[17][1]) || 0;           // Row 82, Col B
+        report.vaptClosed = Number(vaptGrid[17][3]) || 0;         // Row 82, Col D
+
+        // Calculate blocker counts
+        report.vaptBlockerCount = report.vaptCritical + report.vaptHigh + report.vaptMedium;
+        report.vaptNonBlockerCount = report.vaptLow + report.vaptInformational;
+
+        // Determine approval status based on blocker logic
+        if (report.vaptBlockerCount > 0) {
+          report.vaptApprovalStatus = '⚠️ NEEDS ATTENTION';
+        } else if (report.vaptNonBlockerCount > 0) {
+          report.vaptApprovalStatus = '✅ APPROVED WITH NOTES';
+        } else if (report.vaptTotal > 0) {
+          report.vaptApprovalStatus = '✅ FULLY APPROVED';
+        } else {
+          report.vaptApprovalStatus = 'No VAPT Data';
+        }
+      }
+    } catch (vaptError) {
+      Logger.log('VAPT extraction error in readExternalTestReport_: ' + vaptError.message);
+    }
+  }
+
   return report;
 }
 
@@ -1794,6 +1920,56 @@ function buildConfig(ss) {
   // Merge all rules including VAPT
   const finalConfigRules = ws.getConditionalFormatRules();
   ws.setConditionalFormatRules([...finalConfigRules, vaptEnableTrueRule, vaptEnableFalseRule]);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // JIRA EPIC KEY SECTION (Kolom X - single column for Epic tracking)
+  // ─────────────────────────────────────────────────────────────────────
+
+  const epicCol = 24; // Column X (24)
+
+  // Section header (row 1)
+  ws.getRange(1, epicCol)
+    .setValue('JIRA EPIC')
+    .setBackground('#5E35B1').setFontColor('#FFFFFF').setFontWeight('bold')
+    .setFontSize(10).setFontFamily('Arial').setHorizontalAlignment('center');
+
+  // Info row (row 2)
+  ws.getRange(2, epicCol)
+    .setValue('📋 Auto-generated Epic key from Jira')
+    .setBackground('#EDE7F6').setFontColor('#4527A0').setFontStyle('italic')
+    .setFontSize(8).setHorizontalAlignment('center');
+
+  // Column header (row 3)
+  const epicHeader = ws.getRange(3, epicCol);
+  epicHeader
+    .setValue('Jira Epic Key')
+    .setBackground('#7E57C2').setFontColor('#FFFFFF')
+    .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle')
+    .setWrap(true)
+    .setBorder(true, true, true, true, false, false, '#B39DDB', SpreadsheetApp.BorderStyle.SOLID);
+
+  ws.setColumnWidth(epicCol, 140);
+  epicHeader.setNote(
+    'Epic Key yang dibuat otomatis dari Jira\n\n' +
+    'Format: PROJ-123, TEST-456, dll\n\n' +
+    'Kolom ini auto-filled saat create Epic.\n' +
+    'Kosongkan untuk force create Epic baru.\n\n' +
+    'Menu: Epic Management → Create/Update Epic'
+  );
+
+  // Data row (row 4) - empty by default
+  ws.getRange(4, epicCol)
+    .setValue('')
+    .setBackground('#EDE7F6')
+    .setFontFamily('Courier New').setFontSize(9).setVerticalAlignment('middle')
+    .setHorizontalAlignment('center').setFontWeight('bold')
+    .setBorder(true, true, true, true, false, false, '#B39DDB', SpreadsheetApp.BorderStyle.SOLID);
+
+  // Apply to all data rows
+  ws.getRange(5, epicCol, 995).setBackground('#EDE7F6')
+    .setFontFamily('Courier New').setFontSize(9).setVerticalAlignment('middle')
+    .setHorizontalAlignment('center').setFontWeight('bold');
 
   // ─────────────────────────────────────────────────────────────────────
   // AUTOMATION CONTRACT SECTION (Kolom Y-AK)
