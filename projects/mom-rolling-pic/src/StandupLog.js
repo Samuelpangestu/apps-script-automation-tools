@@ -1,6 +1,6 @@
 /**
  * StandupLog.js
- * Manage bi-daily standup log sheets
+ * Manage QA Bi-Daily standup log sheets
  * - Initialize standup sheet structure
  * - Auto-generate rows for standup sessions
  * - Protect existing data when generating new rows
@@ -8,7 +8,7 @@
 
 /**
  * Initialize standup sheet for a project
- * @param {string} projectName - 'SIPGN' or 'INADigital/Internal'
+ * @param {string} projectName - Configured project name
  */
 function initializeStandupSheet(projectName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -44,7 +44,7 @@ function initializeStandupSheet(projectName) {
   // ═══════════════════════════════════════════════════════════════
 
   standupSheet.getRange('A1:G1').merge();
-  standupSheet.getRange('A1').setValue(`📋 ${projectName.toUpperCase()} - BI-DAILY STANDUP LOG`)
+  standupSheet.getRange('A1').setValue(`📋 ${projectName.toUpperCase()} - QA BI-DAILY LOG`)
     .setFontSize(14)
     .setFontWeight('bold')
     .setHorizontalAlignment('center')
@@ -212,7 +212,7 @@ function initializeStandupSheet(projectName) {
 
 /**
  * Generate standup rows for a specific date
- * @param {string} projectName - 'SIPGN' or 'INADigital/Internal'
+ * @param {string} projectName - Configured project name
  * @param {Date} date - Date object for the standup session
  * @param {boolean} skipIfExists - If true, skip generation if rows already exist for this date
  * @returns {number} Number of rows generated
@@ -237,9 +237,8 @@ function generateStandupRows(projectName, date, skipIfExists = true) {
   const dateStr = Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   const dayName = Utilities.formatDate(date, Session.getScriptTimeZone(), 'EEEE');
 
-  // Validate that date is a standup day (Monday/Wednesday/Friday)
-  if (!['Monday', 'Wednesday', 'Friday'].includes(dayName)) {
-    throw new Error(`Cannot generate rows for ${dayName}. Standup only on Monday, Wednesday, Friday.`);
+  if (!isConfiguredStandupDay_(config, dayName)) {
+    throw new Error(`Cannot generate rows for ${dayName}. It is not configured for ${projectName}.`);
   }
 
   // Convert to Indonesian day name
@@ -320,7 +319,7 @@ function generateStandupRows(projectName, date, skipIfExists = true) {
 
 /**
  * Get standup data for a specific date
- * @param {string} projectName - 'SIPGN' or 'INADigital/Internal'
+ * @param {string} projectName - Configured project name
  * @param {Date} date - Date object
  * @returns {Array} Array of standup data objects
  */
