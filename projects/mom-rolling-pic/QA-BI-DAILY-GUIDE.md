@@ -62,6 +62,7 @@ Run `Setup Auto Triggers` again after project or schedule changes.
 - `Bulk: Next 3 Months`
 - `Bulk: Custom Period`
 - `Generate One Project Today`
+- `One Project: Next 3 Months`
 - `Test Reminder`
 - `Test Summary`
 - `Get WhatsApp Groups`

@@ -21,7 +21,8 @@ function onOpen() {
       .addItem('🔮 Bulk: Next 3 Months', 'menuGenerateBulk3Months')
       .addItem('🔮 Bulk: Custom Period...', 'menuGenerateBulkCustom')
       .addSeparator()
-      .addItem('Generate One Project Today...', 'menuGenerateOneProjectToday'))
+      .addItem('Generate One Project Today...', 'menuGenerateOneProjectToday')
+      .addItem('🔮 One Project: Next 3 Months...', 'menuGenerateOneProject3Months'))
     .addSeparator()
     .addSubMenu(ui.createMenu('📱 Test Notifications')
       .addItem('Test Reminder...', 'menuTestReminder')
@@ -156,6 +157,70 @@ function menuGenerateOneProjectToday() {
   } catch (error) {
     SpreadsheetApp.getUi().alert('❌ Error: ' + error.message);
   }
+}
+
+function menuGenerateOneProject3Months() {
+  const ui = SpreadsheetApp.getUi();
+  const projectName = promptForProject_('Generate One Project for 3 Months');
+  if (!projectName) return;
+
+  const startDate = new Date();
+  const endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + 3);
+
+  const timezone = Session.getScriptTimeZone();
+  const startLabel = Utilities.formatDate(startDate, timezone, 'yyyy-MM-dd');
+  const endLabel = Utilities.formatDate(endDate, timezone, 'yyyy-MM-dd');
+  const confirmation = ui.alert(
+    'Generate One Project for 3 Months',
+    `Project: ${projectName}\n` +
+    `Period: ${startLabel} to ${endLabel}\n\n` +
+    'Existing dates will be skipped. Continue?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirmation !== ui.Button.YES) return;
+
+  try {
+    const result = generateBulkForProject_(projectName, startDate, endDate);
+    ui.alert(
+      `✅ QA Bi-Daily generation complete.\n\n` +
+      `Project: ${projectName}\n` +
+      `Period: ${startLabel} to ${endLabel}\n` +
+      `Standup dates generated: ${result.generatedDates}\n` +
+      `Rows generated: ${result.generatedRows}\n` +
+      `Existing dates skipped: ${result.skippedDates}`
+    );
+  } catch (error) {
+    ui.alert('❌ Error: ' + error.message);
+  }
+}
+
+function generateBulkForProject_(projectName, startDate, endDate) {
+  const config = getProjectConfig(projectName);
+  let generatedDates = 0;
+  let generatedRows = 0;
+  let skippedDates = 0;
+  const currentDate = new Date(startDate);
+
+  while (currentDate <= endDate) {
+    const dayName = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), 'EEEE');
+    if (isConfiguredStandupDay_(config, dayName)) {
+      const count = generateStandupRows(projectName, new Date(currentDate), true);
+      if (count > 0) {
+        generatedDates++;
+        generatedRows += count;
+      } else {
+        skippedDates++;
+      }
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  return {
+    generatedDates: generatedDates,
+    generatedRows: generatedRows,
+    skippedDates: skippedDates
+  };
 }
 
 function menuTestReminder() {
