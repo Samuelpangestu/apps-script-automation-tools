@@ -1,6 +1,6 @@
 /**
  * Notifications.js
- * WhatsApp notifications for bi-daily standup
+ * WhatsApp notifications for QA Bi-Daily
  * - Reminder before standup (30 min before)
  * - Summary after standup (detailed with task names)
  */
@@ -8,7 +8,7 @@
 /**
  * Send WhatsApp reminder before standup
  * Triggered automatically based on schedule
- * @param {string} projectName - 'SIPGN' or 'INADigital/Internal'
+ * @param {string} projectName - Configured project name
  * @param {boolean} isTest - If true, skip day validation (for testing)
  */
 function sendStandupReminder(projectName, isTest = false) {
@@ -47,7 +47,7 @@ function sendStandupReminder(projectName, isTest = false) {
 
     // Generate standup rows for today (if not exists)
     // Skip generation in test mode if not a standup day
-    if (!isTest || ['Monday', 'Wednesday', 'Friday'].includes(dayName)) {
+    if (!isTest || isConfiguredStandupDay_(config, dayName)) {
       try {
         generateStandupRows(projectName, now, true); // skipIfExists = true
       } catch (e) {
@@ -59,10 +59,14 @@ function sendStandupReminder(projectName, isTest = false) {
 
     // Build reminder message
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheetUrl = ss.getUrl() + '#gid=' + ss.getSheetByName(projectName + ' Standup').getSheetId();
+    const standupSheet = ss.getSheetByName(projectName + ' Standup');
+    if (!standupSheet) {
+      throw new Error(`Sheet "${projectName} Standup" not found. Initialize project sheets first.`);
+    }
+    const sheetUrl = ss.getUrl() + '#gid=' + standupSheet.getSheetId();
 
     const message =
-      `🔔 *BI-DAILY STANDUP REMINDER*\n` +
+      `🔔 *QA BI-DAILY REMINDER*\n` +
       `${dateStr}\n` +
       `━━━━━━━━━━━━━━\n\n` +
       `Waktu: *${standupTime} WIB*\n` +
@@ -76,7 +80,7 @@ function sendStandupReminder(projectName, isTest = false) {
       `• Jira ticket updates\n` +
       `• Create new Jira tasks if needed\n\n` +
       `Standup Sheet: ${sheetUrl}\n\n` +
-      `_Auto Reminder - Bi-Daily Standup_`;
+      `_Auto Reminder - QA Bi-Daily_`;
 
     // Send via Fonnte
     const success = sendWhatsAppMessage(config.whatsappGroupId, config.fontteToken, message);
@@ -96,13 +100,14 @@ function sendStandupReminder(projectName, isTest = false) {
 /**
  * Send WhatsApp summary with detailed task breakdown
  * Triggered at configured summary time
- * @param {string} projectName - 'SIPGN' or 'INADigital/Internal'
+ * @param {string} projectName - Configured project name
+ * @param {boolean} isTest - If true, bypass Enable Summary
  */
-function sendStandupSummary(projectName) {
+function sendStandupSummary(projectName, isTest = false) {
   try {
     const config = getProjectConfig(projectName);
 
-    if (!config.enableSummary) {
+    if (!config.enableSummary && !isTest) {
       Logger.log(`⚠️ Summary disabled for ${projectName}`);
       return;
     }
@@ -135,7 +140,7 @@ function sendStandupSummary(projectName) {
     // Build summary message
     let message = '';
 
-    message += `📊 *BI-DAILY STANDUP SUMMARY*\n`;
+    message += `📊 *QA BI-DAILY SUMMARY*\n`;
     message += `${dateStr}\n`;
     message += `Project: *${config.projectName}*\n`;
     message += `@all\n`;
@@ -191,10 +196,14 @@ function sendStandupSummary(projectName) {
 
     // Sheet link
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheetUrl = ss.getUrl() + '#gid=' + ss.getSheetByName(projectName + ' Standup').getSheetId();
+    const standupSheet = ss.getSheetByName(projectName + ' Standup');
+    if (!standupSheet) {
+      throw new Error(`Sheet "${projectName} Standup" not found. Initialize project sheets first.`);
+    }
+    const sheetUrl = ss.getUrl() + '#gid=' + standupSheet.getSheetId();
 
     message += `Standup Sheet: ${sheetUrl}\n\n`;
-    message += `_Auto Summary - Bi-Daily Standup_`;
+    message += `_Auto Summary - QA Bi-Daily_`;
 
     // Send via Fonnte
     const success = sendWhatsAppMessage(config.whatsappGroupId, config.fontteToken, message);
