@@ -168,7 +168,6 @@ function ingestAutomationResult_(payload) {
 }
 
 function refreshAutomationHistoryApi_(payload) {
-  validateAutomationIngestToken_(payload);
   const result = refreshAutomationHistory({silent:true});
   return {
     success:true,
