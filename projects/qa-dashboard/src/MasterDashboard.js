@@ -73,7 +73,6 @@ function onOpen() {
       .addItem('▶️ Manual Sync + Refresh', 'manualSyncAndRefresh')
       .addItem('🤖 Generate Automation Contract', 'menuGenerateAutomationContract')
       .addItem('🚀 Setup Auto-Refresh Trigger', 'setupAutoRefreshTrigger')
-      .addItem('⏱️ Setup Automation History Trigger', 'setupAutomationHistoryTrigger')
       .addSeparator()
       .addItem('⚙️ Refresh Bug Only (No Jira Sync)', 'refreshBugOnly')
       .addItem('🤖 Refresh Automation History', 'refreshAutomationHistory')
@@ -121,7 +120,8 @@ function onOpen() {
       .addItem('V3: NEW VAPT Structure (3 Tabs)', 'broadcastV3NewVAPTStructure'))
     .addSubMenu(ui.createMenu('🧹 Data Cleanup')
       .addItem('Cleanup History Data (90 days)', 'cleanupHistoryData')
-      .addItem('Cleanup VAPT History Data (90 days)', 'cleanupVAPTHistoryData'))
+      .addItem('Cleanup VAPT History Data (90 days)', 'cleanupVAPTHistoryData')
+      .addItem('Remove Legacy Automation Trigger', 'removeAutomationHistoryTrigger'))
     .addSubMenu(ui.createMenu('⚙️ Settings')
       .addItem('Set Web App Dashboard URL', 'menuSetWebAppUrl')
       .addItem('Set Automation Ingest Token', 'menuSetAutomationIngestToken'))
@@ -3308,6 +3308,12 @@ function getLatestAutomationRunsByDashboardKey_(ss) {
  */
 function refreshAutomationHistory(options) {
   options = options || {};
+  // Automation History is event-driven. Ignore legacy time-trigger invocations
+  // that may still exist until removeAutomationHistoryTrigger() is run once.
+  if (options.triggerUid) {
+    Logger.log('refreshAutomationHistory skipped: legacy time trigger is disabled');
+    return {skipped:true,reason:'event_driven_only'};
+  }
   const startTime = new Date();
   const ss = getActiveOrDashboardSpreadsheet_();
   const modules = getAutomationEnabledModules_(ss);
@@ -3348,17 +3354,15 @@ function refreshAutomationHistory(options) {
   };
 }
 
-function setupAutomationHistoryTrigger() {
+function removeAutomationHistoryTrigger() {
+  let removed = 0;
   ScriptApp.getProjectTriggers().forEach(trigger => {
     if (trigger.getHandlerFunction() === 'refreshAutomationHistory') {
       ScriptApp.deleteTrigger(trigger);
+      removed++;
     }
   });
-  ScriptApp.newTrigger('refreshAutomationHistory')
-    .timeBased()
-    .everyMinutes(30)
-    .create();
-  safeAlert_('Automation History trigger aktif setiap 30 menit.');
+  safeAlert_('Legacy Automation History trigger removed: ' + removed);
 }
 
 function getAutomationEnabledModules_(ss) {
