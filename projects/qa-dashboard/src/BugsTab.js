@@ -132,14 +132,19 @@ function writeBugs(ss, allData) {
   let ws = ss.getSheetByName('Bugs');
   if (!ws) { buildBugs(ss); ws = ss.getSheetByName('Bugs'); }
 
-  initBugsHeaders_(ws);
+  const headerCheck = ws.getRange(4,1,1,38).getValues()[0];
+  if (headerCheck[0] !== 'Project' ||
+      headerCheck[2] !== 'Submodul' ||
+      headerCheck[37] !== 'Prod Verified') {
+    initBugsHeaders_(ws);
+  }
 
   // Get previous data for delta calculation
   const previousData = getPreviousBugsData_(ws);
 
-  // Clear ALL data rows
-  const lastRow = ws.getMaxRows();
-  if (lastRow>=5) ws.getRange(5,1,lastRow-4,38).clearContent().clearFormat();
+  // Clear only the previously used data area; static formatting stays intact.
+  const lastRow = ws.getLastRow();
+  if (lastRow>=5) ws.getRange(5,1,lastRow-4,38).breakApart().clearContent();
 
   const rules = [];
   const now = new Date();
@@ -152,145 +157,79 @@ function writeBugs(ss, allData) {
 
   Logger.log('Total unique submoduls: ' + submodulList.length);
 
+  const dataRows = [];
+  const backgrounds = [];
+  const fontColors = [];
+  const numberFormats = [];
   submodulList.forEach((submodulKey, i) => {
-    const r = 5+i;
     const bg = i%2===0 ? '#FFF5F5' : '#FFFFFF';
-
     const submodulData = submodulBugs[submodulKey];
     const bs = submodulData.stats;
+    const prev = previousData[submodulKey] || {total:0,blocker:0};
+    const deltaTotal = (bs.total||0)-prev.total;
+    const deltaBlocker = (bs.blocker||0)-prev.blocker;
+    const submodulName = submodulData.submodul||'Unknown';
+    const safeName = String(submodulName).replace(/"/g,'""');
+    const submodulValue = submodulData.qatmUrl
+      ? '=HYPERLINK("' + submodulData.qatmUrl + '","' + safeName + '")'
+      : submodulName;
 
-    // Get previous values for this submodul
-    const prev = previousData[submodulKey] || {total: 0, blocker: 0};
+    dataRows.push([
+      submodulData.project||'',submodulData.modul||'',submodulValue,
+      bs.total||0,bs.critical||0,bs.high||0,bs.medium||0,bs.low||0,bs.lowest||0,bs.blocker||0,
+      deltaTotal,deltaBlocker,
+      bs.devBugs||0,bs.uatBugs||0,bs.prodBugs||0,
+      bs.openBugs||0,bs.inProgressBugs||0,bs.fixedBugs||0,bs.reopenBugs||0,bs.verifiedBugs||0,
+      bs.blockerOpenBugs||0,bs.blockerInProgressBugs||0,bs.blockerFixedBugs||0,
+      bs.blockerReopenBugs||0,bs.blockerVerifiedBugs||0,
+      prev.total||0,now,
+      bs.prodBlockerBugs||0,bs.prodCriticalBugs||0,bs.prodHighBugs||0,bs.prodMediumBugs||0,
+      bs.prodLowBugs||0,bs.prodLowestBugs||0,bs.prodOpenBugs||0,bs.prodInProgressBugs||0,
+      bs.prodFixedBugs||0,bs.prodReopenBugs||0,bs.prodVerifiedBugs||0
+    ]);
 
-    // Calculate deltas
-    const deltaTotal = (bs.total || 0) - prev.total;
-    const deltaBlocker = (bs.blocker || 0) - prev.blocker;
+    const rowBackgrounds = new Array(38).fill(bg);
+    rowBackgrounds[10] = deltaTotal<0?'#C8E6C9':deltaTotal>0?'#FFCDD2':'#F5F5F5';
+    rowBackgrounds[11] = deltaBlocker<0?'#81C784':deltaBlocker>0?'#EF5350':'#F5F5F5';
+    backgrounds.push(rowBackgrounds);
 
-    function cell(col,val,fmt){
-      const c=ws.getRange(r,col).setValue(val==null?'':val).setBackground(bg)
-          .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle')
-          .setBorder(true,true,true,true,false,false,'#E0E0E0',SpreadsheetApp.BorderStyle.SOLID);
-      if(fmt)c.setNumberFormat(fmt);
-      return c;
-    }
+    const rowFontColors = new Array(38).fill('#000000');
+    rowFontColors[2] = submodulData.qatmUrl ? '#1155CC' : '#000000';
+    rowFontColors[10] = deltaTotal<0?'#1B5E20':deltaTotal>0?'#C62828':'#757575';
+    rowFontColors[11] = deltaBlocker<0?'#1B5E20':deltaBlocker>0?'#B71C1C':'#757575';
+    fontColors.push(rowFontColors);
 
-    // Module Info (col 1-3)
-    cell(1,submodulData.project||'');
-    cell(2,submodulData.modul||'');
-
-    // Submodule with hyperlink to QATM BugReport
-    const submodulCell = ws.getRange(r,3);
-    if (submodulData.qatmUrl) {
-      submodulCell.setFormula('=HYPERLINK("' + submodulData.qatmUrl + '","' + (submodulData.submodul||'Unknown') + '")');
-      submodulCell.setFontColor('#1155CC');  // Blue link color
-    } else {
-      submodulCell.setValue(submodulData.submodul||'Unknown');
-    }
-    submodulCell.setBackground(bg).setFontFamily('Arial').setFontSize(9)
-        .setFontWeight('bold').setHorizontalAlignment('left').setVerticalAlignment('middle')
-        .setBorder(true,true,true,true,false,false,'#E0E0E0',SpreadsheetApp.BorderStyle.SOLID);
-
-    // Bugs by Priority (col 4-10)
-    cell(4,bs.total||0,'0');
-    cell(5,bs.critical||0,'0');
-    cell(6,bs.high||0,'0');
-    cell(7,bs.medium||0,'0');
-    cell(8,bs.low||0,'0');
-    cell(9,bs.lowest||0,'0');
-    cell(10,bs.blocker||0,'0');
-
-    // Delta (col 11-12) - with special formatting
-    const deltaTotalCell = cell(11,deltaTotal,'0');
-    const deltaBlockerCell = cell(12,deltaBlocker,'0');
-
-    // Environment Bugs (col 13-15)
-    cell(13,bs.devBugs||0,'0');
-    cell(14,bs.uatBugs||0,'0');
-    cell(15,bs.prodBugs||0,'0');
-
-    // Status Breakdown (col 16-20)
-    cell(16,bs.openBugs||0,'0');
-    cell(17,bs.inProgressBugs||0,'0');
-    cell(18,bs.fixedBugs||0,'0');
-    cell(19,bs.reopenBugs||0,'0');
-    cell(20,bs.verifiedBugs||0,'0');
-
-    // Blocker Status Breakdown (col 21-25)
-    cell(21,bs.blockerOpenBugs||0,'0');
-    cell(22,bs.blockerInProgressBugs||0,'0');
-    cell(23,bs.blockerFixedBugs||0,'0');
-    cell(24,bs.blockerReopenBugs||0,'0');
-    cell(25,bs.blockerVerifiedBugs||0,'0');
-
-    // Metadata (col 26-27)
-    cell(26,prev.total||0,'0');  // Previous Total
-    cell(27,Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'));
-
-    // Production Breakdown (col 28-38)
-    cell(28,bs.prodBlockerBugs||0,'0');
-    cell(29,bs.prodCriticalBugs||0,'0');
-    cell(30,bs.prodHighBugs||0,'0');
-    cell(31,bs.prodMediumBugs||0,'0');
-    cell(32,bs.prodLowBugs||0,'0');
-    cell(33,bs.prodLowestBugs||0,'0');
-    cell(34,bs.prodOpenBugs||0,'0');
-    cell(35,bs.prodInProgressBugs||0,'0');
-    cell(36,bs.prodFixedBugs||0,'0');
-    cell(37,bs.prodReopenBugs||0,'0');
-    cell(38,bs.prodVerifiedBugs||0,'0');
-
-    // ═══════════════════════════════════════════════════════════════
-    // CONDITIONAL FORMATTING
-    // ═══════════════════════════════════════════════════════════════
-
-    // Delta Total: Green if negative (turun), Red if positive (naik)
-    if (deltaTotal < 0) {
-      deltaTotalCell.setBackground('#C8E6C9').setFontColor('#1B5E20').setFontWeight('bold');
-    } else if (deltaTotal > 0) {
-      deltaTotalCell.setBackground('#FFCDD2').setFontColor('#C62828').setFontWeight('bold');
-    } else {
-      deltaTotalCell.setBackground('#F5F5F5').setFontColor('#757575');
-    }
-
-    // Delta Blocker: More critical - stronger colors
-    if (deltaBlocker < 0) {
-      deltaBlockerCell.setBackground('#81C784').setFontColor('#1B5E20').setFontWeight('bold');
-    } else if (deltaBlocker > 0) {
-      deltaBlockerCell.setBackground('#EF5350').setFontColor('#B71C1C').setFontWeight('bold');
-    } else {
-      deltaBlockerCell.setBackground('#F5F5F5').setFontColor('#757575');
-    }
-
-    // Total Bugs > 0: Yellow highlight
-    if ((bs.total||0) > 0) {
-      rules.push(SpreadsheetApp.newConditionalFormatRule()
-          .whenNumberGreaterThan(0).setBackground('#FFF9C4').setFontColor('#F57F17')
-          .setRanges([ws.getRange(r,4)]).build());
-    }
-
-    // Blocker Bugs > 0: Red highlight
-    if ((bs.blocker||0) > 0) {
-      rules.push(SpreadsheetApp.newConditionalFormatRule()
-          .whenNumberGreaterThan(0).setBackground('#FFCDD2').setFontColor('#C62828').setBold(true)
-          .setRanges([ws.getRange(r,10)]).build());
-    }
-
-    // Critical/High > 0: Orange highlight
-    [5,6].forEach(col => {
-      if ((col===5?bs.critical:bs.high)||0 > 0) {
-        rules.push(SpreadsheetApp.newConditionalFormatRule()
-            .whenNumberGreaterThan(0).setBackground('#FFE0B2').setFontColor('#E65100').setBold(true)
-            .setRanges([ws.getRange(r,col)]).build());
-      }
-    });
-
-    // Prod Bugs > 0: Strong Red highlight (CRITICAL!)
-    if ((bs.prodBugs||0) > 0) {
-      rules.push(SpreadsheetApp.newConditionalFormatRule()
-          .whenNumberGreaterThan(0).setBackground('#EF5350').setFontColor('#FFFFFF').setBold(true)
-          .setRanges([ws.getRange(r,15)]).build());
-    }
+    numberFormats.push(dataRows[i].map((value,index) => index===26?'yyyy-mm-dd hh:mm':index>=3?'0':'General'));
   });
+
+  if (dataRows.length > 0) {
+    const dataRange = ws.getRange(5,1,dataRows.length,38);
+    dataRange.setValues(dataRows)
+      .setBackgrounds(backgrounds)
+      .setFontColors(fontColors)
+      .setNumberFormats(numberFormats)
+      .setFontFamily('Arial').setFontSize(9)
+      .setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setBorder(true,true,true,true,false,false,'#E0E0E0',SpreadsheetApp.BorderStyle.SOLID);
+    ws.getRange(5,1,dataRows.length,3).setHorizontalAlignment('left');
+    ws.getRange(5,3,dataRows.length,1).setFontWeight('bold');
+    ws.getRange(5,11,dataRows.length,2).setFontWeight('bold');
+
+    rules.push(
+      SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0)
+        .setBackground('#FFF9C4').setFontColor('#F57F17')
+        .setRanges([ws.getRange(5,4,dataRows.length,1)]).build(),
+      SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0)
+        .setBackground('#FFCDD2').setFontColor('#C62828').setBold(true)
+        .setRanges([ws.getRange(5,10,dataRows.length,1)]).build(),
+      SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0)
+        .setBackground('#FFE0B2').setFontColor('#E65100').setBold(true)
+        .setRanges([ws.getRange(5,5,dataRows.length,2)]).build(),
+      SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0)
+        .setBackground('#EF5350').setFontColor('#FFFFFF').setBold(true)
+        .setRanges([ws.getRange(5,15,dataRows.length,1)]).build()
+    );
+  }
 
   // TOTAL row
   if (submodulList.length > 0) {
@@ -364,16 +303,11 @@ function aggregateBugsBySubmodul_(allData) {
     if (!moduleData.id) return;
 
     try {
-      const src = SpreadsheetApp.openById(moduleData.id);
-      const bugSheet = src.getSheetByName('BugReport');
-
-      if (!bugSheet) {
+      const rows = moduleData.bugRows || [];
+      if (rows.length === 0 && !moduleData.bugReportGid) {
         Logger.log('No BugReport for module: ' + moduleData.name);
         return;
       }
-
-      // Read all bug rows (skip header rows 1-4)
-      const rows = bugSheet.getDataRange().getValues().slice(4).filter(r => r[0] && r[0] !== '');
 
       rows.forEach(row => {
         const status = String(row[3]).trim();  // col D = Status
@@ -389,8 +323,8 @@ function aggregateBugsBySubmodul_(allData) {
         // Initialize if first time seeing this submodul
         if (!submodulBugs[submodulKey]) {
           // Get BugReport GID
-          const bugReportGid = bugSheet.getSheetId();
-          const qatmUrl = 'https://docs.google.com/spreadsheets/d/' + moduleData.id + '/edit#gid=' + bugReportGid;
+          const qatmUrl = 'https://docs.google.com/spreadsheets/d/' + moduleData.id +
+            '/edit#gid=' + moduleData.bugReportGid;
 
           submodulBugs[submodulKey] = {
             project: moduleData.project || '',
