@@ -73,8 +73,10 @@ function onOpen() {
       .addItem('▶️ Manual Sync + Refresh', 'manualSyncAndRefresh')
       .addItem('🤖 Generate Automation Contract', 'menuGenerateAutomationContract')
       .addItem('🚀 Setup Auto-Refresh Trigger', 'setupAutoRefreshTrigger')
+      .addItem('⏱️ Setup Automation History Trigger', 'setupAutomationHistoryTrigger')
       .addSeparator()
       .addItem('⚙️ Refresh Bug Only (No Jira Sync)', 'refreshBugOnly')
+      .addItem('🤖 Refresh Automation History', 'refreshAutomationHistory')
       .addItem('🔒 Refresh VAPT Only', 'refreshVAPTOnly'))
     .addSubMenu(ui.createMenu('🔔 Notifications')
       .addItem('⚙️ Setup Blocker Notification (Daily)', 'setupDailyBlockerNotification')
@@ -388,18 +390,7 @@ function refreshDashboard() {
 
   // ═══ STEP 1: Pull Module Data ═══
   let t1 = new Date();
-  const allData = [];
-  modules.forEach(mod => {
-    Logger.log('Pulling: ' + mod.name + ' [' + mod.id + ']');
-    try {
-      allData.push(pullModuleData_(mod));
-      Logger.log('OK: ' + mod.name);
-    } catch(e) {
-      Logger.log('ERROR ' + mod.name + ': ' + e.message);
-      allData.push(emptyModuleData_(mod, 'ERROR: ' + e.message));
-    }
-    Utilities.sleep(150);
-  });
+  const allData = pullAllModuleData_(modules);
   Logger.log('⏱️  Pull module data: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
 
   // ═══ STEP 2: Write Tabs ═══
@@ -485,18 +476,7 @@ function refreshBugOnly() {
 
   // ═══ STEP 1: Pull Module Data ═══
   let t1 = new Date();
-  const allData = [];
-  modules.forEach(mod => {
-    Logger.log('Pulling: ' + mod.name + ' [' + mod.id + ']');
-    try {
-      allData.push(pullModuleData_(mod));
-      Logger.log('OK: ' + mod.name);
-    } catch(e) {
-      Logger.log('ERROR ' + mod.name + ': ' + e.message);
-      allData.push(emptyModuleData_(mod, 'ERROR: ' + e.message));
-    }
-    Utilities.sleep(150);
-  });
+  const allData = pullAllModuleData_(modules);
   Logger.log('⏱️  Pull module data: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
 
   // ═══ STEP 2: Write Tabs (Same as refreshDashboard, except VAPT) ═══
@@ -864,6 +844,10 @@ function getModuleList_(ss) {
         all: readOptional(data[i], ['Automation Contract', 'Automation Key', 'Automation Alias', 'Jenkins Job', 'Jenkins Job Pattern']),
         web: readOptional(data[i], ['Web Automation Contract', 'Web Automation Key', 'Web Jenkins Job', 'Web Jenkins Job Pattern']),
         api: readOptional(data[i], ['API Automation Contract', 'API Automation Key', 'API Jenkins Job', 'API Jenkins Job Pattern'])
+      },
+      automationEnabled: {
+        web: readBoolOptional(data[i], ['Web Enabled']),
+        api: readBoolOptional(data[i], ['API Enabled'])
       }
     });
   }
@@ -875,6 +859,44 @@ function getModuleList_(ss) {
 // DATA PULL — per module
 // ═══════════════════════════════════════════════════════════════════════
 
+function pullAllModuleData_(modules) {
+  const cacheBySpreadsheetId = {};
+  return modules.map(mod => {
+    const cacheKey = String(mod.id || '').trim();
+    if (cacheBySpreadsheetId[cacheKey]) {
+      Logger.log('CACHE HIT: ' + mod.name + ' [' + mod.id + ']');
+      return cloneModuleDataForConfig_(cacheBySpreadsheetId[cacheKey], mod);
+    }
+
+    Logger.log('Pulling: ' + mod.name + ' [' + mod.id + ']');
+    let data;
+    try {
+      data = pullModuleData_(mod);
+      Logger.log('OK: ' + mod.name);
+    } catch(e) {
+      Logger.log('ERROR ' + mod.name + ': ' + e.message);
+      data = emptyModuleData_(mod, 'ERROR: ' + e.message);
+    }
+    cacheBySpreadsheetId[cacheKey] = data;
+    return data;
+  });
+}
+
+function cloneModuleDataForConfig_(source, mod) {
+  return Object.assign({}, source, {
+    name:mod.name,
+    id:mod.id,
+    automationContracts:mod.automationContracts || {},
+    externalQA:mod.externalQA || {isExternal:false,retestByPeruri:false,notes:''},
+    blockers:(source.blockers || []).slice(),
+    coverage:(source.coverage || []).slice(),
+    bugRows:(source.bugRows || []).slice(),
+    bugStats:Object.assign({},source.bugStats || {}),
+    vapt:Object.assign({},source.vapt || {}),
+    externalTestReport:Object.assign({},source.externalTestReport || {})
+  });
+}
+
 function pullModuleData_(mod) {
   const src  = SpreadsheetApp.openById(mod.id);
   const tcm  = src.getSheetByName('TC_Master');
@@ -885,6 +907,17 @@ function pullModuleData_(mod) {
   const summ = src.getSheetByName('Summary');
   const externalReportSheet = src.getSheetByName('External Test Report');
   const bugr = src.getSheetByName('BugReport');
+  // Read each large QATM source sheet once. The same in-memory arrays are reused
+  // for fallback KPI, blockers, and coverage calculations.
+  const tcMasterRows = readSheetRows_(tcm, 2);
+  const tcExecutionRows = readSheetRows_(tce, 8);
+  const apiMasterRows = readSheetRows_(apim, 2);
+  const apiExecutionRows = readSheetRows_(apie, 8);
+  const bugRows = bugr
+    ? bugr.getDataRange().getValues().slice(4).filter(row => row[0] && row[0] !== '')
+    : [];
+  const bugReportGid = bugr ? bugr.getSheetId() : '';
+  const summaryGrid = summ ? summ.getRange(1,1,83,20).getValues() : [];
 
   const SUMM_KPI_ROW = 13;  // Summary row 13: main Web+API KPI values
 
@@ -904,30 +937,30 @@ function pullModuleData_(mod) {
 
   try {
     if (summ) {
-      const proj = summ.getRange(2,2).getValue();  // B2 = Project (baru)
-      const modul = summ.getRange(3,2).getValue();  // B3 = Modul (baru)
-      const submod = summ.getRange(4,2).getValue();  // B4 = Submodul (baru)
-      const ql  = summ.getRange(5,2).getValue();  // B5 = QA Lead (baru, sebelumnya B4)
-      const pic = summ.getRange(6,2).getValue();  // B6 = PIC QA (baru, sebelumnya B5)
+      const proj = getGridValue_(summaryGrid,2,2);  // B2 = Project
+      const modul = getGridValue_(summaryGrid,3,2);  // B3 = Modul
+      const submod = getGridValue_(summaryGrid,4,2);  // B4 = Submodul
+      const ql  = getGridValue_(summaryGrid,5,2);  // B5 = QA Lead
+      const pic = getGridValue_(summaryGrid,6,2);  // B6 = PIC QA
 
       if (proj && String(proj).trim())     projectName = String(proj).trim();
       if (modul && String(modul).trim())   moduleName = String(modul).trim();
       if (submod && String(submod).trim()) submoduleName = String(submod).trim();
       if (ql  && String(ql).trim())        qaLead        = String(ql).trim(); // Summary overrides Config
       if (pic && String(pic).trim())       picQA         = String(pic).trim();
-      scopeNotes = readSummaryFieldByLabel_(summ, 'Scope / Notes:');
+      scopeNotes = readGridFieldByLabel_(summaryGrid, 'Scope / Notes:');
 
-      const perfVal = summ.getRange(8,13).getValue(); // M8 = Perf result
+      const perfVal = getGridValue_(summaryGrid,8,13); // M8 = Perf result
       if (perfVal && String(perfVal).trim()) perfResult = String(perfVal).trim();
 
       // Web KPI — row 13, cols A-I (1-9)
-      const wKpi = summ.getRange(SUMM_KPI_ROW,1,1,9).getValues()[0];
+      const wKpi = summaryGrid[SUMM_KPI_ROW-1].slice(0,9);
       wTotal=+wKpi[0]||0; wPassed=+wKpi[1]||0; wFailed=+wKpi[2]||0;
       wBlocked=+wKpi[3]||0; wInProg=+wKpi[4]||0; wTodo=+wKpi[5]||0;
       wPassRate=+wKpi[6]||0; wAutoRate=+wKpi[7]||0; wExecRate=+wKpi[8]||0;
 
       // API KPI — row 13, cols L-T (12-20)
-      const aKpi = summ.getRange(SUMM_KPI_ROW,12,1,9).getValues()[0];
+      const aKpi = summaryGrid[SUMM_KPI_ROW-1].slice(11,20);
       aTotal=+aKpi[0]||0; aPassed=+aKpi[1]||0; aFailed=+aKpi[2]||0;
       aBlocked=+aKpi[3]||0; aInProg=+aKpi[4]||0; aTodo=+aKpi[5]||0;
       aPassRate=+aKpi[6]||0; aAutoRate=+aKpi[7]||0; aExecRate=+aKpi[8]||0;
@@ -983,7 +1016,8 @@ function pullModuleData_(mod) {
 
         let smokeLabelRow = -1;
         const SCAN_START = 14, SCAN_LEN = 22;  // scan rows 14–35
-        const scanGrid = summ.getRange(SCAN_START, 1, SCAN_LEN, 9).getValues();
+        const scanGrid = summaryGrid.slice(SCAN_START-1,SCAN_START-1+SCAN_LEN)
+          .map(row => row.slice(0,9));
         for (let i = 0; i < scanGrid.length; i++) {
           const c1 = String(scanGrid[i][0]).trim().toUpperCase();  // col A
           const c7 = String(scanGrid[i][6]).trim().toUpperCase();  // col G
@@ -997,7 +1031,7 @@ function pullModuleData_(mod) {
         Logger.log(mod.name + ' | smokeLabelRow=' + smokeLabelRow + ' smokeValRow=' + smokeValRow);
 
         // Web / Mobile smoke (col 1–9)
-        const wSm = summ.getRange(smokeValRow, 1, 1, 9).getValues()[0];
+        const wSm = summaryGrid[smokeValRow-1].slice(0,9);
         wSmokeTotal    = +wSm[0]||0;   // col A = TOTAL
         wSmokePassed   = +wSm[1]||0;   // col B = PASSED
         wSmokeFailed   = +wSm[2]||0;   // col C = FAILED
@@ -1009,7 +1043,7 @@ function pullModuleData_(mod) {
         wSmokeExecRate = +wSm[8]||0;   // col I = EXEC RATE
 
         // API smoke (col 12–20, same layout offset R_=12)
-        const aSm = summ.getRange(smokeValRow, 12, 1, 9).getValues()[0];
+        const aSm = summaryGrid[smokeValRow-1].slice(11,20);
         aSmokeTotal    = +aSm[0]||0;   // col L = TOTAL
         aSmokePassed   = +aSm[1]||0;   // col M = PASSED
         aSmokePassRate = +aSm[6]||0;   // col R = PASS RATE
@@ -1039,8 +1073,10 @@ function pullModuleData_(mod) {
       try {
         const VAPT_SECTION_START = 65;
         const VAPT_SECTION_ROWS = 19;  // Rows 65-83
-        const vaptRange = summ.getRange(VAPT_SECTION_START, 1, VAPT_SECTION_ROWS, 5);  // Cols A-E
-        const vaptGrid = vaptRange.getValues();
+        const vaptGrid = summaryGrid.slice(
+          VAPT_SECTION_START-1,
+          VAPT_SECTION_START-1+VAPT_SECTION_ROWS
+        ).map(row => row.slice(0,5));
 
         // Extract Total VAPT Findings (Row 67 = index 2, Col B = index 1)
         vaptData.total = Number(vaptGrid[2][1]) || 0;
@@ -1078,7 +1114,8 @@ function pullModuleData_(mod) {
 
     } else {
       // Fallback: hitung dari raw sheets
-      const wS = getSheetStats_(tcm,tce,'TC'), aS = getSheetStats_(apim,apie,'API');
+      const wS = getSheetStatsFromRows_(tcMasterRows,tcExecutionRows,'TC');
+      const aS = getSheetStatsFromRows_(apiMasterRows,apiExecutionRows,'API');
       ({total:wTotal,passed:wPassed,failed:wFailed,blocked:wBlocked,inprog:wInProg,todo:wTodo,passRate:wPassRate,autoRate:wAutoRate,execRate:wExecRate} = wS);
       ({total:aTotal,passed:aPassed,failed:aFailed,blocked:aBlocked,inprog:aInProg,todo:aTodo,passRate:aPassRate,autoRate:aAutoRate,execRate:aExecRate} = aS);
       perfResult = getPerfResult_(perf);
@@ -1086,12 +1123,22 @@ function pullModuleData_(mod) {
   } catch(e) {
     Logger.log('pullModuleData_ error [' + mod.name + ']: ' + e.message);
     try {
-      const wS = getSheetStats_(tcm,tce,'TC'), aS = getSheetStats_(apim,apie,'API');
+      const wS = getSheetStatsFromRows_(tcMasterRows,tcExecutionRows,'TC');
+      const aS = getSheetStatsFromRows_(apiMasterRows,apiExecutionRows,'API');
       wTotal=wS.total; wPassed=wS.passed; wFailed=wS.failed; wBlocked=wS.blocked; wPassRate=wS.passRate;
       aTotal=aS.total; aPassed=aS.passed; aFailed=aS.failed; aBlocked=aS.blocked; aPassRate=aS.passRate;
     } catch(e2) {}
   }
-  externalTestReport = readExternalTestReport_(externalReportSheet, src);
+  externalTestReport = readExternalTestReport_(
+    externalReportSheet,
+    src,
+    summaryGrid,
+    readSheetDisplayRows_(externalReportSheet)
+  );
+  const statusMaps = {
+    web:buildExecutionStatusMap_(tcExecutionRows),
+    api:buildExecutionStatusMap_(apiExecutionRows)
+  };
 
   return {
     name:mod.name, team:picQA, lead:qaLead, id:mod.id,
@@ -1108,9 +1155,15 @@ function pullModuleData_(mod) {
     aSmokeTotal,aSmokePassed,aSmokePassRate,aSmokeAutoRate,aSmokeExecRate,
     perfResult,
     vapt: vaptData,  // VAPT findings from QATM Summary
-    blockers: getBlockers_(tcm,tce,apim,apie,mod.name),
-    coverage: getCoverage_(tcm,tce,apim,apie),
-    bugStats: getBugStats_(bugr, summ),
+    blockers: getBlockersFromRows_(
+      tcMasterRows,apiMasterRows,statusMaps.web,statusMaps.api,mod.name
+    ),
+    coverage: getCoverageFromRows_(
+      tcMasterRows,apiMasterRows,statusMaps.web,statusMaps.api
+    ),
+    bugRows,
+    bugReportGid,
+    bugStats: getBugStats_(bugr, summ, bugRows, summaryGrid),
     error: '',
   };
 }
@@ -1129,9 +1182,57 @@ function emptyModuleData_(mod, errorMsg) {
     wSmokeTotal:0,wSmokePassed:0,wSmokeFailed:0,wSmokeBlocked:0,wSmokeInProg:0,wSmokeTodo:0,
     wSmokePassRate:0,wSmokeAutoRate:0,wSmokeExecRate:0,
     aSmokeTotal:0,aSmokePassed:0,aSmokePassRate:0,aSmokeAutoRate:0,aSmokeExecRate:0,
-    perfResult:'--',blockers:[],coverage:[],
+    perfResult:'--',blockers:[],coverage:[],bugRows:[],bugReportGid:'',
     bugStats:{total:0,open:0,inprog:0,fixed:0,verified:0,critical:0,high:0,medium:0,low:0,blocker:0},
   };
+}
+
+function readSheetRows_(sheet, skipRows) {
+  if (!sheet) return [];
+  try {
+    return sheet.getDataRange().getValues().slice(skipRows || 0);
+  } catch(e) {
+    Logger.log('Failed reading sheet ' + sheet.getName() + ': ' + e.message);
+    return [];
+  }
+}
+
+function readSheetDisplayRows_(sheet) {
+  if (!sheet) return [];
+  try {
+    return sheet.getDataRange().getDisplayValues();
+  } catch(e) {
+    Logger.log('Failed reading display values from ' + sheet.getName() + ': ' + e.message);
+    return [];
+  }
+}
+
+function getGridValue_(grid, row, column) {
+  return grid[row-1] && grid[row-1][column-1] !== undefined
+    ? grid[row-1][column-1]
+    : '';
+}
+
+function readGridFieldByLabel_(grid, label) {
+  for (let row=0; row<grid.length; row++) {
+    for (let col=0; col<grid[row].length; col++) {
+      if (String(grid[row][col] || '').trim() === label) {
+        return String(grid[row][col+1] || '').trim();
+      }
+    }
+  }
+  return '';
+}
+
+function findGridAdjacentValue_(grid, label) {
+  const needle = String(label || '').trim().toLowerCase();
+  for (let row=0; row<grid.length; row++) {
+    for (let col=0; col<grid[row].length; col++) {
+      const value = String(grid[row][col] || '').trim().toLowerCase();
+      if (value.indexOf(needle) >= 0) return grid[row][col+1];
+    }
+  }
+  return '';
 }
 
 function readSummaryFieldByLabel_(summarySheet, label) {
@@ -1178,7 +1279,7 @@ function emptyExternalTestReport_() {
   };
 }
 
-function readExternalTestReport_(sheet, qatmSs) {
+function readExternalTestReport_(sheet, qatmSs, prefetchedSummaryGrid, prefetchedDisplayRows) {
   const report = emptyExternalTestReport_();
   if (!sheet) return report;
 
@@ -1197,23 +1298,32 @@ function readExternalTestReport_(sheet, qatmSs) {
     'Review Date:': 'reviewDate',
     'Notes:': 'notes'
   };
-  Object.keys(mapping).forEach(label => {
-    try {
-      const cell = sheet.createTextFinder(label).matchEntireCell(true).findNext();
-      if (!cell) return;
-      report[mapping[label]] = String(sheet.getRange(cell.getRow(), cell.getColumn() + 1).getDisplayValue() || '').trim();
-    } catch(e) {}
+  const displayRows = prefetchedDisplayRows || readSheetDisplayRows_(sheet);
+  displayRows.forEach(row => {
+    row.forEach((value,index) => {
+      const label = String(value || '').trim();
+      if (mapping[label]) {
+        report[mapping[label]] = String(row[index+1] || '').trim();
+      }
+    });
   });
 
   // Extract VAPT findings from Summary sheet (row 65-83)
   if (qatmSs) {
     try {
-      const summ = qatmSs.getSheetByName('Summary');
-      if (summ) {
+      const summaryGrid = prefetchedSummaryGrid && prefetchedSummaryGrid.length
+        ? prefetchedSummaryGrid
+        : (() => {
+            const summ = qatmSs.getSheetByName('Summary');
+            return summ ? summ.getRange(1,1,83,20).getValues() : [];
+          })();
+      if (summaryGrid.length >= 83) {
         const VAPT_SECTION_START = 65;
         const VAPT_SECTION_ROWS = 19;
-        const vaptRange = summ.getRange(VAPT_SECTION_START, 1, VAPT_SECTION_ROWS, 5);
-        const vaptGrid = vaptRange.getValues();
+        const vaptGrid = summaryGrid.slice(
+          VAPT_SECTION_START-1,
+          VAPT_SECTION_START-1+VAPT_SECTION_ROWS
+        ).map(row => row.slice(0,5));
 
         report.vaptTotal = Number(vaptGrid[2][1]) || 0;           // Row 67, Col B
         report.vaptCritical = Number(vaptGrid[6][1]) || 0;        // Row 71, Col B
@@ -1256,16 +1366,29 @@ function readExternalTestReport_(sheet, qatmSs) {
 // ═══════════════════════════════════════════════════════════════════════
 
 function getSheetStats_(masterSheet, execSheet, type) {
+  return getSheetStatsFromRows_(
+    readSheetRows_(masterSheet,2),
+    readSheetRows_(execSheet,8),
+    type
+  );
+}
+
+function buildExecutionStatusMap_(executionRows) {
+  const statusMap = {};
+  (executionRows || []).forEach(row => {
+    if (row[0] && row[25]) statusMap[row[0]] = String(row[25]).trim();
+  });
+  return statusMap;
+}
+
+function getSheetStatsFromRows_(masterRows, executionRows, type) {
   const empty = {total:0,passed:0,failed:0,blocked:0,inprog:0,todo:0,passRate:0,autoRate:0,execRate:0};
-  if (!masterSheet || !execSheet) return empty;
+  if (!masterRows || !executionRows) return empty;
   try {
-    const mData = masterSheet.getDataRange().getValues().slice(2);
-    const eData = execSheet.getDataRange().getValues().slice(8);
-    const statusMap = {};
-    eData.forEach(r => { if(r[0]&&r[25]) statusMap[r[0]] = String(r[25]).trim(); });
+    const statusMap = buildExecutionStatusMap_(executionRows);
     const autoCol = type==='TC' ? 7 : 9;
     let total=0,passed=0,failed=0,blocked=0,inprog=0,todo=0,auto=0;
-    mData.forEach(r => {
+    masterRows.forEach(r => {
       if (!r[2]) return; total++;
       if (r[autoCol]==='Automated') auto++;
       const st = statusMap[r[2]]||'TODO';
@@ -1282,23 +1405,33 @@ function getSheetStats_(masterSheet, execSheet, type) {
 }
 
 function getBlockers_(tcm, tce, apim, apie, moduleName) {
+  const tcRows = readSheetRows_(tcm,2);
+  const apiRows = readSheetRows_(apim,2);
+  return getBlockersFromRows_(
+    tcRows,
+    apiRows,
+    buildExecutionStatusMap_(readSheetRows_(tce,8)),
+    buildExecutionStatusMap_(readSheetRows_(apie,8)),
+    moduleName
+  );
+}
+
+function getBlockersFromRows_(tcRows, apiRows, webStatusMap, apiStatusMap, moduleName) {
   const bl = [];
   try {
-    if (tcm&&tce) {
-      const sm={}; tce.getDataRange().getValues().slice(8).forEach(r=>{if(r[0]&&r[25])sm[r[0]]=r[25];});
-      tcm.getDataRange().getValues().slice(2).forEach(r=>{
+    if (tcRows) {
+      tcRows.forEach(r=>{
         if(!r[2]||(r[4]!=='Critical'&&r[4]!=='High'))return;
-        const st=sm[r[2]]||'TODO';
+        const st=webStatusMap[r[2]]||'TODO';
         if(st==='FAILED'||st==='BLOCKED') bl.push({module:moduleName,type:'Web',tcId:r[2],prio:r[4],feature:r[3],scenario:String(r[10]).substring(0,80),status:st});
       });
     }
   } catch(e) {}
   try {
-    if (apim&&apie) {
-      const sm={}; apie.getDataRange().getValues().slice(8).forEach(r=>{if(r[0]&&r[25])sm[r[0]]=r[25];});
-      apim.getDataRange().getValues().slice(2).forEach(r=>{
+    if (apiRows) {
+      apiRows.forEach(r=>{
         if(!r[2]||(r[6]!=='Critical'&&r[6]!=='High'))return;
-        const st=sm[r[2]]||'TODO';
+        const st=apiStatusMap[r[2]]||'TODO';
         if(st==='FAILED'||st==='BLOCKED') bl.push({module:moduleName,type:'API',tcId:r[2],prio:r[6],feature:r[3],scenario:String(r[12]).substring(0,80),status:st});
       });
     }
@@ -1307,17 +1440,27 @@ function getBlockers_(tcm, tce, apim, apie, moduleName) {
 }
 
 function getCoverage_(tcm, tce, apim, apie) {
+  const tcRows = readSheetRows_(tcm,2);
+  const apiRows = readSheetRows_(apim,2);
+  return getCoverageFromRows_(
+    tcRows,
+    apiRows,
+    buildExecutionStatusMap_(readSheetRows_(tce,8)),
+    buildExecutionStatusMap_(readSheetRows_(apie,8))
+  );
+}
+
+function getCoverageFromRows_(tcRows, apiRows, webStatusMap, apiStatusMap) {
   const cov=[];
   try {
-    if (tcm) {
-      const sm={}; (tce?tce.getDataRange().getValues().slice(8):[]).forEach(r=>{if(r[0]&&r[25])sm[r[0]]=r[25];});
+    if (tcRows) {
       const map={};
-      tcm.getDataRange().getValues().slice(2).forEach(r=>{
+      tcRows.forEach(r=>{
         if(!r[2]||!r[1])return;
         if(!map[r[1]])map[r[1]]={sub:r[1],total:0,passed:0,failed:0,auto:0,type:'Web'};
         map[r[1]].total++;
         if(r[7]==='Automated')map[r[1]].auto++;
-        const st=sm[r[2]]||'';
+        const st=webStatusMap[r[2]]||'';
         if(st==='PASSED')map[r[1]].passed++;
         if(st==='FAILED')map[r[1]].failed++;
       });
@@ -1325,15 +1468,14 @@ function getCoverage_(tcm, tce, apim, apie) {
     }
   } catch(e) {}
   try {
-    if (apim) {
-      const sm={}; (apie?apie.getDataRange().getValues().slice(8):[]).forEach(r=>{if(r[0]&&r[25])sm[r[0]]=r[25];});
+    if (apiRows) {
       const map={};
-      apim.getDataRange().getValues().slice(2).forEach(r=>{
+      apiRows.forEach(r=>{
         if(!r[2]||!r[1])return;
         if(!map[r[1]])map[r[1]]={sub:r[1],total:0,passed:0,failed:0,auto:0,type:'API'};
         map[r[1]].total++;
         if(r[9]==='Automated')map[r[1]].auto++;
-        const st=sm[r[2]]||'';
+        const st=apiStatusMap[r[2]]||'';
         if(st==='PASSED')map[r[1]].passed++;
         if(st==='FAILED')map[r[1]].failed++;
       });
@@ -1352,7 +1494,7 @@ function getPerfResult_(perfSheet) {
   } catch(e) { return '--'; }
 }
 
-function getBugStats_(bugSheet, summarySheet) {
+function getBugStats_(bugSheet, summarySheet, prefetchedRows, prefetchedSummaryGrid) {
   const empty={
     total:0,critical:0,high:0,medium:0,low:0,lowest:0,blocker:0,
     devBugs:0,uatBugs:0,prodBugs:0,
@@ -1363,7 +1505,7 @@ function getBugStats_(bugSheet, summarySheet) {
   };
   if (!bugSheet) return empty;
   try {
-    const rows=bugSheet.getDataRange().getValues().slice(4).filter(r=>r[0]&&r[0]!=='');
+    const rows=prefetchedRows || bugSheet.getDataRange().getValues().slice(4).filter(r=>r[0]&&r[0]!=='');
     const cnt=(fn)=>rows.filter(fn).length;
     const statusOf = r => String(r[3] || '').toLowerCase().trim();
     const priorityOf = r => String(r[2] || '').trim();
@@ -1384,25 +1526,13 @@ function getBugStats_(bugSheet, summarySheet) {
     // Try to read from Summary sheet if available
     if (summarySheet) {
       try {
-        // Read BUG BLOCKER
-        const blockerCell = summarySheet.createTextFinder('Open Blocker:').matchEntireCell(false).findNext();
-        if (blockerCell) {
-          const blockerRow = blockerCell.getRow();
-          const blockerValue = summarySheet.getRange(blockerRow, 2).getValue();  // Same row, col B
-          if (typeof blockerValue === 'number' && blockerValue >= 0) {
-            blockerCount = blockerValue;
-          }
-        }
-
-        // Read PROD BUGS
-        const prodCell = summarySheet.createTextFinder('PROD BUGS:').matchEntireCell(false).findNext();
-        if (prodCell) {
-          const prodRow = prodCell.getRow();
-          const prodValue = summarySheet.getRange(prodRow, 2).getValue();  // Same row, col B
-          if (typeof prodValue === 'number' && prodValue >= 0) {
-            prodBugsCount = prodValue;
-          }
-        }
+        const summaryGrid = prefetchedSummaryGrid && prefetchedSummaryGrid.length
+          ? prefetchedSummaryGrid
+          : summarySheet.getRange(1,1,83,20).getValues();
+        const blockerValue = findGridAdjacentValue_(summaryGrid,'Open Blocker:');
+        if (typeof blockerValue === 'number' && blockerValue >= 0) blockerCount = blockerValue;
+        const prodValue = findGridAdjacentValue_(summaryGrid,'PROD BUGS:');
+        if (typeof prodValue === 'number' && prodValue >= 0) prodBugsCount = prodValue;
       } catch(e) {
         Logger.log('Failed to read bug metrics from Summary: ' + e.message);
       }
@@ -2794,6 +2924,9 @@ function getHistoryHeaders_() {
 function ensureHistoryHeaders_(ws) {
   const hdrs = getHistoryHeaders_();
   ensureSheetColumns_(ws, hdrs.length);
+  const currentHeaders = ws.getRange(2,1,1,hdrs.length).getValues()[0];
+  if (currentHeaders.join('|') === hdrs.join('|')) return;
+
   const maxCols = Math.max(ws.getLastColumn(), hdrs.length);
 
   ws.getRange(1,1,2,maxCols).breakApart().clearContent();
@@ -2812,25 +2945,16 @@ function appendHistory(ss, allData) {
   const ws=ss.getSheetByName('History'); if(!ws)return;
   ensureHistoryHeaders_(ws);
   const hdrs = getHistoryHeaders_();
-  const HISTORY_COLS = hdrs.length;
   const now = new Date();
-  const ts=Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm');
-  const today=Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd');
-  const automationRunsByKey = getLatestAutomationRunsByDashboardKey_(ss);
+  const ts=now;
 
   // Build all rows at once (batch operation)
   const rows = allData.map(d => {
     const bs=d.bugStats||{};
-    // Skip automation results for External QA modules (no internal testing)
-    const isExternalQA = (d.externalQA||{}).isExternal === true;
-    const webDevRun = !isExternalQA ? getAutomationRunForModule_(automationRunsByKey, d, 'web', 'dev') : null;
-    const apiDevRun = !isExternalQA ? getAutomationRunForModule_(automationRunsByKey, d, 'api', 'dev') : null;
-    const webStgRun = !isExternalQA ? getAutomationRunForModule_(automationRunsByKey, d, 'web', 'stg') : null;
-    const apiStgRun = !isExternalQA ? getAutomationRunForModule_(automationRunsByKey, d, 'api', 'stg') : null;
-    const webProdRun = !isExternalQA ? getAutomationRunForModule_(automationRunsByKey, d, 'web', 'prod') : null;
-    const apiProdRun = !isExternalQA ? getAutomationRunForModule_(automationRunsByKey, d, 'api', 'prod') : null;
-    const webRun = !isExternalQA ? firstAutomationRun_(webProdRun, webStgRun, webDevRun) : null;
-    const apiRun = !isExternalQA ? firstAutomationRun_(apiProdRun, apiStgRun, apiDevRun) : null;
+    // Automation columns are owned by refreshAutomationHistory().
+    // Keep placeholders here; these fields are excluded from the core History patch.
+    const webDevRun = null, apiDevRun = null, webStgRun = null, apiStgRun = null;
+    const webProdRun = null, apiProdRun = null, webRun = null, apiRun = null;
     const prodBlocker = bs.prodBlockerBugs || 0;
     const prodCritical = bs.prodCriticalBugs || 0;
     const prodHigh = bs.prodHighBugs || 0;
@@ -2873,52 +2997,188 @@ function appendHistory(ss, allData) {
       (d.externalTestReport||{}).reviewDate || '',(d.externalTestReport||{}).notes || ''];
   });
 
-  // SMART APPEND: Check if today's data already exists
-  const lastRow = ws.getLastRow();
-  if(lastRow>=3){
-    const existingData = ws.getRange(3,1,lastRow-2,HISTORY_COLS).getValues();
-    const todayRows = {};  // Map: "project-module-submodule" => row index
-
-    // Find all rows from today
-    existingData.forEach((row,i)=>{
-      const rowDate = Utilities.formatDate(new Date(row[0]),Session.getScriptTimeZone(),'yyyy-MM-dd');
-      if(rowDate===today){
-        const key=`${row[1]||''}-${row[2]||''}-${row[3]||''}`;  // project-module-submodule
-        todayRows[key]=i+3;  // +3 because row 1-2 are headers
-      }
+  const automationFields = getAutomationHistoryFields_();
+  const coreFields = hdrs.filter(header =>
+    ['Timestamp','Project','Modul','Submodul','PIC QA'].indexOf(header) === -1 &&
+    automationFields.indexOf(header) === -1
+  );
+  const patches = rows.map(row => {
+    const values = {};
+    coreFields.forEach(header => {
+      values[header] = row[hdrs.indexOf(header)];
     });
+    return {
+      timestamp: row[0],
+      project: row[1],
+      module: row[2],
+      submodule: row[3],
+      picQA: row[4],
+      values
+    };
+  });
+  upsertDailyHistory_(ss, patches);
+}
 
-    // Update existing rows or collect new rows to append
-    const newRows=[];
-    rows.forEach(row=>{
-      const key=`${row[1]||''}-${row[2]||''}-${row[3]||''}`;
-      if(todayRows[key]){
-        // FULL UPDATE - Replace entire row with latest data
-        // This ensures ALL columns (test execution, bugs, automation) are updated
-        ws.getRange(todayRows[key],1,1,HISTORY_COLS).setValues([row]);
-      }else{
-        // Collect for batch append
-        newRows.push(row);
-      }
-    });
+function getAutomationHistoryFields_() {
+  return [
+    'webAutomationPassed','webAutomationFailed','webAutomationPassRate','webAutomationStatus',
+    'apiAutomationPassed','apiAutomationFailed','apiAutomationPassRate','apiAutomationStatus',
+    'webDevPassed','webDevFailed','webDevPassRate','webDevStatus',
+    'apiDevPassed','apiDevFailed','apiDevPassRate','apiDevStatus',
+    'webStgPassed','webStgFailed','webStgPassRate','webStgStatus',
+    'apiStgPassed','apiStgFailed','apiStgPassRate','apiStgStatus',
+    'webProdPassed','webProdFailed','webProdPassRate','webProdStatus',
+    'apiProdPassed','apiProdFailed','apiProdPassRate','apiProdStatus'
+  ];
+}
 
-    // Append only new rows
-    if(newRows.length>0){
-      const startRow=lastRow+1;
-      ws.getRange(startRow,1,newRows.length,HISTORY_COLS).setValues(newRows);
+/**
+ * Upsert partial daily History rows.
+ * Each caller only supplies the fields owned by its refresh domain.
+ */
+function upsertDailyHistory_(ss, patches, options) {
+  if (!patches || patches.length === 0) return {updated:0, appended:0};
+  options = options || {};
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw new Error('History is busy with another refresh');
+  try {
+    let ws = ss.getSheetByName('History');
+    if (!ws) {
+      buildHistory(ss);
+      ws = ss.getSheetByName('History');
     }
-  }else{
-    // No data yet, just append
-    ws.getRange(3,1,rows.length,HISTORY_COLS).setValues(rows);
-  }
+    ensureHistoryHeaders_(ws);
 
-  // Apply number formatting to percentage columns
-  const newLastRow = ws.getLastRow();
-  if(newLastRow>=3){
-    for(const col of getHistoryPercentageColumns_(hdrs))ws.getRange(3,col,newLastRow-2,1).setNumberFormat('0%');
-  }
+    const headers = getHistoryHeaders_();
+    const headerIndex = {};
+    headers.forEach((header, index) => { headerIndex[header] = index; });
+    const lastRow = ws.getLastRow();
+    const existingRows = lastRow >= 3
+      ? ws.getRange(3,1,lastRow-2,headers.length).getValues()
+      : [];
+    const rowByKey = {};
+    const latestRowByIdentity = {};
 
-  // Charts removed - will use Web App dashboard for visualization
+    existingRows.forEach((row, index) => {
+      const key = getDailyHistoryKey_(row[0], row[1], row[2], row[3]);
+      if (key) rowByKey[key] = {sheetRow:index+3, values:row};
+      const identityKey = getHistoryIdentityKey_(row[1], row[2], row[3]);
+      const rowTimestamp = parseHistoryTimestamp_(row[0]);
+      if (identityKey && rowTimestamp &&
+          (!latestRowByIdentity[identityKey] ||
+           latestRowByIdentity[identityKey].timestamp < rowTimestamp)) {
+        latestRowByIdentity[identityKey] = {
+          timestamp:rowTimestamp,
+          values:row
+        };
+      }
+    });
+
+    const changedRows = [];
+    const newRows = [];
+    patches.forEach(patch => {
+      const timestamp = patch.timestamp || new Date();
+      const key = getDailyHistoryKey_(timestamp, patch.project, patch.module, patch.submodule);
+      if (!key) return;
+
+      const existing = rowByKey[key];
+      const identityKey = getHistoryIdentityKey_(patch.project, patch.module, patch.submodule);
+      const previous = latestRowByIdentity[identityKey];
+      const patchTimestamp = parseHistoryTimestamp_(timestamp);
+      const canSeedPrevious = options.seedFromPrevious === true &&
+        previous && patchTimestamp && previous.timestamp < patchTimestamp;
+      const row = existing
+        ? existing.values.slice()
+        : canSeedPrevious
+          ? previous.values.slice()
+          : new Array(headers.length).fill('');
+      row[headerIndex.Timestamp] = timestamp;
+      row[headerIndex.Project] = patch.project || '';
+      row[headerIndex.Modul] = patch.module || '';
+      row[headerIndex.Submodul] = patch.submodule || '';
+      if (patch.picQA !== undefined) row[headerIndex['PIC QA']] = patch.picQA || '';
+
+      Object.keys(patch.values || {}).forEach(header => {
+        if (headerIndex[header] !== undefined) row[headerIndex[header]] = patch.values[header];
+      });
+
+      if (existing && existing.sheetRow !== null) {
+        existing.values = row;
+        changedRows.push({sheetRow:existing.sheetRow, values:row});
+      } else if (existing) {
+        existing.values = row;
+        newRows[existing.newIndex] = row;
+      } else {
+        newRows.push(row);
+        rowByKey[key] = {sheetRow:null, newIndex:newRows.length-1, values:row};
+      }
+    });
+
+    writeHistoryRowGroups_(ws, changedRows, headers);
+    if (newRows.length > 0) {
+      const startRow = Math.max(ws.getLastRow()+1, 3);
+      const range = ws.getRange(startRow,1,newRows.length,headers.length);
+      range.setValues(newRows);
+      applyHistoryNumberFormats_(range, headers);
+    }
+
+    return {updated:changedRows.length, appended:newRows.length};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getDailyHistoryKey_(timestamp, project, module, submodule) {
+  if (!project && !module && !submodule) return '';
+  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  if (isNaN(date.getTime())) return '';
+  const day = Utilities.formatDate(date,Session.getScriptTimeZone(),'yyyy-MM-dd');
+  return [day,project||'',module||'',submodule||''].map(value => String(value).trim()).join('|');
+}
+
+function getHistoryIdentityKey_(project, module, submodule) {
+  if (!project && !module && !submodule) return '';
+  return [project||'',module||'',submodule||'']
+    .map(value => String(value).trim().toLowerCase())
+    .join('|');
+}
+
+function parseHistoryTimestamp_(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function writeHistoryRowGroups_(ws, changedRows, headers) {
+  if (changedRows.length === 0) return;
+  changedRows.sort((a,b) => a.sheetRow-b.sheetRow);
+  let group = [];
+  const flush = () => {
+    if (group.length === 0) return;
+    const range = ws.getRange(group[0].sheetRow,1,group.length,headers.length);
+    range.setValues(group.map(item => item.values));
+    applyHistoryNumberFormats_(range, headers);
+    group = [];
+  };
+  changedRows.forEach(item => {
+    if (group.length > 0 && item.sheetRow !== group[group.length-1].sheetRow+1) flush();
+    group.push(item);
+  });
+  flush();
+}
+
+function applyHistoryNumberFormats_(range, headers) {
+  const percentageHeaders = {};
+  getHistoryPercentageColumns_(headers).forEach(column => { percentageHeaders[column-1] = true; });
+  const formats = [];
+  for (let row=0; row<range.getNumRows(); row++) {
+    formats.push(headers.map((header,index) => {
+      if (header === 'Timestamp') return 'yyyy-mm-dd hh:mm';
+      return percentageHeaders[index] ? '0%' : 'General';
+    }));
+  }
+  range.setNumberFormats(formats);
 }
 
 /**
@@ -3038,6 +3298,158 @@ function getLatestAutomationRunsByDashboardKey_(ss) {
   });
 
   return byKey;
+}
+
+/**
+ * Materialize the latest enabled Jenkins results into today's History row.
+ * The row is seeded from the latest previous History row when today's
+ * dashboard snapshot does not exist. If no previous row exists, a skeleton
+ * is created from Config.
+ */
+function refreshAutomationHistory() {
+  const startTime = new Date();
+  const ss = getActiveOrDashboardSpreadsheet_();
+  const modules = getAutomationEnabledModules_(ss);
+  if (modules.length === 0) {
+    Logger.log('refreshAutomationHistory: no Web/API automation config enabled');
+    safeAlert_('Tidak ada module dengan Web Enabled atau API Enabled.');
+    return;
+  }
+
+  const runsByKey = getLatestAutomationRunsByDashboardKey_(ss);
+  const timestamp = new Date();
+  const patches = modules.map(moduleData =>
+    buildAutomationHistoryPatch_(moduleData, runsByKey, timestamp)
+  );
+  const result = upsertDailyHistory_(ss, patches, {seedFromPrevious:true});
+  const totalTime = ((new Date()-startTime)/1000).toFixed(1);
+
+  Logger.log(
+    'refreshAutomationHistory DONE: modules=' + modules.length +
+    ', updated=' + result.updated +
+    ', appended=' + result.appended +
+    ', time=' + totalTime + 's'
+  );
+  safeAlert_(
+    'Refresh Automation History selesai.\n\n' +
+    'Modules: ' + modules.length + '\n' +
+    'Updated: ' + result.updated + '\n' +
+    'Appended: ' + result.appended + '\n' +
+    'Total time: ' + totalTime + 's'
+  );
+}
+
+function setupAutomationHistoryTrigger() {
+  ScriptApp.getProjectTriggers().forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'refreshAutomationHistory') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+  ScriptApp.newTrigger('refreshAutomationHistory')
+    .timeBased()
+    .everyMinutes(30)
+    .create();
+  safeAlert_('Automation History trigger aktif setiap 30 menit.');
+}
+
+function getAutomationEnabledModules_(ss) {
+  const cfg = ss.getSheetByName('Config');
+  if (!cfg || cfg.getLastRow() < 4) return [];
+
+  const data = cfg.getDataRange().getValues();
+  const headers = data[2] || [];
+  const headerIndex = {};
+  headers.forEach((header,index) => {
+    const normalized = normalizeAutomationValue_(header);
+    if (normalized) headerIndex[normalized] = index;
+  });
+  const getIndex = names => {
+    for (let i=0; i<names.length; i++) {
+      const index = headerIndex[normalizeAutomationValue_(names[i])];
+      if (index !== undefined) return index;
+    }
+    return -1;
+  };
+  const read = (row,names) => {
+    const index = getIndex(names);
+    return index >= 0 ? String(row[index] || '').trim() : '';
+  };
+  const readBool = (row,names) => {
+    const index = getIndex(names);
+    if (index < 0) return false;
+    const value = row[index];
+    if (value === true || value === false) return value;
+    return ['TRUE','YES','YA','1'].indexOf(String(value || '').trim().toUpperCase()) >= 0;
+  };
+
+  const modules = [];
+  for (let i=3; i<data.length; i++) {
+    const row = data[i];
+    const webEnabled = readBool(row,['Web Enabled']);
+    const apiEnabled = readBool(row,['API Enabled']);
+    if (!webEnabled && !apiEnabled) continue;
+
+    const project = String(row[2] || '').trim();
+    const module = String(row[3] || '').trim();
+    const submodule = String(row[4] || '').trim();
+    if (!project || !module || !submodule) {
+      Logger.log('Automation config skipped at row ' + (i+1) + ': identity is incomplete');
+      continue;
+    }
+
+    modules.push({
+      project,
+      module,
+      submodule,
+      name:submodule,
+      team:String(row[5] || '').trim(),
+      automationEnabled:{web:webEnabled,api:apiEnabled},
+      automationContracts:{
+        all:read(row,['Automation Contract','Automation Key','Automation Alias','Jenkins Job','Jenkins Job Pattern']),
+        web:read(row,['Web Automation Contract','Web Automation Key','Web Jenkins Job','Web Jenkins Job Pattern','Web Job Pattern']),
+        api:read(row,['API Automation Contract','API Automation Key','API Jenkins Job','API Jenkins Job Pattern','API Job Pattern'])
+      }
+    });
+  }
+  return modules;
+}
+
+function buildAutomationHistoryPatch_(moduleData, runsByKey, timestamp) {
+  const values = {};
+  if (moduleData.automationEnabled.web) {
+    addAutomationChannelHistoryValues_(values, runsByKey, moduleData, 'web');
+  }
+  if (moduleData.automationEnabled.api) {
+    addAutomationChannelHistoryValues_(values, runsByKey, moduleData, 'api');
+  }
+  return {
+    timestamp,
+    project:moduleData.project,
+    module:moduleData.module,
+    submodule:moduleData.submodule,
+    picQA:moduleData.team,
+    values
+  };
+}
+
+function addAutomationChannelHistoryValues_(values, runsByKey, moduleData, channel) {
+  const prefix = channel === 'web' ? 'web' : 'api';
+  const devRun = getAutomationRunForModule_(runsByKey,moduleData,channel,'dev');
+  const stgRun = getAutomationRunForModule_(runsByKey,moduleData,channel,'stg');
+  const prodRun = getAutomationRunForModule_(runsByKey,moduleData,channel,'prod');
+  const latestRun = firstAutomationRun_(prodRun,stgRun,devRun);
+
+  setAutomationRunHistoryValues_(values,prefix + 'Automation',latestRun);
+  setAutomationRunHistoryValues_(values,prefix + 'Dev',devRun);
+  setAutomationRunHistoryValues_(values,prefix + 'Stg',stgRun);
+  setAutomationRunHistoryValues_(values,prefix + 'Prod',prodRun);
+}
+
+function setAutomationRunHistoryValues_(values, prefix, run) {
+  values[prefix + 'Passed'] = run ? run.passed : '';
+  values[prefix + 'Failed'] = run ? run.failed : '';
+  values[prefix + 'PassRate'] = run ? run.passRate : '';
+  values[prefix + 'Status'] = run ? run.status : 'No Run';
 }
 
 function getAutomationRunForModule_(runsByKey, moduleData, channel, environment) {
@@ -3227,17 +3639,18 @@ function updateRaw(ss, allData) {
     'aSmokeTotal','aSmokePass%','aSmokeExec%',
     'Perf','Bugs','Blocker','Error'];
   ws.getRange(2,1,1,hdrs.length).setValues([hdrs]).setFontWeight('bold').setBackground('#607D8B').setFontColor('#FFFFFF');
-  allData.forEach((d,i)=>{
+  const rows=allData.map(d=>{
     const bs=d.bugStats||{};
-    ws.getRange(3+i,1,1,hdrs.length).setValues([[
+    return [
       d.name,d.team,d.lead,d.sprint,
       d.wTotal,d.wPassed,d.wFailed,d.wBlocked,d.wPassRate,
       d.aTotal,d.aPassed,d.aFailed,d.aBlocked,d.aPassRate,
       d.wSmokeTotal,d.wSmokePassRate,d.wSmokeExecRate,
       d.aSmokeTotal,d.aSmokePassRate,d.aSmokeExecRate,
       d.perfResult,bs.total||0,bs.blocker||0,d.error
-    ]]);
+    ];
   });
+  if(rows.length>0)ws.getRange(3,1,rows.length,hdrs.length).setValues(rows);
 }
 
 
@@ -3248,20 +3661,22 @@ function updateRaw(ss, allData) {
 function updateConfig(ss, allData) {
   const cfg=ss.getSheetByName('Config'); if(!cfg)return;
   const cfgData=cfg.getDataRange().getValues();
-  allData.forEach(d=>{
-    for(let i=3;i<cfgData.length;i++){
-      if(String(cfgData[i][6]).trim()===d.id){  // col G = Spreadsheet ID
-        // Update data dari QATM Summary - ALWAYS replace, even if empty
-        // This ensures Config tab always reflects current QATM state
-        cfg.getRange(i+1,3).setValue(d.project || '');    // col C = Project
-        cfg.getRange(i+1,4).setValue(d.module || '');     // col D = Modul
-        cfg.getRange(i+1,5).setValue(d.submodule || '');  // col E = Submodul
-        cfg.getRange(i+1,6).setValue(d.team || '');       // col F = PIC QA
-        cfg.getRange(i+1,11).setValue(d.lead || '');      // col K = QA Lead
-        break;
-      }
-    }
-  });
+  if(cfgData.length<4)return;
+  const dataById={};
+  allData.forEach(d=>{dataById[String(d.id||'').trim()]=d;});
+  const coreValues=[];
+  const leadValues=[];
+  for(let i=3;i<cfgData.length;i++){
+    const d=dataById[String(cfgData[i][6]||'').trim()];
+    coreValues.push(d
+      ? [d.project||'',d.module||'',d.submodule||'',d.team||'']
+      : [cfgData[i][2],cfgData[i][3],cfgData[i][4],cfgData[i][5]]);
+    leadValues.push([d ? d.lead||'' : cfgData[i][10]]);
+  }
+  if(coreValues.length>0){
+    cfg.getRange(4,3,coreValues.length,4).setValues(coreValues);
+    cfg.getRange(4,11,leadValues.length,1).setValues(leadValues);
+  }
 }
 
 

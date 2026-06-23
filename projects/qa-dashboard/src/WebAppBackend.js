@@ -142,6 +142,18 @@ function ingestAutomationResult_(payload) {
   const lastRow = ws.getLastRow();
   ws.getRange(lastRow, 1).setNumberFormat('yyyy-mm-dd hh:mm:ss');
   ws.getRange(lastRow, 21).setNumberFormat('0%');
+  SpreadsheetApp.flush();
+
+  let historyRefresh = {success:true};
+  try {
+    refreshAutomationHistory();
+  } catch (historyError) {
+    historyRefresh = {
+      success:false,
+      error:historyError.message
+    };
+    Logger.log('Automation result saved, but History refresh failed: ' + historyError.toString());
+  }
 
   return {
     success: true,
@@ -152,7 +164,8 @@ function ingestAutomationResult_(payload) {
       module: row[2],
       submodule: row[3],
       status,
-      passRate
+      passRate,
+      historyRefresh
     },
     timestamp: new Date().toISOString()
   };
