@@ -47,6 +47,9 @@ function doPost(e) {
       case 'ingestAutomationResult':
         return jsonResponse_(ingestAutomationResult_(body.payload || body));
 
+      case 'refreshAutomationHistory':
+        return jsonResponse_(refreshAutomationHistoryApi_(body.payload || body));
+
       case 'sendClosureEmail':
         return jsonResponse_(sendClosureEmail_(body));
 
@@ -86,14 +89,7 @@ function jsonResponse_(payload) {
 }
 
 function ingestAutomationResult_(payload) {
-  const expectedToken = PropertiesService.getScriptProperties().getProperty('AUTOMATION_INGEST_TOKEN');
-  if (!expectedToken) {
-    throw new Error('AUTOMATION_INGEST_TOKEN is not configured in Script Properties');
-  }
-  const providedToken = String(payload.token || payload.authToken || '').trim();
-  if (providedToken !== expectedToken) {
-    throw new Error('Invalid automation ingestion token');
-  }
+  validateAutomationIngestToken_(payload);
 
   const ss = getDashboardSpreadsheet_();
   const ws = ensureAutomationRunsSheet_(ss);
@@ -169,6 +165,27 @@ function ingestAutomationResult_(payload) {
     },
     timestamp: new Date().toISOString()
   };
+}
+
+function refreshAutomationHistoryApi_(payload) {
+  validateAutomationIngestToken_(payload);
+  const result = refreshAutomationHistory({silent:true});
+  return {
+    success:true,
+    data:result || {},
+    timestamp:new Date().toISOString()
+  };
+}
+
+function validateAutomationIngestToken_(payload) {
+  const expectedToken = PropertiesService.getScriptProperties().getProperty('AUTOMATION_INGEST_TOKEN');
+  if (!expectedToken) {
+    throw new Error('AUTOMATION_INGEST_TOKEN is not configured in Script Properties');
+  }
+  const providedToken = String((payload && (payload.token || payload.authToken)) || '').trim();
+  if (providedToken !== expectedToken) {
+    throw new Error('Invalid automation ingestion token');
+  }
 }
 
 function normalizeAutomationChannel_(value) {

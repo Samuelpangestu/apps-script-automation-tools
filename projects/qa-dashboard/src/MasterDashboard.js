@@ -3306,14 +3306,15 @@ function getLatestAutomationRunsByDashboardKey_(ss) {
  * dashboard snapshot does not exist. If no previous row exists, a skeleton
  * is created from Config.
  */
-function refreshAutomationHistory() {
+function refreshAutomationHistory(options) {
+  options = options || {};
   const startTime = new Date();
   const ss = getActiveOrDashboardSpreadsheet_();
   const modules = getAutomationEnabledModules_(ss);
   if (modules.length === 0) {
     Logger.log('refreshAutomationHistory: no Web/API automation config enabled');
-    safeAlert_('Tidak ada module dengan Web Enabled atau API Enabled.');
-    return;
+    if (!options.silent) safeAlert_('Tidak ada module dengan Web Enabled atau API Enabled.');
+    return {modules:0,updated:0,appended:0};
   }
 
   const runsByKey = getLatestAutomationRunsByDashboardKey_(ss);
@@ -3330,13 +3331,21 @@ function refreshAutomationHistory() {
     ', appended=' + result.appended +
     ', time=' + totalTime + 's'
   );
-  safeAlert_(
-    'Refresh Automation History selesai.\n\n' +
-    'Modules: ' + modules.length + '\n' +
-    'Updated: ' + result.updated + '\n' +
-    'Appended: ' + result.appended + '\n' +
-    'Total time: ' + totalTime + 's'
-  );
+  if (!options.silent) {
+    safeAlert_(
+      'Refresh Automation History selesai.\n\n' +
+      'Modules: ' + modules.length + '\n' +
+      'Updated: ' + result.updated + '\n' +
+      'Appended: ' + result.appended + '\n' +
+      'Total time: ' + totalTime + 's'
+    );
+  }
+  return {
+    modules:modules.length,
+    updated:result.updated,
+    appended:result.appended,
+    totalTimeSeconds:Number(totalTime)
+  };
 }
 
 function setupAutomationHistoryTrigger() {
