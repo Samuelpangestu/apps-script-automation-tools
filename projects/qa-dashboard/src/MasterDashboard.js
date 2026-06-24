@@ -1072,7 +1072,7 @@ function pullModuleData_(mod) {
 
       try {
         const VAPT_SECTION_START = 65;
-        const VAPT_SECTION_ROWS = 19;  // Rows 65-83
+        const VAPT_SECTION_ROWS = 35;  // Rows 65-99 (extended for blocker breakdown)
         const vaptGrid = summaryGrid.slice(
           VAPT_SECTION_START-1,
           VAPT_SECTION_START-1+VAPT_SECTION_ROWS
@@ -1104,9 +1104,25 @@ function pullModuleData_(mod) {
         vaptData.open = Number(vaptGrid[17][1]) || 0;
         vaptData.closed = Number(vaptGrid[17][3]) || 0;
 
+        // Extract VAPT Blocker Breakdown (Rows ~99+)
+        // Search for "VAPT Blocker" labels dynamically
+        for (let i = 18; i < vaptGrid.length; i++) {
+          const label = String(vaptGrid[i][0] || '').trim();
+          if (label === 'VAPT Blocker Total' || label === 'VAPT Blocker Count') {
+            vaptData.blockerCount = Number(vaptGrid[i][1]) || 0;
+          } else if (label === 'VAPT Blocker Critical') {
+            vaptData.blockerCritical = Number(vaptGrid[i][1]) || 0;
+          } else if (label === 'VAPT Blocker High') {
+            vaptData.blockerHigh = Number(vaptGrid[i][1]) || 0;
+          } else if (label === 'VAPT Blocker Medium') {
+            vaptData.blockerMedium = Number(vaptGrid[i][1]) || 0;
+          }
+        }
+
         Logger.log(mod.name + ' | VAPT Total=' + vaptData.total +
                    ' (C=' + vaptData.critical + ' H=' + vaptData.high + ' M=' + vaptData.medium +
-                   ' | Open=' + vaptData.open + ' Closed=' + vaptData.closed + ')');
+                   ' | Open=' + vaptData.open + ' Closed=' + vaptData.closed + ')' +
+                   (vaptData.blockerCount !== undefined ? ' | Blocker=' + vaptData.blockerCount : ''));
       } catch(ve) {
         Logger.log('VAPT extraction skip [' + mod.name + ']: ' + ve.message);
         // Keep vaptData as default (all zeros)
