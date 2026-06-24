@@ -425,7 +425,7 @@ function appendVAPTHistory(ss, allData) {
     }
   } else {
     // No data yet, just append
-    const numCols = 15;
+    const numCols = 19; // Updated: 15 base + 4 blocker columns
     const startRow = 3;
     const targetRange = ws.getRange(startRow, 1, historyRows.length, numCols);
     targetRange.breakApart();
