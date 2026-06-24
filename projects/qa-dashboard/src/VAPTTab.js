@@ -278,7 +278,8 @@ function buildVAPTHistory(ss) {
   const hdrs = [
     'Timestamp','Project','Module','Submodule','Total',
     'Critical','High','Medium','Low','Informational',
-    'Todo','On Progress','Done','Open','Closed'
+    'Todo','On Progress','Done','Open','Closed',
+    'Blocker Total','Blocker Critical','Blocker High','Blocker Medium'
   ];
 
   ws.getRange(1,1,1,hdrs.length).merge().setValue('VAPT HISTORY  —  Per-Submodule Trend Data from QATM Summary (auto-appended setiap refresh)')
@@ -360,7 +361,11 @@ function appendVAPTHistory(ss, allData) {
       mod.vapt.onProgress || 0,     // On Progress (Status Fix)
       mod.vapt.done || 0,           // Done (Status Fix)
       mod.vapt.open || 0,           // Open (Re-VAPT)
-      mod.vapt.closed || 0          // Closed (Re-VAPT)
+      mod.vapt.closed || 0,         // Closed (Re-VAPT)
+      mod.vapt.blockerCount || 0,   // Blocker Total
+      mod.vapt.blockerCritical || 0,// Blocker Critical
+      mod.vapt.blockerHigh || 0,    // Blocker High
+      mod.vapt.blockerMedium || 0   // Blocker Medium
     ];
 
     historyRows.push(row);
