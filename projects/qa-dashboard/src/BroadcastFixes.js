@@ -2378,9 +2378,18 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
     if (!ss.getSheetByName(vaptTabName)) return;
   }
 
-  // Find last row with data in Summary
-  const lastRow = summarySheet.getLastRow();
-  let startRow = Math.max(lastRow + 2, 35); // Start at least at row 35 or 2 rows after last data
+  // Find insertion point after VAPT FINDINGS SUMMARY section
+  let startRow = 99; // Default fallback
+  const data = summarySheet.getDataRange().getValues();
+  for (let i = 0; i < data.length; i++) {
+    const rowText = data[i].join(' ').toUpperCase();
+    if (rowText.includes('BY STATUS RE-VAPT') || rowText.includes('STATUS RE-VAPT')) {
+      startRow = i + 5; // Insert 5 rows after "By Status Re-VAPT" section
+      break;
+    }
+  }
+  // Safety check: if startRow too low, use minimum 99
+  if (startRow < 99) startRow = 99;
 
   const sectionBg = '#FFCDD2';
   const labelBg = '#FFEBEE';
@@ -2420,7 +2429,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
     summarySheet.getRange(R, 2, 1, 4).merge()
-      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*((\'' + vaptTabName + '\'!E:E="Critical")+(\'' + vaptTabName + '\'!E:E="High")+(\'' + vaptTabName + '\'!E:E="Medium"))),0)')
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!E:E<>"Done")*(\'' + vaptTabName + '\'!E:E<>"False Positive")*((\'' + vaptTabName + '\'!H:H="Critical")+(\'' + vaptTabName + '\'!H:H="High")+(\'' + vaptTabName + '\'!H:H="Medium"))),0)')
       .setBackground(blockerHighlight)
       .setFontFamily('Arial')
       .setFontSize(14)
@@ -2445,7 +2454,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
     summarySheet.getRange(R, 2, 1, 4).merge()
-      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*(\'' + vaptTabName + '\'!E:E="Critical")),0)')
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!E:E<>"Done")*(\'' + vaptTabName + '\'!E:E<>"False Positive")*(\'' + vaptTabName + '\'!H:H="Critical")),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
       .setFontSize(11)
@@ -2469,7 +2478,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
     summarySheet.getRange(R, 2, 1, 4).merge()
-      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*(\'' + vaptTabName + '\'!E:E="High")),0)')
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!E:E<>"Done")*(\'' + vaptTabName + '\'!E:E<>"False Positive")*(\'' + vaptTabName + '\'!H:H="High")),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
       .setFontSize(11)
@@ -2493,7 +2502,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
     summarySheet.getRange(R, 2, 1, 4).merge()
-      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*(\'' + vaptTabName + '\'!E:E="Medium")),0)')
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!E:E<>"Done")*(\'' + vaptTabName + '\'!E:E<>"False Positive")*(\'' + vaptTabName + '\'!H:H="Medium")),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
       .setFontSize(11)
@@ -2517,7 +2526,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
     summarySheet.getRange(R, 2, 1, 4).merge()
-      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*((\'' + vaptTabName + '\'!E:E="Low")+(\'' + vaptTabName + '\'!E:E="Informational"))),0)')
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!E:E<>"Done")*(\'' + vaptTabName + '\'!E:E<>"False Positive")*((\'' + vaptTabName + '\'!H:H="Low")+(\'' + vaptTabName + '\'!H:H="Informational"))),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
       .setFontSize(11)
