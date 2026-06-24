@@ -2420,7 +2420,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
     summarySheet.getRange(R, 2, 1, 4).merge()
-      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*((\'&#39; + vaptTabName + '\'!E:E="Critical")+(\'' + vaptTabName + '\'!E:E="High")+(\'' + vaptTabName + '\'!E:E="Medium"))),0)')
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*((\'' + vaptTabName + '\'!E:E="Critical")+(\'' + vaptTabName + '\'!E:E="High")+(\'' + vaptTabName + '\'!E:E="Medium"))),0)')
       .setBackground(blockerHighlight)
       .setFontFamily('Arial')
       .setFontSize(14)
@@ -2517,7 +2517,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
     summarySheet.getRange(R, 2, 1, 4).merge()
-      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*((\'&#39; + vaptTabName + '\'!E:E="Low")+(\'' + vaptTabName + '\'!E:E="Informational"))),0)')
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*((\'' + vaptTabName + '\'!E:E="Low")+(\'' + vaptTabName + '\'!E:E="Informational"))),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
       .setFontSize(11)
