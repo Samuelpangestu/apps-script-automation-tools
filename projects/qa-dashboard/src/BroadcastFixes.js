@@ -2314,9 +2314,9 @@ function broadcastAddVAPTBlockerBreakdown() {
     '• VAPT Blocker High\\n' +
     '• VAPT Blocker Medium\\n' +
     '• VAPT Non Blocker Count\\n\\n' +
-    'Formula: Blocker = Critical/High/Medium with status NOT Done/False Positive\\n\\n' +
+    'Formula: Blocker = Status Re-VAPT "Open" + severity Critical/High/Medium\\n\\n' +
     '⚠️ WARNING:\\n' +
-    '• Section will be appended at row 35+\\n' +
+    '• Section will be inserted after Re-VAPT section (~row 99)\\n' +
     '• Check for conflicts with existing data\\n\\n' +
     'Continue?',
     ui.ButtonSet.YES_NO
@@ -2406,7 +2406,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
 
     // Section header
     summarySheet.getRange(R, 1, 1, 5).merge()
-      .setValue('VAPT Blockers (Status: Todo / On Progress / Ready to Retest / Accepted)')
+      .setValue('VAPT Blockers (Status Re-VAPT: Open)')
       .setBackground(sectionBg)
       .setFontColor('#C62828')
       .setFontWeight('bold')
@@ -2429,7 +2429,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
     summarySheet.getRange(R, 2, 1, 4).merge()
-      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!E:E<>"Done")*(\'' + vaptTabName + '\'!E:E<>"False Positive")*((\'' + vaptTabName + '\'!H:H="Critical")+(\'' + vaptTabName + '\'!H:H="High")+(\'' + vaptTabName + '\'!H:H="Medium"))),0)')
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!F:F="Open")*((\'' + vaptTabName + '\'!H:H="Critical")+(\'' + vaptTabName + '\'!H:H="High")+(\'' + vaptTabName + '\'!H:H="Medium"))),0)')
       .setBackground(blockerHighlight)
       .setFontFamily('Arial')
       .setFontSize(14)
@@ -2454,7 +2454,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
     summarySheet.getRange(R, 2, 1, 4).merge()
-      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!E:E<>"Done")*(\'' + vaptTabName + '\'!E:E<>"False Positive")*(\'' + vaptTabName + '\'!H:H="Critical")),0)')
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!F:F="Open")*(\'' + vaptTabName + '\'!H:H="Critical")),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
       .setFontSize(11)
@@ -2478,7 +2478,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
     summarySheet.getRange(R, 2, 1, 4).merge()
-      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!E:E<>"Done")*(\'' + vaptTabName + '\'!E:E<>"False Positive")*(\'' + vaptTabName + '\'!H:H="High")),0)')
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!F:F="Open")*(\'' + vaptTabName + '\'!H:H="High")),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
       .setFontSize(11)
@@ -2502,7 +2502,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
     summarySheet.getRange(R, 2, 1, 4).merge()
-      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!E:E<>"Done")*(\'' + vaptTabName + '\'!E:E<>"False Positive")*(\'' + vaptTabName + '\'!H:H="Medium")),0)')
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!F:F="Open")*(\'' + vaptTabName + '\'!H:H="Medium")),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
       .setFontSize(11)
@@ -2526,7 +2526,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
     summarySheet.getRange(R, 2, 1, 4).merge()
-      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!E:E<>"Done")*(\'' + vaptTabName + '\'!E:E<>"False Positive")*((\'' + vaptTabName + '\'!H:H="Low")+(\'' + vaptTabName + '\'!H:H="Informational"))),0)')
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!F:F="Open")*((\'' + vaptTabName + '\'!H:H="Low")+(\'' + vaptTabName + '\'!H:H="Informational"))),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
       .setFontSize(11)
@@ -2540,7 +2540,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
 
     // Note
     summarySheet.getRange(R, 1, 1, 5).merge()
-      .setValue('Target: VAPT Blocker Count = 0 sebelum closure sign-off. Blocker = severity Critical/High/Medium dengan status selain Done/False Positive.')
+      .setValue('Target: VAPT Blocker Count = 0 sebelum closure sign-off. Blocker = Status Re-VAPT "Open" dengan severity Critical/High/Medium.')
       .setBackground(noteBg)
       .setFontColor(noteText)
       .setFontStyle('italic')
