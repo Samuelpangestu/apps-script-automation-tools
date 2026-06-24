@@ -1697,6 +1697,148 @@ function createSummary(ss) {
   buildCov(R,R_,'API_Master','B','G','J','API_Execution','#283593');
   R+=36;
 
+  // =====================================================================
+  // F. VAPT FINDINGS SUMMARY
+  // =====================================================================
+  ws.setRowHeight(R,6); R++;
+  m_(R,L,1,LW); h_(ws.getRange(R,L),'#BF360C').setValue('F.  VAPT FINDINGS SUMMARY');
+  ws.setRowHeight(R,20); R++;
+
+  // Overview row
+  lbl(R,L,'Total VAPT Findings','#FFEBEE');
+  m_(R,L+1,1,LW-1);
+  bd(ws.getRange(R,L+1)).setFormula('=IFERROR(COUNTA(FILTER(\'Detail Finding - VAPT\'!A:A,\'Detail Finding - VAPT\'!A:A<>\"\",\'Detail Finding - VAPT\'!A:A<>"Finding ID")),0)')
+      .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(13).setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R,24); R++;
+
+  // By Risk Level header
+  ws.setRowHeight(R,6); R++;
+  m_(R,L,1,5);
+  bd(ws.getRange(R,L)).setValue('By Risk Level (Adjusted Risk)')
+      .setBackground('#FFCCBC').setFontColor('#BF360C').setFontWeight('bold')
+      .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left');
+  ws.setRowHeight(R,18); R++;
+
+  // Risk level table headers
+  ['Risk Level','Count','Risk Level','Count'].forEach((h,i)=>{
+    const col = i<2 ? L+i : L+i+1;
+    h_(ws.getRange(R,col),'#D84315').setValue(h).setFontSize(8);
+  });
+  ws.setRowHeight(R,18); R++;
+
+  // Risk level data rows
+  const riskLevels = [
+    ['Critical', '=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!E:E,"Critical"),0)', 'Low', '=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!E:E,"Low"),0)'],
+    ['High', '=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!E:E,"High"),0)', 'Informational', '=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!E:E,"Informational"),0)'],
+    ['Medium', '=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!E:E,"Medium"),0)', '', ''],
+  ];
+  riskLevels.forEach((row,i)=>{
+    const rr=R+i, bg=i%2===0?'#FFF3E0':'#FFFFFF';
+    bd(ws.getRange(rr,L)).setValue(row[0]).setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left');
+    bd(ws.getRange(rr,L+1)).setFormula(row[1]).setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setFontWeight('bold');
+    bd(ws.getRange(rr,L+3)).setValue(row[2]).setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left');
+    if(row[3]) bd(ws.getRange(rr,L+4)).setFormula(row[3]).setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setFontWeight('bold');
+    ws.setRowHeight(rr,16);
+  });
+  R+=3;
+
+  // By Status Fix header
+  ws.setRowHeight(R,6); R++;
+  m_(R,L,1,5);
+  bd(ws.getRange(R,L)).setValue('By Status Fix (Dev Team)')
+      .setBackground('#E3F2FD').setFontColor('#0D47A1').setFontWeight('bold')
+      .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left');
+  ws.setRowHeight(R,18); R++;
+
+  // Status Fix table headers
+  ['Status','Count','Status','Count'].forEach((h,i)=>{
+    const col = i<2 ? L+i : L+i+1;
+    h_(ws.getRange(R,col),'#1565C0').setValue(h).setFontSize(8);
+  });
+  ws.setRowHeight(R,18); R++;
+
+  // Status Fix data rows
+  const statusFix = [
+    ['Todo', '=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!H:H,"Todo"),0)', 'Done', '=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!H:H,"Done"),0)'],
+    ['On Progress Remediation', '=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!H:H,"On Progress Remediation"),0)', 'Accepted', '=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!H:H,"Accepted"),0)'],
+    ['Ready to Retest', '=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!H:H,"Ready to Retest"),0)', 'False Positive', '=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!H:H,"False Positive"),0)'],
+  ];
+  statusFix.forEach((row,i)=>{
+    const rr=R+i, bg=i%2===0?'#F8F9FA':'#FFFFFF';
+    bd(ws.getRange(rr,L)).setValue(row[0]).setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left');
+    bd(ws.getRange(rr,L+1)).setFormula(row[1]).setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setFontWeight('bold');
+    bd(ws.getRange(rr,L+3)).setValue(row[2]).setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left');
+    bd(ws.getRange(rr,L+4)).setFormula(row[3]).setBackground(bg).setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setFontWeight('bold');
+    ws.setRowHeight(rr,16);
+  });
+  R+=3;
+
+  // By Status Re-VAPT header
+  ws.setRowHeight(R,6); R++;
+  m_(R,L,1,5);
+  bd(ws.getRange(R,L)).setValue('By Status Re-VAPT (Pentester)')
+      .setBackground('#F3E5F5').setFontColor('#6A1B9A').setFontWeight('bold')
+      .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left');
+  ws.setRowHeight(R,18); R++;
+
+  // Status Re-VAPT simple row
+  const reVaptRow = R;
+  bd(ws.getRange(reVaptRow,L)).setValue('Open').setBackground('#F8F9FA').setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left');
+  bd(ws.getRange(reVaptRow,L+1)).setFormula('=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!I:I,"Open"),0)').setBackground('#F8F9FA').setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setFontWeight('bold');
+  bd(ws.getRange(reVaptRow,L+3)).setValue('Closed').setBackground('#F8F9FA').setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left');
+  bd(ws.getRange(reVaptRow,L+4)).setFormula('=IFERROR(COUNTIF(\'Detail Finding - VAPT\'!I:I,"Closed"),0)').setBackground('#F8F9FA').setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('center').setFontWeight('bold');
+  ws.setRowHeight(reVaptRow,16); R++;
+
+  // BLOCKER BREAKDOWN section
+  ws.setRowHeight(R,6); R++;
+  m_(R,L,1,5);
+  bd(ws.getRange(R,L)).setValue('VAPT Blockers (Status: Todo / On Progress / Ready to Retest / Accepted)')
+      .setBackground('#FFCDD2').setFontColor('#C62828').setFontWeight('bold')
+      .setFontFamily('Arial').setFontSize(9).setHorizontalAlignment('left');
+  ws.setRowHeight(R,18); R++;
+
+  // Blocker by severity
+  lbl(R,L,'VAPT Blocker Count','#FFEBEE');
+  m_(R,L+1,1,LW-1);
+  bd(ws.getRange(R,L+1)).setFormula('=IFERROR(SUMPRODUCT((\'Detail Finding - VAPT\'!H:H<>"Done")*(\'Detail Finding - VAPT\'!H:H<>"False Positive")*((\'Detail Finding - VAPT\'!E:E="Critical")+(\'Detail Finding - VAPT\'!E:E="High")+(\'Detail Finding - VAPT\'!E:E="Medium"))),0)')
+      .setBackground('#FFCDD2').setFontFamily('Arial').setFontSize(14).setFontWeight('bold')
+      .setFontColor('#B71C1C').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R,28); R++;
+
+  lbl(R,L,'VAPT Blocker Critical','#FFF3E0');
+  m_(R,L+1,1,LW-1);
+  bd(ws.getRange(R,L+1)).setFormula('=IFERROR(SUMPRODUCT((\'Detail Finding - VAPT\'!H:H<>"Done")*(\'Detail Finding - VAPT\'!H:H<>"False Positive")*(\'Detail Finding - VAPT\'!E:E="Critical")),0)')
+      .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(11).setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R,22); R++;
+
+  lbl(R,L,'VAPT Blocker High','#FFF3E0');
+  m_(R,L+1,1,LW-1);
+  bd(ws.getRange(R,L+1)).setFormula('=IFERROR(SUMPRODUCT((\'Detail Finding - VAPT\'!H:H<>"Done")*(\'Detail Finding - VAPT\'!H:H<>"False Positive")*(\'Detail Finding - VAPT\'!E:E="High")),0)')
+      .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(11).setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R,22); R++;
+
+  lbl(R,L,'VAPT Blocker Medium','#FFF3E0');
+  m_(R,L+1,1,LW-1);
+  bd(ws.getRange(R,L+1)).setFormula('=IFERROR(SUMPRODUCT((\'Detail Finding - VAPT\'!H:H<>"Done")*(\'Detail Finding - VAPT\'!H:H<>"False Positive")*(\'Detail Finding - VAPT\'!E:E="Medium")),0)')
+      .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(11).setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R,22); R++;
+
+  lbl(R,L,'VAPT Non Blocker Count','#E8F5E9');
+  m_(R,L+1,1,LW-1);
+  bd(ws.getRange(R,L+1)).setFormula('=IFERROR(SUMPRODUCT((\'Detail Finding - VAPT\'!H:H<>"Done")*(\'Detail Finding - VAPT\'!H:H<>"False Positive")*((\'Detail Finding - VAPT\'!E:E="Low")+(\'Detail Finding - VAPT\'!E:E="Informational"))),0)')
+      .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(11).setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R,22); R++;
+
+  // Note
+  m_(R,L,1,LW);
+  ws.getRange(R,L).setValue('Target: VAPT Blocker Count = 0 sebelum closure sign-off. Blocker = severity Critical/High/Medium dengan status selain Done/False Positive.')
+      .setBackground('#FFF8E1').setFontColor('#E65100').setFontStyle('italic').setFontSize(7).setFontFamily('Arial').setHorizontalAlignment('left');
+  ws.setRowHeight(R,14); R++;
 
   addPeruriFooter(ws,R+1,21);
   ws.setFrozenRows(0);

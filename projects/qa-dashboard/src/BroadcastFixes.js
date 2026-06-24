@@ -2373,3 +2373,230 @@ function menuCreateVAPTEvidence() {
     ui.alert('❌ Error', 'Failed:\n\n' + e.message, ui.ButtonSet.OK);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// VAPT BLOCKER BREAKDOWN - ADD TO SUMMARY TAB
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Broadcast: Add VAPT Blocker Breakdown to Summary tabs
+ *
+ * Adds new section to Summary tab with:
+ * - VAPT Blocker Count (correct formula: status != Done/False Positive, severity Critical/High/Medium)
+ * - VAPT Blocker Critical/High/Medium breakdown
+ * - VAPT Non Blocker Count (Low/Info not Done/False Positive)
+ *
+ * Safe: Only adds section if not already present (checks for "VAPT Blocker Count" label)
+ */
+function broadcastVAPTBlockerBreakdown() {
+  const dashboardSs = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const modules = getModuleList_(dashboardSs);
+  const targets = [];
+  const seen = {};
+
+  modules.forEach(mod => {
+    if (!mod || !mod.id || seen[mod.id]) return;
+    seen[mod.id] = true;
+    targets.push(mod);
+  });
+
+  if (targets.length === 0) {
+    ui.alert('No active QATM targets found in Config.');
+    return;
+  }
+
+  const response = ui.alert(
+    'Broadcast VAPT Blocker Breakdown to Summary',
+    'Will add VAPT blocker breakdown section to ' + targets.length + ' QATM Summary tabs.\n\n' +
+    'Safe for existing data:\n' +
+    '- Only adds if section not present\n' +
+    '- Checks for existing "VAPT Blocker Count" label\n' +
+    '- Requires "Detail Finding - VAPT" tab\n\n' +
+    'New fields:\n' +
+    '✓ VAPT Blocker Count (status != Done/False Positive)\n' +
+    '✓ VAPT Blocker Critical/High/Medium\n' +
+    '✓ VAPT Non Blocker Count\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+  if (response !== ui.Button.YES) return;
+
+  let created = 0;
+  let skipped = 0;
+  let failed = 0;
+  const errors = [];
+
+  targets.forEach(mod => {
+    try {
+      const qatmSs = SpreadsheetApp.openById(mod.id);
+      const summarySheet = qatmSs.getSheetByName('Summary');
+
+      if (!summarySheet) {
+        skipped++;
+        return;
+      }
+
+      // Check if already exists
+      const dataRange = summarySheet.getDataRange();
+      const values = dataRange.getValues();
+      let hasBlockerSection = false;
+
+      for (let i = 0; i < values.length; i++) {
+        for (let j = 0; j < values[i].length; j++) {
+          if (String(values[i][j]).includes('VAPT Blocker Count')) {
+            hasBlockerSection = true;
+            break;
+          }
+        }
+        if (hasBlockerSection) break;
+      }
+
+      if (hasBlockerSection) {
+        skipped++;
+        return;
+      }
+
+      // Check if Detail Finding - VAPT exists
+      if (!qatmSs.getSheetByName('Detail Finding - VAPT')) {
+        errors.push((mod.project || '') + ' / ' + (mod.module || '') + ': Missing Detail Finding - VAPT tab');
+        failed++;
+        return;
+      }
+
+      addVAPTBlockerSection_(summarySheet);
+      created++;
+    } catch (error) {
+      failed++;
+      errors.push((mod.project || '') + ' / ' + (mod.module || '') + ': ' + error.message);
+      Logger.log('VAPT Blocker broadcast failed [' + (mod.id || '-') + ']: ' + error.stack);
+    }
+  });
+
+  ui.alert(
+    'VAPT Blocker Breakdown Broadcast Complete',
+    'Created: ' + created + '\n' +
+    'Skipped (already exists or no Summary): ' + skipped + '\n' +
+    'Failed: ' + failed +
+    (errors.length ? '\n\nErrors:\n' + errors.slice(0, 8).join('\n') : ''),
+    ui.ButtonSet.OK
+  );
+}
+
+function addVAPTBlockerSection_(ws) {
+  // Find last row with content
+  let lastRow = ws.getMaxRows();
+  const values = ws.getRange(1, 1, lastRow, 10).getValues();
+
+  for (let i = values.length - 1; i >= 0; i--) {
+    const rowHasData = values[i].some(cell => cell !== '' && cell != null);
+    if (rowHasData) {
+      lastRow = i + 1;
+      break;
+    }
+  }
+
+  // Remove footer if exists
+  if (lastRow > 0) {
+    const footerCheck = String(values[lastRow - 1][0]).toLowerCase();
+    if (footerCheck.includes('peruri') || footerCheck.includes('qa team')) {
+      ws.deleteRow(lastRow);
+      lastRow--;
+    }
+  }
+
+  let R = lastRow + 2; // Start after last content with gap
+  const L = 1; // Left column
+  const LW = 10; // Left width
+
+  function bd(range) {
+    return range.setBorder(true, true, true, true, false, false, '#1976D2', SpreadsheetApp.BorderStyle.SOLID);
+  }
+
+  function h_(range, bg) {
+    return bd(range).setBackground(bg || '#BF360C').setFontColor('#FFFFFF')
+        .setFontWeight('bold').setFontSize(9).setFontFamily('Arial')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  }
+
+  function lbl(row, col, text, bg) {
+    bd(ws.getRange(row, col)).setValue(text)
+        .setBackground(bg || '#E3F2FD').setFontColor('#0D47A1').setFontWeight('bold')
+        .setFontFamily('Arial').setFontSize(9)
+        .setHorizontalAlignment('right').setVerticalAlignment('middle');
+    ws.setRowHeight(row, 24);
+  }
+
+  function m_(row, col, nr, nc) {
+    return ws.getRange(row, col, nr, nc).merge();
+  }
+
+  // Section header
+  ws.setRowHeight(R, 6); R++;
+  m_(R, L, 1, LW);
+  h_(ws.getRange(R, L), '#BF360C').setValue('F.  VAPT BLOCKER BREAKDOWN');
+  ws.setRowHeight(R, 20); R++;
+
+  // VAPT Blocker Count
+  lbl(R, L, 'VAPT Blocker Count', '#FFEBEE');
+  m_(R, L + 1, 1, LW - 1);
+  bd(ws.getRange(R, L + 1)).setFormula('=IFERROR(SUMPRODUCT((\'Detail Finding - VAPT\'!H:H<>"Done")*(\'Detail Finding - VAPT\'!H:H<>"False Positive")*((\'Detail Finding - VAPT\'!E:E="Critical")+(\'Detail Finding - VAPT\'!E:E="High")+(\'Detail Finding - VAPT\'!E:E="Medium"))),0)')
+      .setBackground('#FFCDD2').setFontFamily('Arial').setFontSize(14).setFontWeight('bold')
+      .setFontColor('#B71C1C').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R, 28); R++;
+
+  // VAPT Blocker Critical
+  lbl(R, L, 'VAPT Blocker Critical', '#FFF3E0');
+  m_(R, L + 1, 1, LW - 1);
+  bd(ws.getRange(R, L + 1)).setFormula('=IFERROR(SUMPRODUCT((\'Detail Finding - VAPT\'!H:H<>"Done")*(\'Detail Finding - VAPT\'!H:H<>"False Positive")*(\'Detail Finding - VAPT\'!E:E="Critical")),0)')
+      .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(11).setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R, 22); R++;
+
+  // VAPT Blocker High
+  lbl(R, L, 'VAPT Blocker High', '#FFF3E0');
+  m_(R, L + 1, 1, LW - 1);
+  bd(ws.getRange(R, L + 1)).setFormula('=IFERROR(SUMPRODUCT((\'Detail Finding - VAPT\'!H:H<>"Done")*(\'Detail Finding - VAPT\'!H:H<>"False Positive")*(\'Detail Finding - VAPT\'!E:E="High")),0)')
+      .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(11).setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R, 22); R++;
+
+  // VAPT Blocker Medium
+  lbl(R, L, 'VAPT Blocker Medium', '#FFF3E0');
+  m_(R, L + 1, 1, LW - 1);
+  bd(ws.getRange(R, L + 1)).setFormula('=IFERROR(SUMPRODUCT((\'Detail Finding - VAPT\'!H:H<>"Done")*(\'Detail Finding - VAPT\'!H:H<>"False Positive")*(\'Detail Finding - VAPT\'!E:E="Medium")),0)')
+      .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(11).setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R, 22); R++;
+
+  // VAPT Non Blocker Count
+  lbl(R, L, 'VAPT Non Blocker Count', '#E8F5E9');
+  m_(R, L + 1, 1, LW - 1);
+  bd(ws.getRange(R, L + 1)).setFormula('=IFERROR(SUMPRODUCT((\'Detail Finding - VAPT\'!H:H<>"Done")*(\'Detail Finding - VAPT\'!H:H<>"False Positive")*((\'Detail Finding - VAPT\'!E:E="Low")+(\'Detail Finding - VAPT\'!E:E="Informational"))),0)')
+      .setBackground('#FFFFFF').setFontFamily('Arial').setFontSize(11).setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  ws.setRowHeight(R, 22); R++;
+
+  // Note
+  m_(R, L, 1, LW);
+  ws.getRange(R, L).setValue('Target: VAPT Blocker Count = 0 before closure sign-off. Blocker = Critical/High/Medium with status not Done/False Positive.')
+      .setBackground('#FFF8E1').setFontColor('#E65100').setFontStyle('italic').setFontSize(7).setFontFamily('Arial').setHorizontalAlignment('left');
+  ws.setRowHeight(R, 14); R++;
+
+  // Re-add footer
+  R++;
+  const PERURI_COPYRIGHT = '(c) QA INA Digital  |  Template ini merupakan properti QA Team INA Digital  |  Dilarang digunakan/disebarluaskan tanpa izin  |  departemen.qa@inadigital.co.id';
+  ws.getRange(R, 1, 1, 21).merge();
+  ws.getRange(R, 1)
+      .setValue(PERURI_COPYRIGHT)
+      .setBackground('#0D47A1')
+      .setFontColor('#FFFFFF')
+      .setFontFamily('Arial').setFontSize(8)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle')
+      .setWrap(false);
+  ws.setRowHeight(R, 20);
+  ws.getRange(R, 1, 1, 21)
+      .setBorder(true, false, false, false, false, false, '#1976D2', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+}
