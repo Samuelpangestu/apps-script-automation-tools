@@ -381,7 +381,9 @@ function appendVAPTHistory(ss, allData) {
   // SMART APPEND: Check if today's data already exists for each submodule
   const lastRow = ws.getLastRow();
   if (lastRow >= 3) {
-    const numCols = 15;  // Fixed: 15 columns in new structure
+    // Detect column count from header row
+    const headerRow = ws.getRange(2, 1, 1, ws.getLastColumn()).getValues()[0];
+    const numCols = headerRow.length; // Auto-detect: 15 old, 19 new
     const existingData = ws.getRange(3, 1, lastRow - 2, numCols).getValues();
     const todayRows = {};  // Map: "project_module_submodule" => row index
 
