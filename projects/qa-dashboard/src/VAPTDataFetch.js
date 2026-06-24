@@ -14,6 +14,13 @@
  * Called by refreshDashboard()
  */
 function refreshVAPTData() {
+  // DISABLED: External VAPT fetch now replaced by per-QATM Summary data
+  // All VAPT data comes from individual QATM Summary tabs
+  // VAPT tab and VAPT History are populated by per-QATM data in refreshDashboard()
+  Logger.log('ℹ️ External VAPT refresh disabled - using per-QATM Summary data only');
+  return;
+
+  /* ORIGINAL CODE - DISABLED
   try {
     Logger.log('Starting per-project VAPT data refresh...');
 
@@ -82,6 +89,7 @@ function refreshVAPTData() {
     Logger.log('❌ ERROR refreshing VAPT data: ' + error.toString());
     Logger.log('Stack: ' + error.stack);
   }
+  */
 }
 
 /**
