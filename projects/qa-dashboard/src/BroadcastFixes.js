@@ -2284,6 +2284,271 @@ function addVAPTSummarySection_(ss, startRow) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// BROADCAST FIX: ADD VAPT BLOCKER BREAKDOWN TO SUMMARY
+// ═══════════════════════════════════════════════════════════════════════
+
+function broadcastAddVAPTBlockerBreakdown() {
+  const dashboardSs = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const modules = getModuleList_(dashboardSs);
+  const targets = [];
+  const seen = {};
+
+  modules.forEach(mod => {
+    if (!mod || !mod.id || seen[mod.id]) return;
+    seen[mod.id] = true;
+    targets.push(mod);
+  });
+
+  if (targets.length === 0) {
+    ui.alert('No active QATM targets found in Config.');
+    return;
+  }
+
+  const response = ui.alert(
+    'Broadcast: Add VAPT Blocker Breakdown',
+    'Will ADD VAPT Blocker Breakdown section to Summary tab in ' + targets.length + ' QATM sheets.\\n\\n' +
+    '✅ What will be added:\\n' +
+    '• VAPT Blocker Count (total blockers)\\n' +
+    '• VAPT Blocker Critical\\n' +
+    '• VAPT Blocker High\\n' +
+    '• VAPT Blocker Medium\\n' +
+    '• VAPT Non Blocker Count\\n\\n' +
+    'Formula: Blocker = Critical/High/Medium with status NOT Done/False Positive\\n\\n' +
+    '⚠️ WARNING:\\n' +
+    '• Section will be appended at row 35+\\n' +
+    '• Check for conflicts with existing data\\n\\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+  if (response !== ui.Button.YES) return;
+
+  let added = 0;
+  let skipped = 0;
+  let failed = 0;
+  const errors = [];
+
+  targets.forEach(mod => {
+    try {
+      const qatmSs = SpreadsheetApp.openById(mod.id);
+      const summarySheet = qatmSs.getSheetByName('Summary');
+
+      if (!summarySheet) {
+        skipped++;
+        return;
+      }
+
+      // Check if VAPT tab exists
+      const vaptSheet = qatmSs.getSheetByName('VAPT - Detail Finding') || qatmSs.getSheetByName('Detail Finding - VAPT');
+      if (!vaptSheet) {
+        skipped++;
+        return;
+      }
+
+      // Add blocker breakdown section
+      addVAPTBlockerBreakdownToSummary_(qatmSs);
+      added++;
+
+    } catch (error) {
+      failed++;
+      errors.push((mod.project || '') + ' / ' + (mod.module || '') + ': ' + error.message);
+      Logger.log('Add VAPT Blocker Breakdown failed [' + (mod.id || '-') + ']: ' + error.stack);
+    }
+  });
+
+  ui.alert(
+    'VAPT Blocker Breakdown Broadcast Complete',
+    'Added: ' + added + '\\n' +
+    'Skipped (no Summary/VAPT tab): ' + skipped + '\\n' +
+    'Failed: ' + failed +
+    (errors.length ? '\\n\\nErrors:\\n' + errors.slice(0, 8).join('\\n') : '') +
+    '\\n\\n✅ Summary tabs now include VAPT Blocker Breakdown section.',
+    ui.ButtonSet.OK
+  );
+}
+
+function addVAPTBlockerBreakdownToSummary_(ss) {
+  const summarySheet = ss.getSheetByName('Summary');
+  if (!summarySheet) return;
+
+  // Determine VAPT tab name
+  let vaptTabName = 'VAPT - Detail Finding';
+  if (!ss.getSheetByName(vaptTabName)) {
+    vaptTabName = 'Detail Finding - VAPT';
+    if (!ss.getSheetByName(vaptTabName)) return;
+  }
+
+  // Find last row with data in Summary
+  const lastRow = summarySheet.getLastRow();
+  let startRow = Math.max(lastRow + 2, 35); // Start at least at row 35 or 2 rows after last data
+
+  const sectionBg = '#FFCDD2';
+  const labelBg = '#FFEBEE';
+  const labelBg2 = '#FFF3E0';
+  const labelBg3 = '#E8F5E9';
+  const valueBg = '#FFFFFF';
+  const blockerHighlight = '#FFCDD2';
+  const textDark = '#B71C1C';
+  const noteBg = '#FFF8E1';
+  const noteText = '#E65100';
+
+  try {
+    let R = startRow;
+
+    // Section header
+    summarySheet.getRange(R, 1, 1, 5).merge()
+      .setValue('VAPT Blockers (Status: Todo / On Progress / Ready to Retest / Accepted)')
+      .setBackground(sectionBg)
+      .setFontColor('#C62828')
+      .setFontWeight('bold')
+      .setFontFamily('Arial')
+      .setFontSize(9)
+      .setHorizontalAlignment('left')
+      .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    summarySheet.setRowHeight(R, 18);
+    R++;
+
+    // VAPT Blocker Count (total)
+    summarySheet.getRange(R, 1)
+      .setValue('VAPT Blocker Count')
+      .setBackground(labelBg)
+      .setFontFamily('Arial')
+      .setFontSize(9)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('left')
+      .setVerticalAlignment('middle')
+      .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+
+    summarySheet.getRange(R, 2, 1, 4).merge()
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*((\'&#39; + vaptTabName + '\'!E:E="Critical")+(\'' + vaptTabName + '\'!E:E="High")+(\'' + vaptTabName + '\'!E:E="Medium"))),0)')
+      .setBackground(blockerHighlight)
+      .setFontFamily('Arial')
+      .setFontSize(14)
+      .setFontWeight('bold')
+      .setFontColor(textDark)
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle')
+      .setNumberFormat('0')
+      .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    summarySheet.setRowHeight(R, 28);
+    R++;
+
+    // VAPT Blocker Critical
+    summarySheet.getRange(R, 1)
+      .setValue('VAPT Blocker Critical')
+      .setBackground(labelBg2)
+      .setFontFamily('Arial')
+      .setFontSize(9)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('left')
+      .setVerticalAlignment('middle')
+      .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+
+    summarySheet.getRange(R, 2, 1, 4).merge()
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*(\'' + vaptTabName + '\'!E:E="Critical")),0)')
+      .setBackground(valueBg)
+      .setFontFamily('Arial')
+      .setFontSize(11)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle')
+      .setNumberFormat('0')
+      .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    summarySheet.setRowHeight(R, 22);
+    R++;
+
+    // VAPT Blocker High
+    summarySheet.getRange(R, 1)
+      .setValue('VAPT Blocker High')
+      .setBackground(labelBg2)
+      .setFontFamily('Arial')
+      .setFontSize(9)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('left')
+      .setVerticalAlignment('middle')
+      .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+
+    summarySheet.getRange(R, 2, 1, 4).merge()
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*(\'' + vaptTabName + '\'!E:E="High")),0)')
+      .setBackground(valueBg)
+      .setFontFamily('Arial')
+      .setFontSize(11)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle')
+      .setNumberFormat('0')
+      .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    summarySheet.setRowHeight(R, 22);
+    R++;
+
+    // VAPT Blocker Medium
+    summarySheet.getRange(R, 1)
+      .setValue('VAPT Blocker Medium')
+      .setBackground(labelBg2)
+      .setFontFamily('Arial')
+      .setFontSize(9)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('left')
+      .setVerticalAlignment('middle')
+      .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+
+    summarySheet.getRange(R, 2, 1, 4).merge()
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*(\'' + vaptTabName + '\'!E:E="Medium")),0)')
+      .setBackground(valueBg)
+      .setFontFamily('Arial')
+      .setFontSize(11)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle')
+      .setNumberFormat('0')
+      .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    summarySheet.setRowHeight(R, 22);
+    R++;
+
+    // VAPT Non Blocker Count
+    summarySheet.getRange(R, 1)
+      .setValue('VAPT Non Blocker Count')
+      .setBackground(labelBg3)
+      .setFontFamily('Arial')
+      .setFontSize(9)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('left')
+      .setVerticalAlignment('middle')
+      .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+
+    summarySheet.getRange(R, 2, 1, 4).merge()
+      .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!H:H<>"Done")*(\'' + vaptTabName + '\'!H:H<>"False Positive")*((\'&#39; + vaptTabName + '\'!E:E="Low")+(\'' + vaptTabName + '\'!E:E="Informational"))),0)')
+      .setBackground(valueBg)
+      .setFontFamily('Arial')
+      .setFontSize(11)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle')
+      .setNumberFormat('0')
+      .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    summarySheet.setRowHeight(R, 22);
+    R++;
+
+    // Note
+    summarySheet.getRange(R, 1, 1, 5).merge()
+      .setValue('Target: VAPT Blocker Count = 0 sebelum closure sign-off. Blocker = severity Critical/High/Medium dengan status selain Done/False Positive.')
+      .setBackground(noteBg)
+      .setFontColor(noteText)
+      .setFontStyle('italic')
+      .setFontSize(7)
+      .setFontFamily('Arial')
+      .setHorizontalAlignment('left')
+      .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    summarySheet.setRowHeight(R, 14);
+
+    SpreadsheetApp.flush();
+
+  } catch (e) {
+    throw new Error('Failed to add VAPT Blocker Breakdown: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // MENU FUNCTIONS - CREATE NEW VAPT TABS
 // ═══════════════════════════════════════════════════════════════════════
 
