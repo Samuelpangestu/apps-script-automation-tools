@@ -2419,7 +2419,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
 
     // VAPT Blocker Count (total)
     summarySheet.getRange(R, 1)
-      .setValue('VAPT Blocker Count')
+      .setValue('VAPT Blocker Total')
       .setBackground(labelBg)
       .setFontFamily('Arial')
       .setFontSize(9)
