@@ -403,8 +403,9 @@ function refreshDashboard() {
   Logger.log('⏱️  writeBugs: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
 
   t1 = new Date();
-  refreshVAPTData();
-  Logger.log('⏱️  refreshVAPTData: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+  const vaptData = aggregateVAPTFromModules_(allData);
+  writeVAPT(ss, vaptData);
+  Logger.log('⏱️  writeVAPT: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
 
   t1 = new Date();
   writeSmoke(ss, allData);
@@ -542,10 +543,16 @@ function refreshVAPTOnly() {
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // ═══ Refresh VAPT Data ═══
+  // ═══ Pull Module Data (needed for VAPT aggregation) ═══
   let t1 = new Date();
-  refreshVAPTData();
-  Logger.log('⏱️  refreshVAPTData: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+  const allData = pullAllModuleData_();
+  Logger.log('⏱️  pullAllModuleData_: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
+
+  // ═══ Aggregate and Write VAPT Data ═══
+  t1 = new Date();
+  const vaptData = aggregateVAPTFromModules_(allData);
+  writeVAPT(ss, vaptData);
+  Logger.log('⏱️  writeVAPT: ' + ((new Date() - t1) / 1000).toFixed(1) + 's');
 
   // ═══ Update Timestamp ═══
   const ts = 'Last refreshed: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm:ss');
@@ -917,7 +924,7 @@ function pullModuleData_(mod) {
     ? bugr.getDataRange().getValues().slice(4).filter(row => row[0] && row[0] !== '')
     : [];
   const bugReportGid = bugr ? bugr.getSheetId() : '';
-  const summaryGrid = summ ? summ.getRange(1,1,83,20).getValues() : [];
+  const summaryGrid = summ ? summ.getRange(1,1,110,20).getValues() : [];
 
   const SUMM_KPI_ROW = 13;  // Summary row 13: main Web+API KPI values
 
@@ -1072,7 +1079,7 @@ function pullModuleData_(mod) {
 
       try {
         const VAPT_SECTION_START = 65;
-        const VAPT_SECTION_ROWS = 35;  // Rows 65-99 (extended for blocker breakdown)
+        const VAPT_SECTION_ROWS = 45;  // Rows 65-109 (includes blocker breakdown at ~100-104)
         const vaptGrid = summaryGrid.slice(
           VAPT_SECTION_START-1,
           VAPT_SECTION_START-1+VAPT_SECTION_ROWS
@@ -1106,8 +1113,12 @@ function pullModuleData_(mod) {
 
         // Extract VAPT Blocker Breakdown (Rows ~99+)
         // Search for "VAPT Blocker" labels dynamically
+        Logger.log('Searching blocker fields in ' + vaptGrid.length + ' rows...');
         for (let i = 18; i < vaptGrid.length; i++) {
           const label = String(vaptGrid[i][0] || '').trim();
+          if (label.includes('VAPT Blocker') || label.includes('Blocker')) {
+            Logger.log('  Found blocker label at row ' + (VAPT_SECTION_START + i) + ': "' + label + '" = ' + vaptGrid[i][1]);
+          }
           if (label === 'VAPT Blocker Total' || label === 'VAPT Blocker Count') {
             vaptData.blockerCount = Number(vaptGrid[i][1]) || 0;
           } else if (label === 'VAPT Blocker Critical') {
@@ -1116,6 +1127,27 @@ function pullModuleData_(mod) {
             vaptData.blockerHigh = Number(vaptGrid[i][1]) || 0;
           } else if (label === 'VAPT Blocker Medium') {
             vaptData.blockerMedium = Number(vaptGrid[i][1]) || 0;
+          }
+        }
+
+        // Fallback: Try fixed positions (Row 100-104 = index 35-39)
+        // If blocker fields still empty, try reading from known positions
+        if (!vaptData.blockerCount && vaptGrid.length > 35) {
+          // Row 100 (index 35): Blocker Total in col B
+          // Row 101 (index 36): Blocker Critical in col B
+          // Row 102 (index 37): Blocker High in col B
+          // Row 103 (index 38): Blocker Medium in col B
+          const blockerTotal = Number(vaptGrid[35][1]) || 0;
+          const blockerCrit = Number(vaptGrid[36][1]) || 0;
+          const blockerHigh = Number(vaptGrid[37][1]) || 0;
+          const blockerMed = Number(vaptGrid[38][1]) || 0;
+
+          if (blockerTotal > 0 || blockerCrit > 0 || blockerHigh > 0 || blockerMed > 0) {
+            Logger.log('  Using fixed position fallback: Blocker Total=' + blockerTotal);
+            vaptData.blockerCount = blockerTotal;
+            vaptData.blockerCritical = blockerCrit;
+            vaptData.blockerHigh = blockerHigh;
+            vaptData.blockerMedium = blockerMed;
           }
         }
 
