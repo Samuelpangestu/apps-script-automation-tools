@@ -14,6 +14,90 @@
  */
 
 // ═══════════════════════════════════════════════════════════════════════
+// AGGREGATE VAPT DATA FROM MODULE DATA
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Aggregate VAPT data from all modules (from QATM Summary tabs)
+ * Replaces external VAPT spreadsheet fetch
+ * @param {Array} allData - Module data from pullModuleData_()
+ * @returns {Object} {table: [], summary: {}}
+ */
+function aggregateVAPTFromModules_(allData) {
+  const table = [];
+  const summary = {
+    blocker: 0,
+    totalFindings: 0,
+    bySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+    byStatus: { readyToRetest: 0, open: 0, closed: 0 },
+    totalApps: 0,
+    byVaptStatus: { done: 0, inProgress: 0 },
+    prodCount: 0
+  };
+
+  // Process each module's VAPT data
+  allData.forEach(mod => {
+    if (!mod.vapt || mod.vapt.total === 0) {
+      return; // Skip modules with no VAPT data
+    }
+
+    const v = mod.vapt;
+
+    // Calculate blocker with multiple fallbacks:
+    // 1. Use blockerCount if available and non-zero
+    // 2. Sum blockerCritical + blockerHigh + blockerMedium if available
+    // 3. Fallback: Calculate from open status (Critical + High + Medium from "Open" findings)
+    let blocker = 0;
+    if (v.blockerCount !== undefined && v.blockerCount > 0) {
+      blocker = v.blockerCount;
+    } else if ((v.blockerCritical || 0) + (v.blockerHigh || 0) + (v.blockerMedium || 0) > 0) {
+      blocker = (v.blockerCritical || 0) + (v.blockerHigh || 0) + (v.blockerMedium || 0);
+    } else {
+      // Fallback: Assume all Critical/High/Medium are blockers if blocker fields not set
+      // This handles old Summary tabs without VAPT Blocker Breakdown section
+      blocker = (v.critical || 0) + (v.high || 0) + (v.medium || 0);
+    }
+
+    // Only add to table if there are findings
+    if (v.total > 0) {
+      table.push({
+        project: mod.project || 'Unknown',
+        aplikasi: mod.submodule || mod.module || mod.name,
+        blocker: blocker,
+        open: {
+          critical: v.critical || 0,
+          high: v.high || 0,
+          medium: v.medium || 0,
+          low: v.low || 0,
+          info: v.informational || 0
+        }
+      });
+
+      summary.totalApps++;
+    }
+
+    // Aggregate summary
+    summary.blocker += blocker;
+    summary.totalFindings += v.total || 0;
+    summary.bySeverity.critical += v.critical || 0;
+    summary.bySeverity.high += v.high || 0;
+    summary.bySeverity.medium += v.medium || 0;
+    summary.bySeverity.low += v.low || 0;
+    summary.bySeverity.info += v.informational || 0;
+    summary.byStatus.open += v.open || 0;
+    summary.byStatus.closed += v.closed || 0;
+    summary.byVaptStatus.done += v.done || 0;
+    summary.byVaptStatus.inProgress += (v.todo || 0) + (v.onProgress || 0);
+  });
+
+  Logger.log('Aggregated VAPT from ' + allData.length + ' modules: ' +
+             summary.totalApps + ' apps, ' + summary.totalFindings + ' findings, ' +
+             summary.blocker + ' blockers');
+
+  return { table, summary };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // BUILD VAPT TAB
 // ═══════════════════════════════════════════════════════════════════════
 
