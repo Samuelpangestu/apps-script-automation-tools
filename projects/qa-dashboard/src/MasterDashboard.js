@@ -75,7 +75,6 @@ function onOpen() {
       .addItem('🚀 Setup Auto-Refresh Trigger', 'setupAutoRefreshTrigger')
       .addSeparator()
       .addItem('⚙️ Refresh Bug Only (No Jira Sync)', 'refreshBugOnly')
-      .addItem('🤖 Refresh Automation History', 'refreshAutomationHistory')
       .addItem('🔒 Refresh VAPT Only', 'refreshVAPTOnly'))
     .addSubMenu(ui.createMenu('🔔 Notifications')
       .addItem('⚙️ Setup Blocker Notification (Daily)', 'setupDailyBlockerNotification')
@@ -98,6 +97,7 @@ function onOpen() {
     .addSubMenu(ui.createMenu('🔧 Rebuild Individual Tabs')
       .addItem('Config', 'rebuildConfig')
       .addItem('Credentials', 'rebuildCredentials')
+      .addItem('Users', 'rebuildUsers')
       .addItem('Overview', 'rebuildOverview')
       .addItem('Bugs', 'rebuildBugs')
       .addItem('VAPT', 'rebuildVAPT')
@@ -106,7 +106,6 @@ function onOpen() {
       .addItem('Failure Scenario', 'rebuildFailureScenario')
       .addItem('Coverage', 'rebuildCoverage')
       .addItem('History', 'rebuildHistory')
-      .addItem('Automation Runs', 'rebuildAutomationRuns')
       .addItem('_Raw', 'rebuildRaw')
       .addSeparator()
       .addItem('🔒 VAPT - Helper', 'menuCreateVAPTHelper')
@@ -117,7 +116,9 @@ function onOpen() {
       .addSeparator()
       .addItem('External QA: Create Report Tab', 'broadcastExternalTestReportTab')
       .addSeparator()
-      .addItem('V3: NEW VAPT Structure (3 Tabs)', 'broadcastV3NewVAPTStructure'))
+      .addItem('V3: NEW VAPT Structure (3 Tabs)', 'broadcastV3NewVAPTStructure')
+      .addSeparator()
+      .addItem('🔄 Rebuild Summary (Add VAPT Blocker)', 'broadcastRebuildSummary'))
     .addSubMenu(ui.createMenu('🧹 Data Cleanup')
       .addItem('Cleanup History Data (90 days)', 'cleanupHistoryData')
       .addItem('Cleanup VAPT History Data (90 days)', 'cleanupVAPTHistoryData')
@@ -317,7 +318,7 @@ function createDashboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   // Cleanup old tabs (including old naming: 'Blockers', 'Scenario Failure')
-  ['Overview','Bugs','VAPT','VAPT History','Smoke','Failure Scenario','Scenario Failure','Blockers','Coverage','History','Automation Runs','_Raw','Config','Credentials'].forEach(name => {
+  ['Overview','Bugs','VAPT','VAPT History','Smoke','Failure Scenario','Scenario Failure','Blockers','Coverage','History','_Raw','Config','Credentials','Users'].forEach(name => {
     const s = ss.getSheetByName(name);
     if (s) ss.deleteSheet(s);
   });
@@ -334,6 +335,7 @@ function createDashboard() {
   }
 
   buildCredentials(ss);
+  buildUsers(ss);  // NEW: User role management for Next.js platform
   buildOverview(ss);
   buildBugs(ss);  // NEW: Bugs tab with historical tracking
   buildVAPT(ss);  // NEW: VAPT findings tracking
@@ -342,7 +344,7 @@ function createDashboard() {
   buildFailureScenario(ss);  // Uses "Failure Scenario" naming
   buildCoverage(ss);
   buildHistory(ss);
-  buildAutomationRuns(ss);
+  // buildAutomationRuns(ss); // REMOVED: Jenkins now writes directly to History
   buildRaw(ss);
 
   // Notes are added by init*Headers_() functions in each build*() function
@@ -766,9 +768,7 @@ function rebuildCoverage() {
 function rebuildHistory() {
   rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), 'History', buildHistory, 'History tab rebuilt!');
 }
-function rebuildAutomationRuns() {
-  rebuildTab_(getActiveOrDashboardSpreadsheet_(), 'Automation Runs', buildAutomationRuns, 'Automation Runs tab rebuilt!');
-}
+// DEPRECATED: rebuildAutomationRuns() - REMOVED (Jenkins now writes directly to History)
 function rebuildRaw() {
   rebuildTab_(SpreadsheetApp.getActiveSpreadsheet(), '_Raw', buildRaw, '_Raw tab rebuilt!');
 }
@@ -2844,53 +2844,10 @@ function buildHistory(ss) {
   for(let c=6;c<=hdrs.length;c++)ws.setColumnWidth(c,72);
 }
 
-function buildAutomationRuns(ss) {
-  const existing = ss.getSheetByName('Automation Runs');
-  const ws = existing || ss.insertSheet('Automation Runs');
-  ws.setTabColor('#00695C');
-  ws.clear();
-  const hdrs = getAutomationRunHeaders_();
-  ensureSheetColumns_(ws, hdrs.length);
-  ws.getRange(1,1,1,hdrs.length).merge()
-      .setValue('AUTOMATION RUNS  —  Raw Jenkins automation execution results')
-      .setBackground('#00695C').setFontColor('#FFFFFF').setFontWeight('bold')
-      .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
-  ws.getRange(2,1,1,hdrs.length).setValues([hdrs]).setFontWeight('bold')
-      .setBackground('#00897B').setFontColor('#FFFFFF');
-  ws.setFrozenRows(2);
-  ws.setColumnWidth(1,130);
-  [2,3,4,5,6,7,8,9,10,11,12,13].forEach(c=>ws.setColumnWidth(c,120));
-  [14,15].forEach(c=>ws.setColumnWidth(c,260));
-  for(let c=16;c<=hdrs.length;c++)ws.setColumnWidth(c,90);
-}
-
-function getAutomationRunHeaders_() {
-  return ['Timestamp','Project','Modul','Submodul','Channel','Suite','Environment',
-    'Contract Key','Tag','Job Name','Build Number','Build URL','Report URL',
-    'Status','Total','Passed','Failed','Skipped','Broken','Flaky','Pass Rate','Source','Raw Payload'];
-}
-
-function ensureAutomationRunsSheet_(ss) {
-  let ws = ss.getSheetByName('Automation Runs');
-  if (!ws) {
-    buildAutomationRuns(ss);
-    ws = ss.getSheetByName('Automation Runs');
-  }
-  const hdrs = getAutomationRunHeaders_();
-  ensureSheetColumns_(ws, hdrs.length);
-  const current = ws.getRange(2,1,1,hdrs.length).getValues()[0];
-  if (current.join('|') !== hdrs.join('|')) {
-    ws.getRange(1,1,2,hdrs.length).breakApart().clearContent();
-    ws.getRange(1,1,1,hdrs.length).merge()
-        .setValue('AUTOMATION RUNS  —  Raw Jenkins automation execution results')
-        .setBackground('#00695C').setFontColor('#FFFFFF').setFontWeight('bold')
-        .setFontSize(11).setFontFamily('Arial').setHorizontalAlignment('center');
-    ws.getRange(2,1,1,hdrs.length).setValues([hdrs]).setFontWeight('bold')
-        .setBackground('#00897B').setFontColor('#FFFFFF');
-    ws.setFrozenRows(2);
-  }
-  return ws;
-}
+// DEPRECATED: Automation Runs sheet removed - Jenkins now writes directly to History
+// buildAutomationRuns() - REMOVED
+// getAutomationRunHeaders_() - REMOVED
+// ensureAutomationRunsSheet_() - REMOVED
 
 function ensureSheetColumns_(ws, requiredColumns) {
   const currentColumns = ws.getMaxColumns();
@@ -3305,288 +3262,29 @@ function firstAutomationRun_() {
   return null;
 }
 
-function getLatestAutomationRunsByDashboardKey_(ss) {
-  const ws = ss.getSheetByName('Automation Runs');
-  const byKey = {};
-  if (!ws || ws.getLastRow() < 3) return byKey;
-
-  const values = ws.getRange(3,1,ws.getLastRow()-2,Math.min(ws.getLastColumn(), getAutomationRunHeaders_().length)).getValues();
-  values.forEach(row => {
-    const timestamp = parseAutomationTimestamp_(row[0]);
-    if (!timestamp) return;
-
-    const channel = normalizeAutomationValue_(row[4]);
-    if (channel !== 'web' && channel !== 'api') return;
-
-    const run = {
-      timestamp,
-      project: String(row[1] || ''),
-      module: String(row[2] || ''),
-      submodule: String(row[3] || ''),
-      channel,
-      environment: normalizeAutomationEnvironment_(row[6]),
-      contractKey: String(row[7] || ''),
-      tag: String(row[8] || ''),
-      jobName: String(row[9] || ''),
-      status: String(row[13] || ''),
-      total: Number(row[14]) || 0,
-      passed: Number(row[15]) || 0,
-      failed: Number(row[16]) || 0,
-      skipped: Number(row[17]) || 0,
-      broken: Number(row[18]) || 0,
-      flaky: Number(row[19]) || 0,
-      passRate: parseRate_(row[20])
-    };
-
-    const aliases = getAutomationRunAliases_(run);
-    aliases.forEach(alias => {
-      const key = run.environment + '|' + channel + '|' + alias;
-      if (!byKey[key] || byKey[key].timestamp < timestamp) byKey[key] = run;
-    });
-  });
-
-  return byKey;
-}
-
-/**
- * Materialize the latest enabled Jenkins results into today's History row.
- * The row is seeded from the latest previous History row when today's
- * dashboard snapshot does not exist. If no previous row exists, a skeleton
- * is created from Config.
- */
-function refreshAutomationHistory(options) {
-  options = options || {};
-  // Automation History is event-driven. Ignore legacy time-trigger invocations
-  // that may still exist until removeAutomationHistoryTrigger() is run once.
-  if (options.triggerUid) {
-    Logger.log('refreshAutomationHistory skipped: legacy time trigger is disabled');
-    return {skipped:true,reason:'event_driven_only'};
-  }
-  const startTime = new Date();
-  const ss = getActiveOrDashboardSpreadsheet_();
-  const modules = getAutomationEnabledModules_(ss);
-  if (modules.length === 0) {
-    Logger.log('refreshAutomationHistory: no Web/API automation config enabled');
-    if (!options.silent) safeAlert_('Tidak ada module dengan Web Enabled atau API Enabled.');
-    return {modules:0,updated:0,appended:0};
-  }
-
-  const runsByKey = getLatestAutomationRunsByDashboardKey_(ss);
-  const timestamp = new Date();
-  const patches = modules.map(moduleData =>
-    buildAutomationHistoryPatch_(moduleData, runsByKey, timestamp)
-  );
-  const result = upsertDailyHistory_(ss, patches, {seedFromPrevious:true});
-  const totalTime = ((new Date()-startTime)/1000).toFixed(1);
-
-  Logger.log(
-    'refreshAutomationHistory DONE: modules=' + modules.length +
-    ', updated=' + result.updated +
-    ', appended=' + result.appended +
-    ', time=' + totalTime + 's'
-  );
-  if (!options.silent) {
-    safeAlert_(
-      'Refresh Automation History selesai.\n\n' +
-      'Modules: ' + modules.length + '\n' +
-      'Updated: ' + result.updated + '\n' +
-      'Appended: ' + result.appended + '\n' +
-      'Total time: ' + totalTime + 's'
-    );
-  }
-  return {
-    modules:modules.length,
-    updated:result.updated,
-    appended:result.appended,
-    totalTimeSeconds:Number(totalTime)
-  };
-}
-
-function removeAutomationHistoryTrigger() {
-  let removed = 0;
-  ScriptApp.getProjectTriggers().forEach(trigger => {
-    if (trigger.getHandlerFunction() === 'refreshAutomationHistory') {
-      ScriptApp.deleteTrigger(trigger);
-      removed++;
-    }
-  });
-  safeAlert_('Legacy Automation History trigger removed: ' + removed);
-}
-
-function getAutomationEnabledModules_(ss) {
-  const cfg = ss.getSheetByName('Config');
-  if (!cfg || cfg.getLastRow() < 4) return [];
-
-  const data = cfg.getDataRange().getValues();
-  const headers = data[2] || [];
-  const headerIndex = {};
-  headers.forEach((header,index) => {
-    const normalized = normalizeAutomationValue_(header);
-    if (normalized) headerIndex[normalized] = index;
-  });
-  const getIndex = names => {
-    for (let i=0; i<names.length; i++) {
-      const index = headerIndex[normalizeAutomationValue_(names[i])];
-      if (index !== undefined) return index;
-    }
-    return -1;
-  };
-  const read = (row,names) => {
-    const index = getIndex(names);
-    return index >= 0 ? String(row[index] || '').trim() : '';
-  };
-  const readBool = (row,names) => {
-    const index = getIndex(names);
-    if (index < 0) return false;
-    const value = row[index];
-    if (value === true || value === false) return value;
-    return ['TRUE','YES','YA','1'].indexOf(String(value || '').trim().toUpperCase()) >= 0;
-  };
-
-  const modules = [];
-  for (let i=3; i<data.length; i++) {
-    const row = data[i];
-    const webEnabled = readBool(row,['Web Enabled']);
-    const apiEnabled = readBool(row,['API Enabled']);
-    if (!webEnabled && !apiEnabled) continue;
-
-    const project = String(row[2] || '').trim();
-    const module = String(row[3] || '').trim();
-    const submodule = String(row[4] || '').trim();
-    if (!project || !module || !submodule) {
-      Logger.log('Automation config skipped at row ' + (i+1) + ': identity is incomplete');
-      continue;
-    }
-
-    modules.push({
-      project,
-      module,
-      submodule,
-      name:submodule,
-      team:String(row[5] || '').trim(),
-      automationEnabled:{web:webEnabled,api:apiEnabled},
-      automationContracts:{
-        all:read(row,['Automation Contract','Automation Key','Automation Alias','Jenkins Job','Jenkins Job Pattern']),
-        web:read(row,['Web Automation Contract','Web Automation Key','Web Jenkins Job','Web Jenkins Job Pattern','Web Job Pattern']),
-        api:read(row,['API Automation Contract','API Automation Key','API Jenkins Job','API Jenkins Job Pattern','API Job Pattern'])
-      }
-    });
-  }
-  return modules;
-}
-
-function buildAutomationHistoryPatch_(moduleData, runsByKey, timestamp) {
-  const values = {};
-  if (moduleData.automationEnabled.web) {
-    addAutomationChannelHistoryValues_(values, runsByKey, moduleData, 'web');
-  }
-  if (moduleData.automationEnabled.api) {
-    addAutomationChannelHistoryValues_(values, runsByKey, moduleData, 'api');
-  }
-  return {
-    timestamp,
-    project:moduleData.project,
-    module:moduleData.module,
-    submodule:moduleData.submodule,
-    picQA:moduleData.team,
-    values
-  };
-}
-
-function addAutomationChannelHistoryValues_(values, runsByKey, moduleData, channel) {
-  const prefix = channel === 'web' ? 'web' : 'api';
-  const devRun = getAutomationRunForModule_(runsByKey,moduleData,channel,'dev');
-  const stgRun = getAutomationRunForModule_(runsByKey,moduleData,channel,'stg');
-  const prodRun = getAutomationRunForModule_(runsByKey,moduleData,channel,'prod');
-  const latestRun = firstAutomationRun_(prodRun,stgRun,devRun);
-
-  setAutomationRunHistoryValues_(values,prefix + 'Automation',latestRun);
-  setAutomationRunHistoryValues_(values,prefix + 'Dev',devRun);
-  setAutomationRunHistoryValues_(values,prefix + 'Stg',stgRun);
-  setAutomationRunHistoryValues_(values,prefix + 'Prod',prodRun);
-}
-
-function setAutomationRunHistoryValues_(values, prefix, run) {
-  values[prefix + 'Passed'] = run ? run.passed : '';
-  values[prefix + 'Failed'] = run ? run.failed : '';
-  values[prefix + 'PassRate'] = run ? run.passRate : '';
-  values[prefix + 'Status'] = run ? run.status : 'No Run';
-}
-
-function getAutomationRunForModule_(runsByKey, moduleData, channel, environment) {
-  const aliases = getDashboardAutomationAliases_(moduleData, channel);
-  const normalizedEnvironment = normalizeAutomationEnvironment_(environment);
-  for (let i = 0; i < aliases.length; i++) {
-    const run = runsByKey[normalizedEnvironment + '|' + channel + '|' + aliases[i]];
-    if (run) return run;
-  }
-  return null;
-}
-
-function getDashboardAutomationAliases_(moduleData, channel) {
-  const aliases = [];
-  const add = value => {
-    const normalized = normalizeAutomationValue_(value);
-    if (normalized && aliases.indexOf(normalized) === -1) aliases.push(normalized);
-  };
-
-  // Priority 1: Automation Contracts (most specific - from Config columns X-Z or Y-AK)
-  const contracts = moduleData.automationContracts || {};
-  add(contracts[channel]);     // Web/API specific contract
-  add(contracts.all);           // General contract
-
-  // Priority 2: Full path matches (project|module|submodule)
-  add([moduleData.project, moduleData.module, moduleData.submodule || moduleData.name].join('|'));
-
-  // Priority 3: Partial matches (require at least 2 components)
-  add([moduleData.project, moduleData.module].join('|'));
-  add([moduleData.module, moduleData.submodule || moduleData.name].join('|'));
-
-  // REMOVED: Generic fallback by module/submodule name alone
-  // Reason: Too broad - causes false matches when multiple submodules share same module name
-  // Example: "emeterai" matches to POS, SCM, Desktop, Settlement - all different submodules
-  // add(moduleData.submodule || moduleData.name);  // ❌ REMOVED
-  // add(moduleData.module);                         // ❌ REMOVED
-
-  return aliases;
-}
-
-function getAutomationRunAliases_(run) {
-  const aliases = [];
-  const add = value => {
-    const normalized = normalizeAutomationValue_(value);
-    if (normalized && aliases.indexOf(normalized) === -1) aliases.push(normalized);
-  };
-
-  add([run.project, run.module, run.submodule].join('|'));
-  add([run.project, run.module].join('|'));
-  add([run.module, run.submodule].join('|'));
-  add(run.submodule);
-  add(run.module);
-  add(run.contractKey);
-  add(run.tag);
-  add(run.jobName);
-
-  return aliases;
-}
-
-function normalizeAutomationValue_(value) {
-  return String(value || '')
-    .trim()
-    .replace(/^@+/, '')
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function normalizeAutomationEnvironment_(value) {
-  const normalized = normalizeAutomationValue_(value);
-  if (normalized === 'staging' || normalized === 'stage') return 'stg';
-  if (normalized === 'production') return 'prod';
-  if (normalized === 'development') return 'dev';
-  return normalized;
-}
+// ═══════════════════════════════════════════════════════════════════════
+// DEPRECATED: Automation Runs Flow - REMOVED
+// Jenkins now writes directly to History (skip Automation Runs intermediate storage)
+// ═══════════════════════════════════════════════════════════════════════
+//
+// The following functions have been removed:
+// - getLatestAutomationRunsByDashboardKey_() - Read from Automation Runs
+// - refreshAutomationHistory() - Materialize Automation Runs to History
+// - removeAutomationHistoryTrigger() - Clean up old triggers
+// - getAutomationEnabledModules_() - Get modules with automation enabled
+// - buildAutomationHistoryPatch_() - Build patch for History
+// - addAutomationChannelHistoryValues_() - Add channel-specific values
+// - setAutomationRunHistoryValues_() - Set automation run values
+// - getAutomationRunForModule_() - Get run for specific module
+// - getDashboardAutomationAliases_() - Generate aliases for matching
+// - getAutomationRunAliases_() - Generate aliases from run data
+// - normalizeAutomationValue_() - Normalize values for matching
+// - normalizeAutomationEnvironment_() - Normalize environment names
+//
+// All automation logic is now handled by Jenkins Python script (dashboardUtils.groovy)
+// which writes directly to History sheet with fuzzy matching support.
+//
+// ═══════════════════════════════════════════════════════════════════════
 
 function parseAutomationTimestamp_(value) {
   if (!value) return null;
