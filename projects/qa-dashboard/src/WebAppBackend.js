@@ -56,6 +56,9 @@ function doPost(e) {
       case 'createClosureEmailDraft':
         return jsonResponse_(createClosureEmailDraft_(body));
 
+      case 'bootstrapQatmJiraTickets':
+        return jsonResponse_(bootstrapQatmJiraTickets_(body.payload || body));
+
       default:
         throw new Error('Unknown action: ' + action);
     }

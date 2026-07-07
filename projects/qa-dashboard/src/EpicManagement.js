@@ -323,6 +323,239 @@ function _getEpicModules_(ss) {
   return modules;
 }
 
+/**
+ * Web App API: create/update Epic and the default QA planning tickets for a QATM row.
+ *
+ * POST payload:
+ * {
+ *   action: "bootstrapQatmJiraTickets",
+ *   payload: { project,module,submodule,jiraInstance,jiraProject,spreadsheetId,configRow }
+ * }
+ *
+ * Optional Script Properties:
+ * - QATM_JIRA_BOOTSTRAP_TOKEN
+ * - QATM_TEST_EXECUTION_ISSUE_TYPE (default: Test Execution)
+ * - QATM_TEST_AUTOMATION_ISSUE_TYPE (default: Test Automation)
+ */
+function bootstrapQatmJiraTickets_(payload) {
+  const expectedToken = PropertiesService.getScriptProperties().getProperty('QATM_JIRA_BOOTSTRAP_TOKEN');
+  if (expectedToken && String(payload.token || '') !== expectedToken) {
+    throw new Error('Invalid QATM Jira bootstrap token');
+  }
+
+  const ss = typeof getDashboardSpreadsheet_ === 'function'
+    ? getDashboardSpreadsheet_()
+    : SpreadsheetApp.getActiveSpreadsheet();
+  const cfg = ss.getSheetByName('Config');
+  if (!cfg) throw new Error('Config sheet not found');
+
+  const instance = String(payload.jiraInstance || '').trim().toLowerCase();
+  const projectKey = String(payload.jiraProject || '').trim().toUpperCase();
+  if (!instance || instance === '-' || !JIRA_INSTANCES_[instance]) {
+    return { success: false, skipped: true, error: 'Jira Instance is empty or unsupported' };
+  }
+  if (!projectKey || projectKey === '-') {
+    return { success: false, skipped: true, error: 'Jira Project Key is empty' };
+  }
+
+  const creds = _getCreds_(ss);
+  const cred = creds[instance];
+  if (!cred) throw new Error('Jira credentials not found for instance: ' + instance);
+
+  const configRow = _findQatmConfigRow_(cfg, payload);
+  if (!configRow) throw new Error('Dashboard Config row not found for QATM');
+
+  const moduleName = String(payload.module || configRow.values[3] || '').trim();
+  const submodule = String(payload.submodule || configRow.values[4] || moduleName || '').trim();
+  const qatmId = String(payload.spreadsheetId || configRow.values[6] || '').trim();
+  const epicSummary = '[' + (moduleName || 'Unknown') + '] ' + (submodule || moduleName || 'Unknown');
+
+  let epicKey = String(configRow.values[EPIC_COL_INDEX_] || '').trim();
+  if (!epicKey) {
+    epicKey = _createJiraEpic_(instance, projectKey, epicSummary, '', cred);
+    if (!epicKey) throw new Error('Failed to create Jira Epic');
+    cfg.getRange(configRow.rowIndex, EPIC_COL_INDEX_ + 1).setValue(epicKey);
+  }
+
+  const existingEpicTickets = _getJiraEpicChildren_(instance, projectKey, epicKey, cred);
+  if (existingEpicTickets.length > 0) {
+    return {
+      success: true,
+      skipped: true,
+      reason: 'Epic already has child tickets. Jira bootstrap skipped to avoid duplicate tickets.',
+      epicKey: epicKey,
+      tickets: existingEpicTickets.map(function(issue) {
+        return {
+          kind: 'existing',
+          issueType: String(issue.fields && issue.fields.issuetype && issue.fields.issuetype.name || ''),
+          key: issue.key,
+          created: false,
+          url: JIRA_INSTANCES_[instance] + '/browse/' + issue.key
+        };
+      }),
+      configRow: configRow.rowIndex
+    };
+  }
+
+  const props = PropertiesService.getScriptProperties();
+  const issueTypes = {
+    testExecution: props.getProperty('QATM_TEST_EXECUTION_ISSUE_TYPE') || 'Test Execution',
+    testAutomation: props.getProperty('QATM_TEST_AUTOMATION_ISSUE_TYPE') || 'Test Automation'
+  };
+  const label = _jiraLabel_('qatm-' + (qatmId || moduleName + '-' + submodule).slice(0, 18));
+  const baseDescription = [
+    'Generated from QA Dashboard AI QATM Generator.',
+    'Project: ' + String(payload.project || configRow.values[2] || '-'),
+    'Module: ' + moduleName,
+    'Submodule: ' + submodule,
+    qatmId ? 'QATM: https://docs.google.com/spreadsheets/d/' + qatmId + '/edit' : ''
+  ].filter(Boolean).join('\n');
+
+  const tickets = [
+    {
+      kind: 'testExecution',
+      issueType: issueTypes.testExecution,
+      summary: '[UI/API] ' + epicSummary + ' - Test Execution',
+      description: baseDescription + '\n\nScope: Manual test execution planning and tracking.'
+    },
+    {
+      kind: 'uiAutomation',
+      issueType: issueTypes.testAutomation,
+      summary: '[UI] ' + epicSummary + ' - Test Automation',
+      description: baseDescription + '\n\nScope: UI automation implementation and pipeline integration.'
+    },
+    {
+      kind: 'apiAutomation',
+      issueType: issueTypes.testAutomation,
+      summary: '[API] ' + epicSummary + ' - Test Automation',
+      description: baseDescription + '\n\nScope: API automation implementation and pipeline integration.'
+    }
+  ].map(function(ticket) {
+    return _ensureJiraIssue_(instance, projectKey, epicKey, ticket, cred, [label, 'qa-dashboard', 'qatm-bootstrap']);
+  });
+
+  return {
+    success: tickets.every(function(ticket) { return ticket.key; }),
+    epicKey: epicKey,
+    tickets: tickets,
+    configRow: configRow.rowIndex
+  };
+}
+
+function _findQatmConfigRow_(cfg, payload) {
+  const data = cfg.getDataRange().getValues();
+  const explicitRow = Number(payload.configRow) || 0;
+  if (explicitRow >= 4 && explicitRow <= data.length) {
+    return { rowIndex: explicitRow, values: data[explicitRow - 1] };
+  }
+
+  const project = String(payload.project || '').trim();
+  const moduleName = String(payload.module || '').trim();
+  const submodule = String(payload.submodule || '').trim();
+  const qatmId = String(payload.spreadsheetId || '').trim();
+  for (let i = 3; i < data.length; i++) {
+    const sameModule = String(data[i][2] || '').trim() === project
+      && String(data[i][3] || '').trim() === moduleName
+      && String(data[i][4] || '').trim() === submodule;
+    const sameQatm = qatmId && String(data[i][6] || '').trim() === qatmId;
+    if (sameModule || sameQatm) return { rowIndex: i + 1, values: data[i] };
+  }
+  return null;
+}
+
+function _ensureJiraIssue_(instanceKey, projectKey, epicKey, ticket, cred, labels) {
+  const existing = _findJiraIssueBySummary_(instanceKey, projectKey, ticket.summary, labels[0], cred);
+  if (existing) {
+    return {
+      kind: ticket.kind,
+      issueType: ticket.issueType,
+      key: existing.key,
+      created: false,
+      url: JIRA_INSTANCES_[instanceKey] + '/browse/' + existing.key
+    };
+  }
+
+  const key = _createJiraIssue_(instanceKey, projectKey, epicKey, ticket, cred, labels);
+  return {
+    kind: ticket.kind,
+    issueType: ticket.issueType,
+    key: key || '',
+    created: Boolean(key),
+    url: key ? JIRA_INSTANCES_[instanceKey] + '/browse/' + key : ''
+  };
+}
+
+function _findJiraIssueBySummary_(instanceKey, projectKey, summary, label, cred) {
+  const jql = 'project = "' + projectKey + '" AND labels = "' + label + '" ORDER BY created DESC';
+  const data = _jiraRequest_(instanceKey, '/rest/api/3/search/jql?jql=' + encodeURIComponent(jql) + '&fields=summary,parent&maxResults=20', 'get', null, cred);
+  const issues = data && data.issues ? data.issues : [];
+  for (let i = 0; i < issues.length; i++) {
+    if (String(issues[i].fields && issues[i].fields.summary || '') === summary) return issues[i];
+  }
+  return null;
+}
+
+function _getJiraEpicChildren_(instanceKey, projectKey, epicKey, cred) {
+  const jql = 'project = "' + projectKey + '" AND parent = "' + epicKey + '" ORDER BY created ASC';
+  const data = _jiraRequest_(instanceKey, '/rest/api/3/search/jql?jql=' + encodeURIComponent(jql) + '&fields=summary,issuetype,parent&maxResults=50', 'get', null, cred);
+  return data && data.issues ? data.issues : [];
+}
+
+function _createJiraIssue_(instanceKey, projectKey, epicKey, ticket, cred, labels) {
+  const payload = {
+    fields: {
+      project: { key: projectKey },
+      summary: ticket.summary,
+      description: _jiraDoc_(ticket.description),
+      issuetype: { name: ticket.issueType },
+      parent: epicKey ? { key: epicKey } : undefined,
+      labels: labels
+    }
+  };
+  const data = _jiraRequest_(instanceKey, '/rest/api/3/issue', 'post', payload, cred);
+  return data && data.key ? data.key : null;
+}
+
+function _jiraRequest_(instanceKey, path, method, payload, cred) {
+  const auth = Utilities.base64Encode(cred.email + ':' + cred.token);
+  const response = UrlFetchApp.fetch(JIRA_INSTANCES_[instanceKey] + path, {
+    method: method,
+    headers: {
+      Authorization: 'Basic ' + auth,
+      'Content-Type': 'application/json'
+    },
+    payload: payload ? JSON.stringify(payload) : undefined,
+    muteHttpExceptions: true
+  });
+  const code = response.getResponseCode();
+  const text = response.getContentText();
+  if (code < 200 || code >= 300) {
+    throw new Error('Jira API failed (' + code + '): ' + text.substring(0, 500));
+  }
+  return text ? JSON.parse(text) : {};
+}
+
+function _jiraDoc_(text) {
+  return {
+    type: 'doc',
+    version: 1,
+    content: String(text || '').split('\n').map(function(line) {
+      return {
+        type: 'paragraph',
+        content: line ? [{ type: 'text', text: line }] : []
+      };
+    })
+  };
+}
+
+function _jiraLabel_(value) {
+  return String(value || 'qatm-bootstrap')
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'qatm-bootstrap';
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS - Jira API
 // ═══════════════════════════════════════════════════════════════════════

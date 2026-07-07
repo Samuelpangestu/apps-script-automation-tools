@@ -2371,6 +2371,16 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
   const summarySheet = ss.getSheetByName('Summary');
   if (!summarySheet) return;
 
+  // Check if already has VAPT Blocker section
+  const data = summarySheet.getDataRange().getValues();
+  for (let i = 0; i < data.length; i++) {
+    const cellText = String(data[i][0] || '').trim();
+    if (cellText === 'VAPT Blocker Total' || cellText === 'VAPT Blocker Count') {
+      Logger.log('Skip: VAPT Blocker already exists at row ' + (i + 1));
+      return; // Already has blocker section
+    }
+  }
+
   // Determine VAPT tab name
   let vaptTabName = 'VAPT - Detail Finding';
   if (!ss.getSheetByName(vaptTabName)) {
@@ -2380,7 +2390,6 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
 
   // Find insertion point after VAPT FINDINGS SUMMARY section
   let startRow = 99; // Default fallback
-  const data = summarySheet.getDataRange().getValues();
   for (let i = 0; i < data.length; i++) {
     const rowText = data[i].join(' ').toUpperCase();
     if (rowText.includes('BY STATUS RE-VAPT') || rowText.includes('STATUS RE-VAPT')) {
@@ -2402,10 +2411,58 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
   const noteText = '#E65100';
 
   try {
+    // Insert 7 blank rows at insertion point to avoid merge conflicts
+    summarySheet.insertRowsAfter(startRow - 1, 7);
+    SpreadsheetApp.flush();
+
     let R = startRow;
 
+    // Simple merge (working on clean inserted rows)
+    const safeMerge = (range) => {
+      return range.merge();
+    };
+
+    // OLD safeMerge with overlap detection (not needed for clean rows)
+    const safeMergeOld = (range) => {
+      try {
+        const sheet = range.getSheet();
+        const targetRow = range.getRow();
+        const targetCol = range.getColumn();
+        const targetNumRows = range.getNumRows();
+        const targetNumCols = range.getNumColumns();
+        const targetEndRow = targetRow + targetNumRows - 1;
+        const targetEndCol = targetCol + targetNumCols - 1;
+
+        // Get all merged ranges in sheet
+        const allMerged = sheet.getMergedRanges();
+
+        // Find and break any that overlap with target range
+        allMerged.forEach(merged => {
+          const mRow = merged.getRow();
+          const mCol = merged.getColumn();
+          const mEndRow = mRow + merged.getNumRows() - 1;
+          const mEndCol = mCol + merged.getNumColumns() - 1;
+
+          // Check if ranges overlap
+          const rowOverlap = !(mEndRow < targetRow || mRow > targetEndRow);
+          const colOverlap = !(mEndCol < targetCol || mCol > targetEndCol);
+
+          if (rowOverlap && colOverlap) {
+            try {
+              merged.breakApart();
+            } catch (e) {
+              // Can't break, continue
+            }
+          }
+        });
+      } catch (e) {
+        // Ignore errors
+      }
+      return range.merge();
+    };
+
     // Section header
-    summarySheet.getRange(R, 1, 1, 5).merge()
+    safeMerge(summarySheet.getRange(R, 1, 1, 5))
       .setValue('VAPT Blockers (Status Re-VAPT: Open)')
       .setBackground(sectionBg)
       .setFontColor('#C62828')
@@ -2428,7 +2485,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setVerticalAlignment('middle')
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
-    summarySheet.getRange(R, 2, 1, 4).merge()
+    safeMerge(summarySheet.getRange(R, 2, 1, 4))
       .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!F:F="Open")*((\'' + vaptTabName + '\'!H:H="Critical")+(\'' + vaptTabName + '\'!H:H="High")+(\'' + vaptTabName + '\'!H:H="Medium"))),0)')
       .setBackground(blockerHighlight)
       .setFontFamily('Arial')
@@ -2453,7 +2510,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setVerticalAlignment('middle')
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
-    summarySheet.getRange(R, 2, 1, 4).merge()
+    safeMerge(summarySheet.getRange(R, 2, 1, 4))
       .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!F:F="Open")*(\'' + vaptTabName + '\'!H:H="Critical")),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
@@ -2477,7 +2534,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setVerticalAlignment('middle')
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
-    summarySheet.getRange(R, 2, 1, 4).merge()
+    safeMerge(summarySheet.getRange(R, 2, 1, 4))
       .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!F:F="Open")*(\'' + vaptTabName + '\'!H:H="High")),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
@@ -2501,7 +2558,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setVerticalAlignment('middle')
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
-    summarySheet.getRange(R, 2, 1, 4).merge()
+    safeMerge(summarySheet.getRange(R, 2, 1, 4))
       .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!F:F="Open")*(\'' + vaptTabName + '\'!H:H="Medium")),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
@@ -2525,7 +2582,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
       .setVerticalAlignment('middle')
       .setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
-    summarySheet.getRange(R, 2, 1, 4).merge()
+    safeMerge(summarySheet.getRange(R, 2, 1, 4))
       .setFormula('=IFERROR(SUMPRODUCT((\'' + vaptTabName + '\'!F:F="Open")*((\'' + vaptTabName + '\'!H:H="Low")+(\'' + vaptTabName + '\'!H:H="Informational"))),0)')
       .setBackground(valueBg)
       .setFontFamily('Arial')
@@ -2539,7 +2596,7 @@ function addVAPTBlockerBreakdownToSummary_(ss) {
     R++;
 
     // Note
-    summarySheet.getRange(R, 1, 1, 5).merge()
+    safeMerge(summarySheet.getRange(R, 1, 1, 5))
       .setValue('Target: VAPT Blocker Count = 0 sebelum closure sign-off. Blocker = Status Re-VAPT "Open" dengan severity Critical/High/Medium.')
       .setBackground(noteBg)
       .setFontColor(noteText)
