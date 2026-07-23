@@ -1,0 +1,310 @@
+/**
+ * QA Test Management - TC Manager v2
+ *
+ * Sync TC_Master dan TC_Execution untuk insert/delete operations
+ * Prevents screenshot/result misalignment
+ */
+
+// ═══════════════════════════════════════════════════════════════════════
+// MENU
+// ═══════════════════════════════════════════════════════════════════════
+
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+
+  ui.createMenu('🔧 TC Manager')
+    .addItem('📋 Insert TC Here', 'insertTCAtPosition')
+    .addItem('📋 Bulk Insert (Multiple Rows)', 'bulkInsertTC')
+    .addSeparator()
+    .addItem('🗑️ Delete TC', 'deleteTC')
+    .addItem('⚠️ Mark as Deprecated', 'markAsDeprecated')
+    .addSeparator()
+    .addItem('ℹ️ Help', 'showHelp')
+    .addToUi();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// INSERT TC AT POSITION (SINGLE)
+// ═══════════════════════════════════════════════════════════════════════
+
+function insertTCAtPosition() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tcMaster = ss.getSheetByName('TC_Master');
+  const tcExecution = ss.getSheetByName('TC_Execution');
+
+  if (!tcMaster || !tcExecution) {
+    ui.alert('❌ Error', 'TC_Master or TC_Execution not found!', ui.ButtonSet.OK);
+    return;
+  }
+
+  const activeRow = tcMaster.getActiveRange().getRow();
+
+  if (activeRow < 3) {
+    ui.alert('⚠️ Invalid', 'Please select row 3 or below in TC_Master', ui.ButtonSet.OK);
+    return;
+  }
+
+  const tcIdAtPosition = tcMaster.getRange(activeRow, 3).getValue();
+  const execStartRow = 9;
+  const execRow = execStartRow + (activeRow - 3);
+
+  const response = ui.alert(
+    '📋 Insert TC',
+    '➕ INSERT 1 ROW BEFORE:\n\n' +
+    '📍 TC_Master:\n' +
+    '   Row: ' + activeRow + '\n' +
+    '   TC_ID: ' + tcIdAtPosition + '\n\n' +
+    '📍 TC_Execution:\n' +
+    '   Row: ' + execRow + '\n\n' +
+    '⚠️ Rows below will shift down in BOTH sheets!\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) return;
+
+  // Insert rows
+  tcMaster.insertRowBefore(activeRow);
+  tcExecution.insertRowBefore(execRow);
+
+  // Copy formulas from row above (columns B-G in TC_Execution)
+  if (execRow > execStartRow) {
+    const sourceRange = tcExecution.getRange(execRow - 1, 2, 1, 6);
+    const targetRange = tcExecution.getRange(execRow, 2, 1, 6);
+    sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
+  }
+
+  ui.alert(
+    '✅ Inserted!',
+    '📍 TC_Master row: ' + activeRow + '\n' +
+    '📍 TC_Execution row: ' + execRow + '\n\n' +
+    'Fill in TC_ID and details now.',
+    ui.ButtonSet.OK
+  );
+
+  tcMaster.setActiveRange(tcMaster.getRange(activeRow, 3)); // Focus on TC_ID column
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BULK INSERT (MULTIPLE ROWS)
+// ═══════════════════════════════════════════════════════════════════════
+
+function bulkInsertTC() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tcMaster = ss.getSheetByName('TC_Master');
+  const tcExecution = ss.getSheetByName('TC_Execution');
+
+  if (!tcMaster || !tcExecution) {
+    ui.alert('❌ Error', 'TC_Master or TC_Execution not found!', ui.ButtonSet.OK);
+    return;
+  }
+
+  const activeRow = tcMaster.getActiveRange().getRow();
+
+  if (activeRow < 3) {
+    ui.alert('⚠️ Invalid', 'Please select row 3 or below in TC_Master', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Ask how many rows to insert
+  const numRowsResponse = ui.prompt(
+    '📋 Bulk Insert',
+    'How many rows to insert?\n\n' +
+    'Will insert BEFORE row ' + activeRow,
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (numRowsResponse.getSelectedButton() !== ui.Button.OK) return;
+
+  const numRows = parseInt(numRowsResponse.getResponseText());
+
+  if (isNaN(numRows) || numRows < 1 || numRows > 100) {
+    ui.alert('❌ Invalid', 'Please enter number between 1-100', ui.ButtonSet.OK);
+    return;
+  }
+
+  const tcIdAtPosition = tcMaster.getRange(activeRow, 3).getValue();
+  const execStartRow = 9;
+  const execRow = execStartRow + (activeRow - 3);
+
+  const response = ui.alert(
+    '📋 Bulk Insert Confirmation',
+    '➕ INSERT ' + numRows + ' ROWS BEFORE:\n\n' +
+    '📍 TC_Master:\n' +
+    '   Starting row: ' + activeRow + '\n' +
+    '   Current TC_ID: ' + tcIdAtPosition + '\n' +
+    '   New rows: ' + activeRow + ' to ' + (activeRow + numRows - 1) + '\n\n' +
+    '📍 TC_Execution:\n' +
+    '   Starting row: ' + execRow + '\n' +
+    '   New rows: ' + execRow + ' to ' + (execRow + numRows - 1) + '\n\n' +
+    '⚠️ Rows below will shift down!\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) return;
+
+  // Insert rows one by one (Apps Script doesn't have insertRowsBefore)
+  for (let i = 0; i < numRows; i++) {
+    tcMaster.insertRowBefore(activeRow);
+    tcExecution.insertRowBefore(execRow);
+
+    // Copy formulas to new row in TC_Execution (columns B-G)
+    if (execRow > execStartRow) {
+      const sourceRange = tcExecution.getRange(execRow - 1, 2, 1, 6);
+      const targetRange = tcExecution.getRange(execRow, 2, 1, 6);
+      sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_FORMULA);
+    }
+  }
+
+  ui.alert(
+    '✅ Bulk Insert Complete!',
+    'Inserted ' + numRows + ' rows:\n\n' +
+    '📍 TC_Master: rows ' + activeRow + '-' + (activeRow + numRows - 1) + '\n' +
+    '📍 TC_Execution: rows ' + execRow + '-' + (execRow + numRows - 1) + '\n\n' +
+    'Fill in TC details now.',
+    ui.ButtonSet.OK
+  );
+
+  tcMaster.setActiveRange(tcMaster.getRange(activeRow, 3)); // Focus on first new row
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DELETE TC
+// ═══════════════════════════════════════════════════════════════════════
+
+function deleteTC() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tcMaster = ss.getSheetByName('TC_Master');
+  const tcExecution = ss.getSheetByName('TC_Execution');
+
+  if (!tcMaster || !tcExecution) {
+    ui.alert('❌ Error', 'Sheets not found!', ui.ButtonSet.OK);
+    return;
+  }
+
+  const activeRow = tcMaster.getActiveRange().getRow();
+
+  if (activeRow < 3) {
+    ui.alert('⚠️ Invalid', 'Please select row 3 or below', ui.ButtonSet.OK);
+    return;
+  }
+
+  const tcId = tcMaster.getRange(activeRow, 3).getValue();
+  const scenario = tcMaster.getRange(activeRow, 11).getValue();
+  const execStartRow = 9;
+  const execRow = execStartRow + (activeRow - 3);
+
+  const response = ui.alert(
+    '⚠️ DELETE TC',
+    '🗑️ DELETE:\n\n' +
+    '📍 TC_Master:\n' +
+    '   Row: ' + activeRow + '\n' +
+    '   TC_ID: ' + tcId + '\n' +
+    '   Scenario: ' + scenario + '\n\n' +
+    '📍 TC_Execution:\n' +
+    '   Row: ' + execRow + '\n\n' +
+    '⚠️ WARNING:\n' +
+    '- Test results will be LOST!\n' +
+    '- Rows below will shift up!\n\n' +
+    '💡 TIP: Use "Mark as Deprecated" instead?\n\n' +
+    'Continue DELETE?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) return;
+
+  // Delete rows
+  tcMaster.deleteRow(activeRow);
+  tcExecution.deleteRow(execRow);
+
+  ui.alert(
+    '✅ Deleted',
+    'TC_ID: ' + tcId + '\n\n' +
+    'Deleted from both sheets.',
+    ui.ButtonSet.OK
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MARK AS DEPRECATED
+// ═══════════════════════════════════════════════════════════════════════
+
+function markAsDeprecated() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tcMaster = ss.getSheetByName('TC_Master');
+
+  if (!tcMaster) {
+    ui.alert('❌ Error', 'TC_Master not found!', ui.ButtonSet.OK);
+    return;
+  }
+
+  const activeRow = tcMaster.getActiveRange().getRow();
+
+  if (activeRow < 3) {
+    ui.alert('⚠️ Invalid', 'Select row 3 or below', ui.ButtonSet.OK);
+    return;
+  }
+
+  const tcId = tcMaster.getRange(activeRow, 3).getValue();
+  const scenarioCell = tcMaster.getRange(activeRow, 11);
+  const currentScenario = scenarioCell.getValue();
+
+  const response = ui.alert(
+    '⚠️ Mark as Deprecated',
+    'TC_ID: ' + tcId + '\n\n' +
+    'This will:\n' +
+    '✓ Add [DEPRECATED] prefix to scenario\n' +
+    '✓ Gray out the row\n' +
+    '✓ Keep test results intact\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) return;
+
+  if (!currentScenario.toString().includes('[DEPRECATED]')) {
+    scenarioCell.setValue('[DEPRECATED] ' + currentScenario);
+    tcMaster.getRange(activeRow, 1, 1, tcMaster.getLastColumn())
+      .setBackground('#F5F5F5')
+      .setFontColor('#999999');
+  }
+
+  ui.alert('✅ Marked', 'TC_ID: ' + tcId + ' deprecated', ui.ButtonSet.OK);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HELP
+// ═══════════════════════════════════════════════════════════════════════
+
+function showHelp() {
+  const ui = SpreadsheetApp.getUi();
+
+  ui.alert(
+    'ℹ️ TC Manager Help',
+    '📋 INSERT TC HERE\n' +
+    '• Insert 1 row at cursor position\n' +
+    '• Syncs TC_Master + TC_Execution\n' +
+    '• Shows exact row numbers\n\n' +
+    '📋 BULK INSERT\n' +
+    '• Insert multiple rows at once\n' +
+    '• Enter number of rows (1-100)\n' +
+    '• Faster for multiple TCs\n\n' +
+    '🗑️ DELETE TC\n' +
+    '• Deletes from both sheets\n' +
+    '• Test results will be lost\n' +
+    '• Use with caution!\n\n' +
+    '⚠️ MARK AS DEPRECATED\n' +
+    '• Safer than delete\n' +
+    '• Adds [DEPRECATED] prefix\n' +
+    '• Keeps test results\n\n' +
+    '💡 WHY?\n' +
+    'Manual insert/delete breaks alignment.\n' +
+    'TC Manager keeps screenshots aligned with correct TC_ID.',
+    ui.ButtonSet.OK
+  );
+}
