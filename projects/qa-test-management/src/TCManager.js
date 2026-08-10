@@ -56,6 +56,29 @@ function showSessionReminder() {
   }
 }
 
+function getActiveSheetPair(ss) {
+  const activeSheet = ss.getActiveSheet();
+  const activeName = activeSheet && activeSheet.getName();
+  const pairs = {
+    TC_Master: { executionName: 'TC_Execution', scenarioColumn: 11 },
+    API_Master: { executionName: 'API_Execution', scenarioColumn: 13 },
+  };
+  const pair = pairs[activeName];
+
+  if (!pair) return null;
+
+  const execution = ss.getSheetByName(pair.executionName);
+  if (!activeSheet || !execution) return null;
+
+  return {
+    master: activeSheet,
+    execution: execution,
+    masterName: activeName,
+    executionName: pair.executionName,
+    scenarioColumn: pair.scenarioColumn,
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // INSERT TC AT POSITION (SINGLE)
 // ═══════════════════════════════════════════════════════════════════════
@@ -63,18 +86,19 @@ function showSessionReminder() {
 function insertTCAtPosition() {
   const ui = SpreadsheetApp.getUi();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const tcMaster = ss.getSheetByName('TC_Master');
-  const tcExecution = ss.getSheetByName('TC_Execution');
+  const sheetPair = getActiveSheetPair(ss);
 
-  if (!tcMaster || !tcExecution) {
-    ui.alert('❌ Error', 'TC_Master or TC_Execution not found!', ui.ButtonSet.OK);
+  if (!sheetPair) {
+    ui.alert('❌ Error', 'Select TC_Master or API_Master first.', ui.ButtonSet.OK);
     return;
   }
 
+  const tcMaster = sheetPair.master;
+  const tcExecution = sheetPair.execution;
   const activeRow = tcMaster.getActiveRange().getRow();
 
   if (activeRow < 3) {
-    ui.alert('⚠️ Invalid', 'Please select row 3 or below in TC_Master', ui.ButtonSet.OK);
+    ui.alert('⚠️ Invalid', 'Please select row 3 or below in ' + sheetPair.masterName, ui.ButtonSet.OK);
     return;
   }
 
@@ -85,10 +109,10 @@ function insertTCAtPosition() {
   const response = ui.alert(
     '📋 Insert TC',
     '➕ INSERT 1 ROW BEFORE:\n\n' +
-    '📍 TC_Master:\n' +
+    '📍 ' + sheetPair.masterName + ':\n' +
     '   Row: ' + activeRow + '\n' +
     '   TC_ID: ' + tcIdAtPosition + '\n\n' +
-    '📍 TC_Execution:\n' +
+    '📍 ' + sheetPair.executionName + ':\n' +
     '   Row: ' + execRow + '\n\n' +
     '⚠️ Rows below will shift down in BOTH sheets!\n\n' +
     'Continue?',
@@ -103,8 +127,8 @@ function insertTCAtPosition() {
 
   ui.alert(
     '✅ Inserted!',
-    '📍 TC_Master row: ' + activeRow + '\n' +
-    '📍 TC_Execution row: ' + execRow + '\n\n' +
+    '📍 ' + sheetPair.masterName + ' row: ' + activeRow + '\n' +
+    '📍 ' + sheetPair.executionName + ' row: ' + execRow + '\n\n' +
     'Fill in TC_ID and details now.',
     ui.ButtonSet.OK
   );
@@ -119,18 +143,19 @@ function insertTCAtPosition() {
 function bulkInsertTC() {
   const ui = SpreadsheetApp.getUi();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const tcMaster = ss.getSheetByName('TC_Master');
-  const tcExecution = ss.getSheetByName('TC_Execution');
+  const sheetPair = getActiveSheetPair(ss);
 
-  if (!tcMaster || !tcExecution) {
-    ui.alert('❌ Error', 'TC_Master or TC_Execution not found!', ui.ButtonSet.OK);
+  if (!sheetPair) {
+    ui.alert('❌ Error', 'Select TC_Master or API_Master first.', ui.ButtonSet.OK);
     return;
   }
 
+  const tcMaster = sheetPair.master;
+  const tcExecution = sheetPair.execution;
   const activeRow = tcMaster.getActiveRange().getRow();
 
   if (activeRow < 3) {
-    ui.alert('⚠️ Invalid', 'Please select row 3 or below in TC_Master', ui.ButtonSet.OK);
+    ui.alert('⚠️ Invalid', 'Please select row 3 or below in ' + sheetPair.masterName, ui.ButtonSet.OK);
     return;
   }
 
@@ -158,11 +183,11 @@ function bulkInsertTC() {
   const response = ui.alert(
     '📋 Bulk Insert Confirmation',
     '➕ INSERT ' + numRows + ' ROWS BEFORE:\n\n' +
-    '📍 TC_Master:\n' +
+    '📍 ' + sheetPair.masterName + ':\n' +
     '   Starting row: ' + activeRow + '\n' +
     '   Current TC_ID: ' + tcIdAtPosition + '\n' +
     '   New rows: ' + activeRow + ' to ' + (activeRow + numRows - 1) + '\n\n' +
-    '📍 TC_Execution:\n' +
+    '📍 ' + sheetPair.executionName + ':\n' +
     '   Starting row: ' + execRow + '\n' +
     '   New rows: ' + execRow + ' to ' + (execRow + numRows - 1) + '\n\n' +
     '⚠️ Rows below will shift down!\n\n' +
@@ -181,8 +206,8 @@ function bulkInsertTC() {
   ui.alert(
     '✅ Bulk Insert Complete!',
     'Inserted ' + numRows + ' rows:\n\n' +
-    '📍 TC_Master: rows ' + activeRow + '-' + (activeRow + numRows - 1) + '\n' +
-    '📍 TC_Execution: rows ' + execRow + '-' + (execRow + numRows - 1) + '\n\n' +
+    '📍 ' + sheetPair.masterName + ': rows ' + activeRow + '-' + (activeRow + numRows - 1) + '\n' +
+    '📍 ' + sheetPair.executionName + ': rows ' + execRow + '-' + (execRow + numRows - 1) + '\n\n' +
     'Fill in TC details now.',
     ui.ButtonSet.OK
   );
@@ -197,14 +222,15 @@ function bulkInsertTC() {
 function deleteTC() {
   const ui = SpreadsheetApp.getUi();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const tcMaster = ss.getSheetByName('TC_Master');
-  const tcExecution = ss.getSheetByName('TC_Execution');
+  const sheetPair = getActiveSheetPair(ss);
 
-  if (!tcMaster || !tcExecution) {
-    ui.alert('❌ Error', 'Sheets not found!', ui.ButtonSet.OK);
+  if (!sheetPair) {
+    ui.alert('❌ Error', 'Select TC_Master or API_Master first.', ui.ButtonSet.OK);
     return;
   }
 
+  const tcMaster = sheetPair.master;
+  const tcExecution = sheetPair.execution;
   const activeRange = tcMaster.getActiveRange();
   const startRow = activeRange.getRow();
   const numRows = activeRange.getNumRows();
@@ -233,8 +259,8 @@ function deleteTC() {
   const response = ui.alert(
     '⚠️ DELETE TC',
     '🗑️ DELETE:\n\n' +
-    '📍 TC_Master rows: ' + startRow + ' to ' + (startRow + numRows - 1) + '\n' +
-    '📍 TC_Execution rows: ' + execRow + ' to ' + (execRow + numRows - 1) + '\n' +
+    '📍 ' + sheetPair.masterName + ' rows: ' + startRow + ' to ' + (startRow + numRows - 1) + '\n' +
+    '📍 ' + sheetPair.executionName + ' rows: ' + execRow + ' to ' + (execRow + numRows - 1) + '\n' +
     '📋 Total TCs: ' + tcIds.length + '\n' +
     '🔖 TC_IDs: ' + tcIds.join(', ') + '\n\n' +
     '⚠️ WARNING:\n' +
@@ -259,7 +285,7 @@ function deleteTC() {
     '✅ Deleted',
     'Deleted ' + tcIds.length + ' TC(s)\n\n' +
     'TC_IDs: ' + tcIds.join(', ') + '\n\n' +
-    'Deleted from both TC_Master and TC_Execution.',
+    'Deleted from both ' + sheetPair.masterName + ' and ' + sheetPair.executionName + '.',
     ui.ButtonSet.OK
   );
 }
@@ -271,13 +297,14 @@ function deleteTC() {
 function markAsDeprecated() {
   const ui = SpreadsheetApp.getUi();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const tcMaster = ss.getSheetByName('TC_Master');
+  const sheetPair = getActiveSheetPair(ss);
 
-  if (!tcMaster) {
-    ui.alert('❌ Error', 'TC_Master not found!', ui.ButtonSet.OK);
+  if (!sheetPair) {
+    ui.alert('❌ Error', 'Select TC_Master or API_Master first.', ui.ButtonSet.OK);
     return;
   }
 
+  const tcMaster = sheetPair.master;
   const activeRange = tcMaster.getActiveRange();
   const startRow = activeRange.getRow();
   const numRows = activeRange.getNumRows();
@@ -319,7 +346,7 @@ function markAsDeprecated() {
 
   for (let i = 0; i < numRows; i++) {
     const row = startRow + i;
-    const scenarioCell = tcMaster.getRange(row, 11);
+    const scenarioCell = tcMaster.getRange(row, sheetPair.scenarioColumn);
     const currentScenario = scenarioCell.getValue();
 
     if (currentScenario && !currentScenario.toString().includes('[DEPRECATED]')) {
@@ -372,4 +399,3 @@ function showHelp() {
     ui.ButtonSet.OK
   );
 }
-
