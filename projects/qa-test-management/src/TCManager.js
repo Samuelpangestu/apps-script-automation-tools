@@ -349,9 +349,14 @@ function markAsDeprecated() {
     const scenarioCell = tcMaster.getRange(row, sheetPair.scenarioColumn);
     const currentScenario = scenarioCell.getValue();
 
-    if (currentScenario && !currentScenario.toString().includes('[DEPRECATED]')) {
-      scenarioCell.setValue('[DEPRECATED] ' + currentScenario);
+    if (currentScenario) {
+      if (!currentScenario.toString().includes('[DEPRECATED]')) {
+        scenarioCell.setValue('[DEPRECATED] ' + currentScenario);
+      }
       tcMaster.getRange(row, 1, 1, tcMaster.getLastColumn())
+        .setBackground('#F5F5F5')
+        .setFontColor('#999999');
+      sheetPair.execution.getRange(9 + (row - 3), 1, 1, sheetPair.execution.getLastColumn())
         .setBackground('#F5F5F5')
         .setFontColor('#999999');
       markedCount++;
