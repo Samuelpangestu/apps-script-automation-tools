@@ -56,7 +56,7 @@ This repository contains a suite of automation tools built with **Google Apps Sc
 
 **Use Cases:**
 - QA teams managing 100+ test cases
-- Multi-module testing (SIPGN, INAGOV, e-Meterai projects)
+- Multi-module testing (Project A, Project B, and Project C)
 - Compliance testing with audit trails
 
 ---
@@ -375,22 +375,25 @@ clasp push
 
 ## 📈 **Impact & Results**
 
+> Note: usage figures previously listed here were unverified and have been
+> removed. The bullets below describe what the tools do, not measured results.
+
 ### **QA Test Management System**
-- 📊 **12+ projects** using the template
-- ⚡ **500+ test cases** managed
-- 🎯 **95%+ pass rate** tracked
-- ⏱️ **80% time saved** on setup vs manual creation
+- 📊 Template reused across multiple projects
+- ⚡ Test cases managed in one place
+- 🎯 Pass rates tracked per module
+- ⏱️ Faster setup than manual creation
 
 ### **QA Portfolio Dashboard**
-- 🎛️ **10+ modules** aggregated in real-time
+- 🎛️ Multiple modules aggregated in real-time
 - 📊 **Daily reports** with auto-refresh
-- 👥 **5+ team members** using centralized view
-- 📉 **50% reduction** in manual status reporting
+- 👥 Centralized view for the team
+- 📉 Less manual status reporting
 
 ### **MOM Rolling System**
-- 🎲 **Fair rotation** across 8+ team members
-- 📝 **100% documentation** compliance
-- ⏰ **Zero missed** assignments with auto-reminders
+- 🎲 **Fair rotation** across team members
+- 📝 **Documentation** generated automatically
+- ⏰ Auto-reminders reduce missed assignments
 - 💬 **Instant notifications** via Google Chat
 
 ---

@@ -92,11 +92,11 @@ git push origin main
 
 ### Production Testing
 
-- [ ] Page accessible at https://qa-platform.inadigital.co.id/closure-email
+- [ ] Page accessible at https://qa-platform.example.co.id/closure-email
 - [ ] API calls work from production
 - [ ] Email sent successfully
 - [ ] PDF attachment received
-- [ ] Gmail draft created in departemen.qa inbox
+- [ ] Gmail draft created in the QA team inbox
 
 ---
 
@@ -182,7 +182,7 @@ clasp push
 ### Email not sending
 
 **Check:**
-1. Apps Script authorized dengan akun departemen.qa?
+1. Apps Script authorized dengan akun QA team?
 2. Gmail quota exceeded? (limit ~100 emails/day for free)
 3. Check Apps Script logs: Executions tab
 
@@ -263,6 +263,6 @@ Feature sudah ready untuk production. Tinggal:
 1. Copy 2 files ke Next.js project
 2. Test locally
 3. Deploy to production
-4. Access https://qa-platform.inadigital.co.id/closure-email
+4. Access https://qa-platform.example.co.id/closure-email
 
 **Questions?** Check `API_CLOSURE_EMAIL.md` untuk API reference lengkap.

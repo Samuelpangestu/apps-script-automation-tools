@@ -3,7 +3,7 @@
 **Project:** QA Dashboard Data Processing Migration
 **Date:** 2026-07-06
 **Status:** Planning Phase
-**Dashboard Live:** ✅ https://qa-platform.inadigital.co.id
+**Dashboard:** https://qa-platform.example.co.id (example URL — replace with your deployment)
 
 ---
 
@@ -424,7 +424,7 @@ export async function POST(request: Request) {
 **Testing:**
 ```bash
 # Production test
-curl -X POST https://qa-platform.inadigital.co.id/api/refresh-dashboard
+curl -X POST https://qa-platform.example.co.id/api/refresh-dashboard
 
 # Expected response:
 {
@@ -558,7 +558,7 @@ export async function POST(request: Request) {
 **Testing:**
 ```bash
 # Test automation refresh
-curl -X POST https://qa-platform.inadigital.co.id/api/refresh-automation
+curl -X POST https://qa-platform.example.co.id/api/refresh-automation
 
 # Expected response:
 {
@@ -614,7 +614,7 @@ export async function POST(request: Request) {
     await appendAutomationRunToSheet(payload);
 
     // 5. Trigger background refresh (async, don't wait)
-    fetch('https://qa-platform.inadigital.co.id/api/refresh-automation', {
+    fetch('https://qa-platform.example.co.id/api/refresh-automation', {
       method: 'POST'
     }).catch(err => console.error('Background refresh failed:', err));
 
@@ -704,7 +704,7 @@ def publishAutomationResult(String testType, String buildResult, String reportUr
 
 // NEW: Call Next.js webhook
 private Map callNextJsWebhook(Map payload, def env) {
-    def webhookUrl = 'https://qa-platform.inadigital.co.id/api/automation-webhook'
+    def webhookUrl = 'https://qa-platform.example.co.id/api/automation-webhook'
     def webhookToken = env.JENKINS_WEBHOOK_TOKEN ?: ''
 
     // Write payload to temp file
@@ -777,7 +777,7 @@ pipeline {
                 script {
                     def response = sh(
                         script: """
-                            curl -X POST https://qa-platform.inadigital.co.id/api/refresh-dashboard \\
+                            curl -X POST https://qa-platform.example.co.id/api/refresh-dashboard \\
                                 -H 'Content-Type: application/json' \\
                                 --max-time 120
                         """,
@@ -801,7 +801,7 @@ pipeline {
                 script {
                     def response = sh(
                         script: """
-                            curl -X POST https://qa-platform.inadigital.co.id/api/refresh-automation \\
+                            curl -X POST https://qa-platform.example.co.id/api/refresh-automation \\
                                 -H 'Content-Type: application/json' \\
                                 --max-time 60
                         """,
@@ -848,10 +848,10 @@ spec:
             - -c
             - |
               echo "Refreshing dashboard..."
-              curl -X POST https://qa-platform.inadigital.co.id/api/refresh-dashboard -f
+              curl -X POST https://qa-platform.example.co.id/api/refresh-dashboard -f
 
               echo "Refreshing automation..."
-              curl -X POST https://qa-platform.inadigital.co.id/api/refresh-automation -f
+              curl -X POST https://qa-platform.example.co.id/api/refresh-automation -f
 
               echo "Refresh completed"
           restartPolicy: OnFailure
@@ -943,7 +943,7 @@ kubectl get jobs -n qa-prod
 **Load Test Plan:**
 ```bash
 # Test with 20 modules
-ab -n 10 -c 1 https://qa-platform.inadigital.co.id/api/refresh-dashboard
+ab -n 10 -c 1 https://qa-platform.example.co.id/api/refresh-dashboard
 
 # Expected: <15s per request, 100% success rate
 ```

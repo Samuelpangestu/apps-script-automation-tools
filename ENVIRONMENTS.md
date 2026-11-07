@@ -13,7 +13,7 @@ This repository contains multiple Apps Script projects with separate **Testing**
 - **Default:** `.clasp.json` points to this by default
 
 ### Production Environment
-- **Script ID:** `1lHO8yKyqKs1_n5GV1m-SJMACLS95Jc7yy6dM_ItyT-l_-GdmkGQk3OIO`
+- **Script ID:** `<APPS_SCRIPT_PROJECT_ID>`
 - **Spreadsheet:** [Link to Production Dashboard]
 - **Purpose:** Live production dashboard used by QA team
 - **Usage:** Temporarily change `.clasp.json` scriptId to push to production

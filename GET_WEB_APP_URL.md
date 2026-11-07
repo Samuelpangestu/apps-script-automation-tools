@@ -4,7 +4,7 @@
 
 1. **Open Apps Script Editor:**
    ```
-   https://script.google.com/d/1lHO8yKyqKs1_n5GV1m-SJMACLS95Jc7yy6dM_ItyT-l_-GdmkGQk3OIO/edit
+   https://script.google.com/d/<APPS_SCRIPT_PROJECT_ID>/edit
    ```
 
 2. **Deploy Web App:**
@@ -14,7 +14,7 @@
 3. **Configure Deployment:**
    - Type: Select **Web app**
    - Description: "Closure Email API - v1.0"
-   - Execute as: **Me (your-email@inadigital.co.id)**
+   - Execute as: **Me (your-email@example.com)**
    - Who has access: **Anyone** (for Next.js to access)
    - Click **Deploy**
 
@@ -30,7 +30,7 @@
 ## Via Clasp (Command Line)
 
 ```bash
-cd /Users/qainadigital/WebstormProjects/qa-test-management-template/projects/qa-dashboard
+cd ~/projects/qa-test-management-template/projects/qa-dashboard
 
 # List deployments
 clasp deployments
@@ -47,7 +47,7 @@ clasp deploy --description "Closure Email API v1.0"
 
 ⚠️ **First-time Access:**
 - When Next.js first calls the Apps Script URL, user akan diminta authorize
-- Login dengan akun **departemen.qa@inadigital.co.id**
+- Login dengan akun **qa-team@example.com**
 - Accept permissions untuk:
   - Google Sheets (read QATM data)
   - Gmail (send email, create drafts)
@@ -55,7 +55,7 @@ clasp deploy --description "Closure Email API v1.0"
 
 ⚠️ **URL Format:**
 - Correct: `https://script.google.com/macros/s/AKfycbxxx.../exec`
-- Wrong: `https://script.google.com/d/1lHO8yKy.../edit` (this is editor URL)
+- Wrong: `https://script.google.com/d/<APPS_SCRIPT_PROJECT_ID>/edit` (this is editor URL)
 
 ⚠️ **Updates:**
 - Setiap `clasp push`, Web App otomatis update (no need redeploy)

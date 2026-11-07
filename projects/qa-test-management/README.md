@@ -362,7 +362,7 @@ function setupTrigger() {
 For issues or questions:
 - Check [Troubleshooting](#troubleshooting) section
 - Review Apps Script execution logs
-- Contact: departemen.qa@inadigital.co.id
+- Contact: qa-team@example.com
 
 ---
 

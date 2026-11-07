@@ -28,7 +28,7 @@ Apps Script ID:
 
 Do not run `Initialize Config` on an existing configured spreadsheet. It resets the `Config` sheet.
 
-The existing SIPGN and INADigital/Internal blocks remain compatible with the dynamic configuration reader.
+The existing Project A and INADigital/Internal blocks remain compatible with the dynamic configuration reader.
 
 ## Add Project
 

@@ -55,7 +55,7 @@ git push origin main  # Auto-deploys!
 
 ## 🔗 Apps Script Links
 
-- Dashboard: https://script.google.com/home/projects/1lHO8yKyqKs1_n5GV1m-SJMACLS95Jc7yy6dM_ItyT-l_-GdmkGQk3OIO/edit
+- Dashboard: https://script.google.com/home/projects/<APPS_SCRIPT_PROJECT_ID>/edit
 - Template: https://script.google.com/home/projects/11-ITJByolVjYDwVJ8og8-lC16G6g78pUD07cR20Dsvz6DQfpmhqo1_yw/edit
 
 ## 💡 Tips

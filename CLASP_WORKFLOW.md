@@ -363,4 +363,4 @@ clasp run functionName   # Run function
 
 ## 📧 Support
 
-Questions? Contact: departemen.qa@inadigital.co.id
+Questions? Contact: qa-team@example.com

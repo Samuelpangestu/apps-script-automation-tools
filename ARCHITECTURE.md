@@ -68,7 +68,7 @@
                                                                                     │
     ┌────────────────┐      ┌────────────────┐      ┌────────────────┐              │
     │  QATM Module 1 │      │  QATM Module 2 │ ...  │  QATM Module N │              │
-    │  SIPGN - 0     │      │  SIPGN - 1     │      │  PENJAMINAN    │              │
+    │  Project A - 0 │      │  Project A - 1 │      │  Project D     │              │
     │                │      │                │      │                │              │
     │ • TC_Master    │      │ • TC_Master    │      │ • TC_Master    │              │
     │ • TC_Execution │      │ • TC_Execution │      │ • TC_Execution │              │
@@ -1485,7 +1485,7 @@ SUMMARY
 <users/all>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-*SIPGN - 4*
+*Project A - 4*
 📌 AI Surveillance: *2* PROD bug(s)
 
 ⚠️ *URGENT - IMMEDIATE ACTION REQUIRED!*

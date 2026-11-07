@@ -101,7 +101,7 @@ This project has two environments:
   - Script ID: `1LJ83OATTAp7ChDWGkrSTg0b9KmMhOABISBrAJrB54JksjQ7mi5oNB7C3`
 
 - **Production**: Live dashboard used by QA team
-  - Script ID: `1lHO8yKyqKs1_n5GV1m-SJMACLS95Jc7yy6dM_ItyT-l_-GdmkGQk3OIO`
+  - Script ID: `<APPS_SCRIPT_PROJECT_ID>`
 
 See [../../ENVIRONMENTS.md](../../ENVIRONMENTS.md) for full details.
 
@@ -262,7 +262,7 @@ var CONFIG = {
 For issues or questions:
 - Check [Troubleshooting](#troubleshooting) section
 - Review execution logs in Apps Script Editor
-- Contact: departemen.qa@inadigital.co.id
+- Contact: qa-team@example.com
 
 ---
 

@@ -11,7 +11,7 @@ Deploy the QA Dashboard to Google Apps Script:
 5. Show the Apps Script URL for verification
 
 Project details:
-- Dashboard Script ID: 1lHO8yKyqKs1_n5GV1m-SJMACLS95Jc7yy6dM_ItyT-l_-GdmkGQk3OIO
+- Dashboard Script ID: <APPS_SCRIPT_PROJECT_ID>
 - Working directory: qa-dashboard/
 - Source files: qa-dashboard/src/
 

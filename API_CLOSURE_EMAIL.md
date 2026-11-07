@@ -29,7 +29,7 @@ API endpoints untuk Next.js Dashboard untuk mengirim test closure email dengan P
 curl "https://script.google.com/.../exec?action=getExternalTestReports"
 
 # Get reports for specific project
-curl "https://script.google.com/.../exec?action=getExternalTestReports&project=SIPGN"
+curl "https://script.google.com/.../exec?action=getExternalTestReports&project=Project%20A"
 
 # Get reports ready for closure
 curl "https://script.google.com/.../exec?action=getExternalTestReports&status=Ready%20for%20Closure"
@@ -42,9 +42,9 @@ curl "https://script.google.com/.../exec?action=getExternalTestReports&status=Re
   "data": [
     {
       "moduleId": "1abc...xyz",
-      "project": "SIPGN",
-      "module": "Manajemen Gizi",
-      "submodule": "Nutritionist App",
+      "project": "Project A",
+      "module": "Module A",
+      "submodule": "Example App",
       "picQA": "Team Member 20",
       "isExternalQA": true,
       "externalTeam": "Vendor XYZ",
@@ -85,7 +85,7 @@ curl "https://script.google.com/.../exec?action=getExternalTestReports&status=Re
   "moduleId": "1abc...xyz",
   "emailTo": "stakeholder@example.com",
   "emailCc": "manager@example.com",
-  "emailSubject": "Test Closure Report - SIPGN Nutritionist App",
+  "emailSubject": "Test Closure Report - Project A",
   "emailBody": "<html>...</html>",  // Optional, auto-generated if not provided
   "attachPDF": true  // Optional, default true
 }
@@ -100,7 +100,7 @@ curl -X POST "https://script.google.com/.../exec" \
     "moduleId": "1abc...xyz",
     "emailTo": "stakeholder@example.com",
     "emailCc": "manager@example.com",
-    "emailSubject": "Test Closure Report - SIPGN Nutritionist App",
+    "emailSubject": "Test Closure Report - Project A",
     "attachPDF": true
   }'
 ```
@@ -135,7 +135,7 @@ curl -X POST "https://script.google.com/.../exec" \
   "moduleId": "1abc...xyz",
   "emailTo": "stakeholder@example.com",
   "emailCc": "manager@example.com",
-  "emailSubject": "Test Closure Report - SIPGN Nutritionist App",
+  "emailSubject": "Test Closure Report - Project A",
   "emailBody": "<html>...</html>",  // Optional
   "attachPDF": true  // Optional, default true
 }
@@ -149,7 +149,7 @@ curl -X POST "https://script.google.com/.../exec" \
     "action": "createClosureEmailDraft",
     "moduleId": "1abc...xyz",
     "emailTo": "stakeholder@example.com",
-    "emailSubject": "Test Closure Report - SIPGN",
+    "emailSubject": "Test Closure Report - Project A",
     "attachPDF": true
   }'
 ```
@@ -161,7 +161,7 @@ curl -X POST "https://script.google.com/.../exec" \
   "message": "Email draft created successfully",
   "draftId": "r-1234567890",
   "recipient": "stakeholder@example.com",
-  "subject": "Test Closure Report - SIPGN",
+  "subject": "Test Closure Report - Project A",
   "timestamp": "2026-06-09T10:40:00.000Z"
 }
 ```
@@ -190,7 +190,7 @@ Email yang di-generate otomatis memiliki struktur:
 
 ## Email Sender Configuration
 
-Email dikirim menggunakan akun **departemen.qa@inadigital.co.id**.
+Email dikirim menggunakan akun **qa-team@example.com**.
 
 ### Setup Email Sender (One-time):
 
@@ -199,14 +199,14 @@ Email dikirim menggunakan akun **departemen.qa@inadigital.co.id**.
 // Run dari Apps Script Editor
 function setupEmailSender() {
   PropertiesService.getScriptProperties()
-    .setProperty('EMAIL_SENDER_ADDRESS', 'departemen.qa@inadigital.co.id');
+    .setProperty('EMAIL_SENDER_ADDRESS', 'qa-team@example.com');
 }
 ```
 
 **Option 2: Default**
-Jika tidak di-set, otomatis menggunakan `departemen.qa@inadigital.co.id`.
+Jika tidak di-set, otomatis menggunakan `qa-team@example.com`.
 
-**Catatan:** Script harus di-authorize dengan akun departemen.qa untuk bisa send email.
+**Catatan:** Script harus di-authorize dengan akun QA team untuk bisa send email.
 
 ---
 
@@ -406,7 +406,7 @@ curl -X POST "https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec" \
 ```
 
 ### 3. Verify Email Draft
-1. Buka Gmail dengan akun departemen.qa@inadigital.co.id
+1. Buka Gmail dengan akun qa-team@example.com
 2. Go to Drafts
 3. Cari email draft dengan subject yang baru di-create
 4. Verify PDF attachment ada
@@ -499,11 +499,11 @@ Apps Script membutuhkan permissions untuk:
 - POST `sendClosureEmail` with PDF attachment
 - POST `createClosureEmailDraft` untuk editable drafts
 - Auto-generated HTML email template
-- departemen.qa email sender support
+- QA team email sender support
 
 ---
 
 ## Support
 
 **Documentation:** `ARCHITECTURE.md`, `CLASP_WORKFLOW.md`
-**Contact:** departemen.qa@inadigital.co.id
+**Contact:** qa-team@example.com
